@@ -1,28 +1,28 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  // Whitespace-nowrap: Badges should never wrap.
-  "whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" +
-  " hover-elevate " ,
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground shadow-xs",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
+          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+        secondary:
+          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow-xs",
-
-        outline: " border [border-color:var(--badge-outline)] shadow-xs",
+          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+        outline: "text-foreground",
+        success: "border-transparent bg-green-600/20 text-green-500 border-green-900/50 hover:bg-green-600/30",
+        warning: "border-transparent bg-amber-600/20 text-amber-500 border-amber-900/50 hover:bg-amber-600/30",
+        error: "border-transparent bg-red-600/20 text-red-500 border-red-900/50 hover:bg-red-600/30",
       },
     },
     defaultVariants: {
       variant: "default",
     },
-  },
+  }
 )
 
 export interface BadgeProps
@@ -32,7 +32,7 @@ export interface BadgeProps
 function Badge({ className, variant, ...props }: BadgeProps) {
   return (
     <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  );
+  )
 }
 
 export { Badge, badgeVariants }

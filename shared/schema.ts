@@ -1,18 +1,64 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+// === TABLE DEFINITIONS ===
+export const devices = pgTable("devices", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  ip: text("ip").notNull(),
+  port: integer("port").default(502).notNull(),
+  slaveId: integer("slave_id").default(1).notNull(),
+  isConnected: boolean("is_connected").default(false),
+  lastSeen: timestamp("last_seen"),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const registers = pgTable("registers", {
+  id: serial("id").primaryKey(),
+  deviceId: integer("device_id").notNull(), // Foreign key to devices
+  name: text("name").notNull(),
+  address: integer("address").notNull(),
+  type: text("type", { enum: ["holding", "input", "coil", "discrete"] }).notNull(),
+  dataType: text("data_type", { enum: ["uint16", "int16", "bool"] }).default("uint16").notNull(),
+  unit: text("unit"),
+  scale: integer("scale").default(1), // Multiply value by this (or divide if < 1, but keep int for now, maybe use float later if needed, assume 1 for now)
+  isWritable: boolean("is_writable").default(false),
+  lastValue: text("last_value"), // Store as text to handle various types
+  updatedAt: timestamp("updated_at"),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+// === SCHEMAS ===
+export const insertDeviceSchema = createInsertSchema(devices).omit({ 
+  id: true, 
+  isConnected: true, 
+  lastSeen: true 
+});
+
+export const insertRegisterSchema = createInsertSchema(registers).omit({ 
+  id: true, 
+  lastValue: true, 
+  updatedAt: true 
+});
+
+// === TYPES ===
+export type Device = typeof devices.$inferSelect;
+export type InsertDevice = z.infer<typeof insertDeviceSchema>;
+export type Register = typeof registers.$inferSelect;
+export type InsertRegister = z.infer<typeof insertRegisterSchema>;
+
+export type RegisterType = "holding" | "input" | "coil" | "discrete";
+export type RegisterDataType = "uint16" | "int16" | "bool";
+
+export type CreateDeviceRequest = InsertDevice;
+export type UpdateDeviceRequest = Partial<InsertDevice>;
+
+export type CreateRegisterRequest = InsertRegister;
+export type UpdateRegisterRequest = Partial<InsertRegister>;
+
+// Modbus Command
+export const modbusCommandSchema = z.object({
+  registerId: z.number(),
+  value: z.union([z.number(), z.boolean()]),
+});
+
+export type ModbusCommand = z.infer<typeof modbusCommandSchema>;

@@ -1,38 +1,91 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import {
+  devices,
+  registers,
+  type Device,
+  type InsertDevice,
+  type Register,
+  type InsertRegister,
+  type UpdateDeviceRequest,
+  type UpdateRegisterRequest
+} from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Devices
+  getDevices(): Promise<Device[]>;
+  getDevice(id: number): Promise<Device | undefined>;
+  createDevice(device: InsertDevice): Promise<Device>;
+  updateDevice(id: number, updates: UpdateDeviceRequest): Promise<Device>;
+  deleteDevice(id: number): Promise<void>;
+
+  // Registers
+  getRegisters(deviceId: number): Promise<Register[]>;
+  getRegister(id: number): Promise<Register | undefined>;
+  createRegister(register: InsertRegister): Promise<Register>;
+  updateRegister(id: number, updates: UpdateRegisterRequest): Promise<Register>;
+  deleteRegister(id: number): Promise<void>;
+  updateRegisterValue(id: number, value: any): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getDevices(): Promise<Device[]> {
+    return await db.select().from(devices);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getDevice(id: number): Promise<Device | undefined> {
+    const [device] = await db.select().from(devices).where(eq(devices.id, id));
+    return device;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createDevice(device: InsertDevice): Promise<Device> {
+    const [newDevice] = await db.insert(devices).values(device).returning();
+    return newDevice;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async updateDevice(id: number, updates: UpdateDeviceRequest): Promise<Device> {
+    const [updated] = await db.update(devices)
+      .set(updates)
+      .where(eq(devices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDevice(id: number): Promise<void> {
+    await db.delete(devices).where(eq(devices.id, id));
+  }
+
+  async getRegisters(deviceId: number): Promise<Register[]> {
+    return await db.select().from(registers).where(eq(registers.deviceId, deviceId)).orderBy(registers.address);
+  }
+
+  async getRegister(id: number): Promise<Register | undefined> {
+    const [register] = await db.select().from(registers).where(eq(registers.id, id));
+    return register;
+  }
+
+  async createRegister(register: InsertRegister): Promise<Register> {
+    const [newRegister] = await db.insert(registers).values(register).returning();
+    return newRegister;
+  }
+
+  async updateRegister(id: number, updates: UpdateRegisterRequest): Promise<Register> {
+    const [updated] = await db.update(registers)
+      .set(updates)
+      .where(eq(registers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteRegister(id: number): Promise<void> {
+    await db.delete(registers).where(eq(registers.id, id));
+  }
+
+  async updateRegisterValue(id: number, value: any): Promise<void> {
+    await db.update(registers)
+      .set({ lastValue: String(value), updatedAt: new Date() })
+      .where(eq(registers.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
