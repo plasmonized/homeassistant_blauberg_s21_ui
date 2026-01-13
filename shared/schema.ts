@@ -15,16 +15,17 @@ export const devices = pgTable("devices", {
 
 export const registers = pgTable("registers", {
   id: serial("id").primaryKey(),
-  deviceId: integer("device_id").notNull(), // Foreign key to devices
+  deviceId: integer("device_id").notNull(),
   name: text("name").notNull(),
   address: integer("address").notNull(),
   type: text("type", { enum: ["holding", "input", "coil", "discrete"] }).notNull(),
-  dataType: text("data_type", { enum: ["uint16", "int16", "bool"] }).default("uint16").notNull(),
+  dataType: text("data_type", { enum: ["uint16", "int16", "bool", "enum"] }).default("uint16").notNull(),
   unit: text("unit"),
-  scale: integer("scale").default(1), // Multiply value by this (or divide if < 1, but keep int for now, maybe use float later if needed, assume 1 for now)
+  scale: integer("scale").default(1),
   isWritable: boolean("is_writable").default(false),
-  lastValue: text("last_value"), // Store as text to handle various types
+  lastValue: text("last_value"),
   updatedAt: timestamp("updated_at"),
+  options: jsonb("options"), // For enum types: { "0": "Heat", "1": "Auto", ... }
 });
 
 // === SCHEMAS ===
@@ -47,7 +48,7 @@ export type Register = typeof registers.$inferSelect;
 export type InsertRegister = z.infer<typeof insertRegisterSchema>;
 
 export type RegisterType = "holding" | "input" | "coil" | "discrete";
-export type RegisterDataType = "uint16" | "int16" | "bool";
+export type RegisterDataType = "uint16" | "int16" | "bool" | "enum";
 
 export type CreateDeviceRequest = InsertDevice;
 export type UpdateDeviceRequest = Partial<InsertDevice>;
@@ -55,10 +56,9 @@ export type UpdateDeviceRequest = Partial<InsertDevice>;
 export type CreateRegisterRequest = InsertRegister;
 export type UpdateRegisterRequest = Partial<InsertRegister>;
 
-// Modbus Command
 export const modbusCommandSchema = z.object({
   registerId: z.number(),
-  value: z.union([z.number(), z.boolean()]),
+  value: z.union([z.number(), z.boolean(), z.string()]),
 });
 
 export type ModbusCommand = z.infer<typeof modbusCommandSchema>;

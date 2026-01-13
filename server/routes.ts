@@ -21,17 +21,19 @@ export async function registerRoutes(
       const input = api.devices.create.input.parse(req.body);
       const device = await storage.createDevice(input);
       
-      // Add default registers for S21
-      // Based on common Blauberg/Vents registers
       const defaultRegisters = [
-        { name: "Unit On/Off", address: 1, type: "holding", dataType: "bool", isWritable: true },
-        { name: "Speed (1-3)", address: 2, type: "holding", dataType: "uint16", isWritable: true },
-        { name: "Current Temperature", address: 3, type: "input", dataType: "uint16", unit: "°C" },
-        { name: "Filter Timer", address: 4, type: "holding", dataType: "uint16" },
-        { name: "Errors", address: 5, type: "input", dataType: "uint16" },
-        { name: "Humidity Sensor", address: 6, type: "input", dataType: "uint16", unit: "%" },
-        { name: "CO2 Sensor", address: 7, type: "input", dataType: "uint16", unit: "ppm" },
-      ] as const;
+        { name: "System State (0:Off, 1:On)", address: 1, type: "holding", dataType: "bool", isWritable: true },
+        { name: "Fan Speed (0:Low, 1:Med, 2:High)", address: 2, type: "holding", dataType: "uint16", isWritable: true },
+        { name: "Operation Mode", address: 3, type: "holding", dataType: "enum", isWritable: true, options: { "0": "Ventilation", "1": "Heating", "2": "Cooling", "3": "Auto" } },
+        { name: "Bypass Control (0:Auto, 1:Open, 2:Closed)", address: 4, type: "holding", dataType: "uint16", isWritable: true },
+        { name: "Standby Mode", address: 5, type: "holding", dataType: "bool", isWritable: true },
+        { name: "Temperature - Intake", address: 10, type: "input", dataType: "int16", unit: "°C", scale: 10 },
+        { name: "Temperature - Extract", address: 11, type: "input", dataType: "int16", unit: "°C", scale: 10 },
+        { name: "Humidity", address: 12, type: "input", dataType: "uint16", unit: "%" },
+        { name: "CO2 Level", address: 13, type: "input", dataType: "uint16", unit: "ppm" },
+        { name: "Filter Timer Remaining", address: 20, type: "input", dataType: "uint16", unit: "h" },
+        { name: "Boost Timer (min)", address: 21, type: "holding", dataType: "uint16", isWritable: true },
+      ];
 
       for (const reg of defaultRegisters) {
         await storage.createRegister({
@@ -41,7 +43,9 @@ export async function registerRoutes(
           type: reg.type as any,
           dataType: reg.dataType as any,
           isWritable: reg.isWritable ?? false,
-          unit: reg.unit,
+          unit: reg.unit ?? null,
+          scale: reg.scale ?? 1,
+          options: reg.options ?? null,
         });
       }
 
@@ -136,6 +140,8 @@ export async function registerRoutes(
 
           if (reg.dataType === 'bool') {
             value = !!value;
+          } else if (reg.scale && reg.scale !== 1) {
+            value = value / reg.scale;
           }
           
           await storage.updateRegisterValue(reg.id, value);
@@ -162,11 +168,14 @@ export async function registerRoutes(
 
     try {
       const client = await getModbusClient(device.id, device.ip, device.port, device.slaveId);
-      const value = req.body.value;
+      let value = req.body.value;
 
       if (register.type === 'holding') {
-        const val = Number(value);
-        await client.writeSingleRegister(register.address, val);
+        let valToPush = Number(value);
+        if (register.scale && register.scale !== 1) {
+            valToPush = valToPush * register.scale;
+        }
+        await client.writeSingleRegister(register.address, valToPush);
       } else if (register.type === 'coil') {
         const val = Boolean(value);
         await client.writeSingleCoil(register.address, val);

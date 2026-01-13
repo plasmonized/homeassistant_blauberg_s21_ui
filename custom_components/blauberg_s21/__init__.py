@@ -10,14 +10,20 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER]
+# Register all platforms we implemented
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR, 
+    Platform.SWITCH, 
+    Platform.NUMBER, 
+    Platform.SELECT
+]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Blauberg S21 from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     
-    # In a real HA environment, we'd initialize the Modbus client here
-    # and store it in hass.data[DOMAIN][entry.entry_id]
+    # In a full implementation, we'd initialize the modbus client here
+    # and poll the device to verify connectivity.
     
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
