@@ -1,0 +1,10 @@
+{
+  "domain": "blauberg_s21",
+  "name": "Blauberg S21 Ventilation",
+  "documentation": "https://github.com/jvitkauskas/homeassistant_blauberg_s21",
+  "dependencies": [],
+  "codeowners": ["@jvitkauskas"],
+  "iot_class": "local_polling",
+  "version": "1.0.0",
+  "requirements": ["jsmodbus"]
+}
