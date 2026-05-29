@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { startSimulator } from "./lib/simulator";
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,6 +61,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Auto-start the Modbus simulator on a separate port
+  try {
+    await startSimulator(5502);
+  } catch (e) {
+    console.log("[Simulator] Could not auto-start:", (e as Error).message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders } from "lucide-react";
+import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, Activity } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

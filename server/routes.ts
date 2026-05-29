@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { getModbusClient } from "./lib/modbus";
+import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulator";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -188,6 +189,29 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
     }
+  });
+
+  // Simulator routes
+  app.post('/api/simulator/start', async (req, res) => {
+    try {
+      const port = await startSimulator(req.body?.port ?? 5502);
+      res.json({ success: true, port, message: 'Simulator started' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post('/api/simulator/stop', async (req, res) => {
+    try {
+      stopSimulator();
+      res.json({ success: true, message: 'Simulator stopped' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.get('/api/simulator/status', async (req, res) => {
+    res.json({ running: getSimulatorStatus() });
   });
 
   return httpServer;

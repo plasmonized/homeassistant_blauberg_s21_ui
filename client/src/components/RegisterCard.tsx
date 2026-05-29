@@ -5,6 +5,13 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Save, Trash2, Edit2, X, Gauge, Zap, ToggleLeft, Activity } from "lucide-react";
 import { useWriteRegister, useDeleteRegister } from "@/hooks/use-registers";
 import { cn } from "@/lib/utils";
@@ -54,7 +61,12 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
 
   const displayValue = register.lastValue !== null ? register.lastValue : "--";
   const isBool = register.dataType === "bool";
+  const isEnum = register.dataType === "enum";
   const boolValue = displayValue === "true" || displayValue === "1";
+
+  const enumLabel = isEnum && register.options && typeof register.options === "object"
+    ? (register.options as Record<string, string>)[displayValue] ?? displayValue
+    : displayValue;
 
   return (
     <Card className="group relative overflow-hidden bg-card/50 hover:bg-card/80 transition-colors border-border/40 hover:border-primary/50">
@@ -85,27 +97,52 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
                 </span>
               </div>
             ) : isEditing ? (
-              <div className="flex items-center gap-2 max-w-[140px]">
-                <Input 
-                  value={editValue} 
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="h-8 text-xs font-mono"
-                  placeholder={displayValue}
-                  autoFocus
-                />
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500" onClick={handleValueSave}>
-                  <Save className="w-3 h-3" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500" onClick={() => setIsEditing(false)}>
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
+              isEnum && register.options && typeof register.options === "object" ? (
+                <div className="flex items-center gap-2 max-w-[160px]">
+                  <Select
+                    value={editValue}
+                    onValueChange={(val) => {
+                      setEditValue(val);
+                      writeMutation.mutate({ id: register.id, value: Number(val), deviceId });
+                      setIsEditing(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder={enumLabel} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(register.options as Record<string, string>).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500" onClick={() => setIsEditing(false)}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 max-w-[140px]">
+                  <Input
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="h-8 text-xs font-mono"
+                    placeholder={displayValue}
+                    autoFocus
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500" onClick={handleValueSave}>
+                    <Save className="w-3 h-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500" onClick={() => setIsEditing(false)}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )
             ) : (
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold font-mono tracking-tighter">
-                  {displayValue}
+                <span className={cn("font-bold tracking-tighter", isEnum ? "text-lg" : "text-2xl font-mono")}>
+                  {isEnum ? enumLabel : displayValue}
                 </span>
-                {register.unit && <span className="text-xs text-muted-foreground">{register.unit}</span>}
+                {register.unit && !isEnum && <span className="text-xs text-muted-foreground">{register.unit}</span>}
               </div>
             )}
           </div>

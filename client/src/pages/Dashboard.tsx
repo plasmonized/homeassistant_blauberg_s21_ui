@@ -1,16 +1,41 @@
-import { useDevices, useDeleteDevice } from "@/hooks/use-devices";
+import { useDevices, useDeleteDevice, useCreateDevice } from "@/hooks/use-devices";
 import { AddDeviceDialog } from "@/components/AddDeviceDialog";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Server, Trash2, ArrowRight, Activity, Wifi, WifiOff } from "lucide-react";
+import { Server, Trash2, ArrowRight, Activity, Wifi, WifiOff, Cpu } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useState, useEffect } from "react";
+
+function useSimulatorStatus() {
+  const [running, setRunning] = useState(false);
+  useEffect(() => {
+    fetch("/api/simulator/status")
+      .then(r => r.json())
+      .then(d => setRunning(d.running))
+      .catch(() => setRunning(false));
+  }, []);
+  return running;
+}
 
 export default function Dashboard() {
   const { data: devices, isLoading } = useDevices();
   const deleteDevice = useDeleteDevice();
+  const createDevice = useCreateDevice();
+  const simulatorRunning = useSimulatorStatus();
+
+  const hasSimulatedDevice = devices?.some(d => d.ip === "127.0.0.1" && d.port === 5502);
+
+  const handleCreateSimulated = () => {
+    createDevice.mutate({
+      name: "S21 Simulator",
+      ip: "127.0.0.1",
+      port: 5502,
+      slaveId: 1,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -57,8 +82,23 @@ export default function Dashboard() {
           <div className="flex flex-col items-center justify-center py-20 border border-dashed border-border rounded-xl bg-card/20">
             <Server className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
             <h3 className="text-lg font-medium">No Devices Found</h3>
-            <p className="text-sm text-muted-foreground mb-6">Add your first S21 controller to get started.</p>
-            <AddDeviceDialog />
+            <p className="text-sm text-muted-foreground mb-6">Add your first S21 controller or try the simulator.</p>
+            <div className="flex gap-3">
+              <AddDeviceDialog />
+              {simulatorRunning && !hasSimulatedDevice && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCreateSimulated}
+                  disabled={createDevice.isPending}
+                  className="gap-2 border-dashed"
+                  data-testid="button-add-simulator"
+                >
+                  <Cpu className="w-4 h-4" />
+                  {createDevice.isPending ? "Adding..." : "Add Simulated Device"}
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
