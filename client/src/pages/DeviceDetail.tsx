@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, Activity } from "lucide-react";
+import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, Activity, LayoutDashboard } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { RegisterCard } from "@/components/RegisterCard";
+import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDistanceToNow } from "date-fns";
 
@@ -96,9 +97,12 @@ export default function DeviceDetail() {
           </Alert>
         )}
 
-        <Tabs defaultValue="controls" className="space-y-6">
+        <Tabs defaultValue="overview" className="space-y-6">
           <div className="flex justify-between items-center">
             <TabsList className="bg-muted/40 p-1">
+              <TabsTrigger value="overview" className="gap-2">
+                <LayoutDashboard className="w-4 h-4" /> Übersicht
+              </TabsTrigger>
               <TabsTrigger value="controls" className="gap-2">
                 <Sliders className="w-4 h-4" /> Controls
               </TabsTrigger>
@@ -112,6 +116,10 @@ export default function DeviceDetail() {
             
             <AddRegisterDialog deviceId={deviceId} />
           </div>
+
+          <TabsContent value="overview" className="space-y-6">
+            <TemperatureDiagram registers={registers} isLoading={isRegistersLoading} />
+          </TabsContent>
 
           <TabsContent value="controls" className="space-y-4">
             {isRegistersLoading ? (

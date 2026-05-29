@@ -31,14 +31,18 @@ function initHoldingBuffer(): Buffer {
 function initInputBuffer(): Buffer {
   const buf = Buffer.alloc(REG_INPUT_END * 2);
   // jsmodbus server uses 0-based addressing: buffer offset = address * 2
-  // Temperature Intake (addr 10) = 22.5°C -> 225 (scale 10)
+  // Temperature Outdoor (addr 10) = 22.5°C -> 225 (scale 10)
   buf.writeUInt16BE(225, 20);
-  // Temperature Extract (addr 11) = 23.0°C -> 230
+  // Temperature Supply (addr 11) = 23.0°C -> 230
   buf.writeUInt16BE(230, 22);
   // Humidity (addr 12) = 45%
   buf.writeUInt16BE(45, 24);
   // CO2 (addr 13) = 420 ppm
   buf.writeUInt16BE(420, 26);
+  // Temperature Extract (addr 14) = 24.5°C -> 245
+  buf.writeUInt16BE(245, 28);
+  // Temperature Exhaust (addr 15) = 23.5°C -> 235
+  buf.writeUInt16BE(235, 30);
   // Filter Timer (addr 20) = 8760 hours
   buf.writeUInt16BE(8760, 40);
   return buf;
