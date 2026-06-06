@@ -56,7 +56,7 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
         {/* Temperature overlays — aligned directly on the four horizontal arrows */}
         {/* Top-left arrow: Outdoor (Außenluft) coming from outside → right-pointing */}
         <div className="absolute top-[58%] left-[0%] translate-y-[-50%]">
-          <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
+          <div className="bg-transparent px-2 py-1">
             <div className="text-[10px] text-muted-foreground leading-none">Außenluft</div>
             <div className="text-sm font-bold font-mono text-blue-400">
               {getValue(outdoorReg)} °C
@@ -65,8 +65,8 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
         </div>
 
         {/* Top-right arrow: Extract (Abluft) going out of the house → left-pointing */}
-        <div className="absolute top-[58%] right-[0%] translate-y-[-50%]">
-          <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
+        <div className="absolute top-[58%] right-[40%] translate-y-[-50%]">
+          <div className="bg-transparent px-2 py-1">
             <div className="text-[10px] text-muted-foreground leading-none">Abluft</div>
             <div className="text-sm font-bold font-mono text-red-400">
               {getValue(extractReg)} °C
@@ -76,7 +76,7 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
 
         {/* Bottom-left arrow: Exhaust (Fortluft) going outside → left-pointing */}
         <div className="absolute top-[76%] left-[0%] translate-y-[-50%]">
-          <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
+          <div className="bg-transparent px-2 py-1">
             <div className="text-[10px] text-muted-foreground leading-none">Fortluft</div>
             <div className="text-sm font-bold font-mono text-orange-400">
               {getValue(exhaustReg)} °C
@@ -85,8 +85,8 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
         </div>
 
         {/* Bottom-right arrow: Supply (Zuluft) entering the house → right-pointing */}
-        <div className="absolute top-[76%] right-[0%] translate-y-[-50%]">
-          <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
+        <div className="absolute top-[76%] right-[40%] translate-y-[-50%]">
+          <div className="bg-transparent px-2 py-1">
             <div className="text-[10px] text-muted-foreground leading-none">Zuluft</div>
             <div className="text-sm font-bold font-mono text-green-400">
               {getValue(supplyReg)} °C
