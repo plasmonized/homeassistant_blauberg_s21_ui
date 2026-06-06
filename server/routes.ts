@@ -257,5 +257,43 @@ export async function registerRoutes(
     res.json(logs);
   });
 
+  // External Sensors
+  app.get('/api/devices/:id/external-sensors', async (req, res) => {
+    const sensors = await storage.getExternalSensors(Number(req.params.id));
+    res.json(sensors);
+  });
+
+  app.post('/api/devices/:id/external-sensors', async (req, res) => {
+    try {
+      const sensor = await storage.createExternalSensor({
+        ...req.body,
+        deviceId: Number(req.params.id),
+      });
+      res.status(201).json(sensor);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put('/api/external-sensors/:id', async (req, res) => {
+    const sensor = await storage.updateExternalSensor(Number(req.params.id), req.body);
+    res.json(sensor);
+  });
+
+  app.delete('/api/external-sensors/:id', async (req, res) => {
+    await storage.deleteExternalSensor(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post('/api/external-sensors/:id/value', async (req, res) => {
+    const sensor = await storage.getExternalSensor(Number(req.params.id));
+    if (!sensor) return res.status(404).json({ message: 'Sensor not found' });
+    await storage.updateExternalSensorValue(Number(req.params.id), req.body.value);
+    res.json({ success: true });
+  });
+
   return httpServer;
 }

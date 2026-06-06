@@ -4,6 +4,7 @@ import {
   registers,
   automationRules,
   automationLogs,
+  externalSensors,
   type Device,
   type InsertDevice,
   type Register,
@@ -14,7 +15,10 @@ import {
   type InsertAutomationRule,
   type UpdateAutomationRuleRequest,
   type AutomationLog,
-  type InsertAutomationLog
+  type InsertAutomationLog,
+  type ExternalSensor,
+  type InsertExternalSensor,
+  type UpdateExternalSensorRequest
 } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -44,6 +48,14 @@ export interface IStorage {
   // Automation Logs
   getAutomationLogs(deviceId: number, limit?: number): Promise<AutomationLog[]>;
   createAutomationLog(log: InsertAutomationLog): Promise<AutomationLog>;
+
+  // External Sensors
+  getExternalSensors(deviceId: number): Promise<ExternalSensor[]>;
+  getExternalSensor(id: number): Promise<ExternalSensor | undefined>;
+  createExternalSensor(sensor: InsertExternalSensor): Promise<ExternalSensor>;
+  updateExternalSensor(id: number, updates: UpdateExternalSensorRequest): Promise<ExternalSensor>;
+  deleteExternalSensor(id: number): Promise<void>;
+  updateExternalSensorValue(id: number, value: any): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -143,6 +155,39 @@ export class DatabaseStorage implements IStorage {
   async createAutomationLog(log: InsertAutomationLog): Promise<AutomationLog> {
     const [newLog] = await db.insert(automationLogs).values(log).returning();
     return newLog;
+  }
+
+  // External Sensors
+  async getExternalSensors(deviceId: number): Promise<ExternalSensor[]> {
+    return await db.select().from(externalSensors).where(eq(externalSensors.deviceId, deviceId)).orderBy(externalSensors.createdAt);
+  }
+
+  async getExternalSensor(id: number): Promise<ExternalSensor | undefined> {
+    const [sensor] = await db.select().from(externalSensors).where(eq(externalSensors.id, id));
+    return sensor;
+  }
+
+  async createExternalSensor(sensor: InsertExternalSensor): Promise<ExternalSensor> {
+    const [newSensor] = await db.insert(externalSensors).values(sensor).returning();
+    return newSensor;
+  }
+
+  async updateExternalSensor(id: number, updates: UpdateExternalSensorRequest): Promise<ExternalSensor> {
+    const [updated] = await db.update(externalSensors)
+      .set(updates)
+      .where(eq(externalSensors.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteExternalSensor(id: number): Promise<void> {
+    await db.delete(externalSensors).where(eq(externalSensors.id, id));
+  }
+
+  async updateExternalSensorValue(id: number, value: any): Promise<void> {
+    await db.update(externalSensors)
+      .set({ lastValue: String(value), updatedAt: new Date() })
+      .where(eq(externalSensors.id, id));
   }
 }
 

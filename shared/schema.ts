@@ -87,6 +87,19 @@ export const automationRules = pgTable("automation_rules", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const externalSensors = pgTable("external_sensors", {
+  id: serial("id").primaryKey(),
+  deviceId: integer("device_id").notNull(),
+  name: text("name").notNull(),
+  sourceType: text("source_type", { enum: ["homeassistant", "openweather", "manual"] }).default("homeassistant").notNull(),
+  entityId: text("entity_id"), // e.g. "sensor.outdoor_temp" for HA
+  sensorType: text("sensor_type", { enum: ["temperature", "humidity", "co2", "forecast_temp", "pressure", "wind_speed"] }).notNull(),
+  lastValue: text("last_value"),
+  unit: text("unit"),
+  updatedAt: timestamp("updated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const automationLogs = pgTable("automation_logs", {
   id: serial("id").primaryKey(),
   ruleId: integer("rule_id").notNull(),
@@ -113,5 +126,18 @@ export type InsertAutomationRule = z.infer<typeof insertAutomationRuleSchema>;
 export type AutomationLog = typeof automationLogs.$inferSelect;
 export type InsertAutomationLog = z.infer<typeof insertAutomationLogSchema>;
 
+export const insertExternalSensorSchema = createInsertSchema(externalSensors).omit({
+  id: true,
+  lastValue: true,
+  updatedAt: true,
+  createdAt: true,
+});
+
+export type ExternalSensor = typeof externalSensors.$inferSelect;
+export type InsertExternalSensor = z.infer<typeof insertExternalSensorSchema>;
+
 export type CreateAutomationRuleRequest = InsertAutomationRule;
 export type UpdateAutomationRuleRequest = Partial<InsertAutomationRule>;
+
+export type CreateExternalSensorRequest = InsertExternalSensor;
+export type UpdateExternalSensorRequest = Partial<InsertExternalSensor>;

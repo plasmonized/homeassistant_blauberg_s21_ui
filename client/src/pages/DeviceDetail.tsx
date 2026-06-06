@@ -11,6 +11,7 @@ import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 import { AutomationPanel } from "@/components/AutomationPanel";
+import { ExternalSensorsPanel } from "@/components/ExternalSensorsPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDistanceToNow } from "date-fns";
 
@@ -167,12 +168,12 @@ export default function DeviceDetail() {
             <AutomationPanel deviceId={deviceId} />
           </TabsContent>
 
-          <TabsContent value="config">
+          <TabsContent value="config" className="space-y-6">
              <div className="bg-card rounded-xl border p-6">
-                <h3 className="text-lg font-medium mb-4">Device Configuration</h3>
+                <h3 className="text-lg font-medium mb-4">Geräte-Konfiguration</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                    <div>
-                      <span className="text-muted-foreground">IP Address:</span>
+                      <span className="text-muted-foreground">IP-Adresse:</span>
                       <div className="font-mono mt-1 p-2 bg-muted rounded">{device.ip}</div>
                    </div>
                    <div>
@@ -185,6 +186,7 @@ export default function DeviceDetail() {
                    </div>
                 </div>
              </div>
+             <ExternalSensorsPanel deviceId={deviceId} />
           </TabsContent>
         </Tabs>
       </main>

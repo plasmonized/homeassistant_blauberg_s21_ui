@@ -24,11 +24,14 @@ export function setForecastTemp(temp: number) {
   cachedForecast = { temp, timestamp: Date.now() };
 }
 
-function getSensorValue(registers: any[], sensorType: string): number | null {
+async function getSensorValue(registers: any[], sensorType: string, externalSensors?: any[]): Promise<number | null> {
   const findReg = (name: string) => registers.find((r) => r.name.includes(name));
+  const findExt = (type: string) => externalSensors?.find((s) => s.sensorType === type && s.lastValue !== null);
 
   switch (sensorType) {
     case "outdoor_temp": {
+      const ext = findExt("temperature");
+      if (ext) return parseFloat(ext.lastValue);
       const reg = findReg("Outdoor");
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
@@ -42,14 +45,20 @@ function getSensorValue(registers: any[], sensorType: string): number | null {
       return sVal ?? eVal ?? null;
     }
     case "humidity": {
+      const ext = findExt("humidity");
+      if (ext) return parseFloat(ext.lastValue);
       const reg = findReg("Humidity");
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
     case "co2": {
+      const ext = findExt("co2");
+      if (ext) return parseFloat(ext.lastValue);
       const reg = findReg("CO2");
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
     case "forecast_temp": {
+      const ext = findExt("forecast_temp");
+      if (ext) return parseFloat(ext.lastValue);
       return fetchForecastTemp();
     }
     default:
@@ -175,12 +184,14 @@ async function runAutomationCycle() {
 
       const registers = await storage.getRegisters(device.id);
 
+      const externalSensors = await storage.getExternalSensors(device.id);
+
       for (const rule of rules) {
         if (!rule.enabled) continue;
         if (!isSeasonMatch(rule.season)) continue;
         if (!isInTimeRange(rule.timeFrom, rule.timeTo)) continue;
 
-        const sensorValue = getSensorValue(registers, rule.sensorType);
+        const sensorValue = await getSensorValue(registers, rule.sensorType, externalSensors);
         if (sensorValue === null) continue;
 
         const conditionMet = evaluateCondition(sensorValue, rule.operator, rule.threshold);
