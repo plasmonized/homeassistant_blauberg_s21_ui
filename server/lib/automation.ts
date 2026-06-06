@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { getModbusClient } from "./modbus";
+import { getHomeAssistantState } from "./ha-client";
 
 let automationInterval: NodeJS.Timeout | null = null;
 const POLL_INTERVAL_MS = 30_000; // Check every 30 seconds
@@ -198,6 +199,20 @@ async function runAutomationCycle() {
       const registers = await storage.getRegisters(device.id);
 
       const externalSensors = await storage.getExternalSensors(device.id);
+
+      // Sync Home Assistant sensors before evaluating rules
+      for (const sensor of externalSensors) {
+        if (sensor.sourceType === 'homeassistant' && sensor.entityId) {
+          try {
+            const haState = await getHomeAssistantState(sensor.entityId);
+            if (haState && haState.state && haState.state !== 'unavailable') {
+              await storage.updateExternalSensorValue(sensor.id, haState.state);
+            }
+          } catch (err) {
+            // Silently fail - HA might be temporarily unavailable
+          }
+        }
+      }
 
       for (const rule of rules) {
         if (!rule.enabled) continue;

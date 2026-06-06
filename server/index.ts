@@ -2,7 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { startSimulator } from "./lib/simulator";
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,12 +59,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// === HOME ASSISTANT ADD-ON INGRESS SUPPORT ===
+// Ingress proxy sends requests with a base path like /api/hassio_ingress/<slug>/
+// We need to detect this and serve the SPA correctly from the sub-path
+const isAddon = process.env.SUPERVISOR_TOKEN !== undefined;
+
 (async () => {
-  // Auto-start the Modbus simulator on a separate port
-  try {
-    await startSimulator(5502);
-  } catch (e) {
-    console.log("[Simulator] Could not auto-start:", (e as Error).message);
+  // Don't auto-start simulator in production/addon mode
+  if (process.env.NODE_ENV !== "production" && !isAddon) {
+    const { startSimulator } = await import("./lib/simulator");
+    try {
+      await startSimulator(5502);
+    } catch (e) {
+      console.log("[Simulator] Could not auto-start:", (e as Error).message);
+    }
   }
 
   await registerRoutes(httpServer, app);
@@ -78,10 +85,21 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // Ingress support: detect X-Ingress-Path header
+  if (isAddon) {
+    app.use((req, res, next) => {
+      const ingressPath = req.headers["x-ingress-path"];
+      if (ingressPath) {
+        res.setHeader("X-Ingress-Path", ingressPath);
+      }
+      next();
+    });
+  }
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" || isAddon) {
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
@@ -90,8 +108,6 @@ app.use((req, res, next) => {
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {
@@ -101,6 +117,9 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      if (isAddon) {
+        log("Running as Home Assistant Add-on (Ingress enabled)");
+      }
     },
   );
 })();

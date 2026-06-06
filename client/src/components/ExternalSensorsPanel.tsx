@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useExternalSensors, useCreateExternalSensor, useDeleteExternalSensor } from "@/hooks/use-external-sensors";
+import { useExternalSensors, useCreateExternalSensor, useDeleteExternalSensor, useHomeAssistantStatus, useHomeAssistantSensors, useImportHomeAssistantSensor, useSyncHomeAssistantSensors } from "@/hooks/use-external-sensors";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Radio, Home, Cloud, Thermometer, Droplets, Wind, Gauge, CloudRain } from "lucide-react";
+import { Plus, Trash2, Radio, Home, Cloud, Thermometer, Droplets, Wind, Gauge, CloudRain, RefreshCw, Import, Scan } from "lucide-react";
 
 const sourceOptions = [
   { value: "homeassistant", label: "Home Assistant", icon: Home },
@@ -39,8 +39,13 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
   const { data: sensors, isLoading } = useExternalSensors(deviceId);
   const createSensor = useCreateExternalSensor(deviceId);
   const deleteSensor = useDeleteExternalSensor(deviceId);
+  const { data: haStatus } = useHomeAssistantStatus();
+  const { data: haSensors, refetch: discoverHaSensors, isLoading: haLoading } = useHomeAssistantSensors();
+  const importSensor = useImportHomeAssistantSensor(deviceId);
+  const syncSensors = useSyncHomeAssistantSensors(deviceId);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showDiscover, setShowDiscover] = useState(false);
   const [name, setName] = useState("");
   const [sourceType, setSourceType] = useState("homeassistant");
   const [entityId, setEntityId] = useState("");
@@ -62,6 +67,19 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
     );
   };
 
+  const handleDiscover = async () => {
+    setShowDiscover(true);
+    await discoverHaSensors();
+  };
+
+  const handleImport = (sensor: any) => {
+    importSensor.mutate({
+      entityId: sensor.entity_id,
+      sensorType: sensor.sensor_type,
+      name: sensor.name,
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -70,13 +88,34 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
           <p className="text-sm text-muted-foreground">
             Home Assistant, Wetterstationen und andere externe Datenquellen
           </p>
+          {haStatus && (
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant={haStatus.available ? "default" : "destructive"} className="text-xs">
+                {haStatus.available ? "Home Assistant verbunden" : "Home Assistant nicht verfügbar"}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {haStatus.mode === "supervisor" ? "Supervisor" : "Standalone"}
+              </Badge>
+            </div>
+          )}
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="w-4 h-4 mr-1" /> Sensor hinzufügen
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          {haStatus?.available && (
+            <>
+              <Button size="sm" variant="outline" onClick={handleDiscover} disabled={haLoading}>
+                <Scan className="w-4 h-4 mr-1" /> Sensoren entdecken
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => syncSensors.mutate()} disabled={syncSensors.isPending}>
+                <RefreshCw className={`w-4 h-4 mr-1 ${syncSensors.isPending ? "animate-spin" : ""}`} /> Sync
+              </Button>
+            </>
+          )}
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-1" /> Sensor hinzufügen
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Externen Sensor hinzufügen</DialogTitle>
@@ -166,6 +205,7 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
           </DialogContent>
         </Dialog>
       </div>
+      </div>
 
       {isLoading ? (
         <div className="space-y-2">
@@ -229,6 +269,49 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
           <p className="text-xs text-muted-foreground mt-1">
             Füge Sensoren hinzu, um Home Assistant oder Wetterdaten zu nutzen
           </p>
+        </div>
+      )}
+
+      {/* Home Assistant Discovery Panel */}
+      {showDiscover && haStatus?.available && (
+        <div className="mt-4 border rounded-xl p-4 bg-muted/20">
+          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+            <Scan className="w-4 h-4" />
+            Entdeckte Home Assistant Sensoren
+          </h4>
+          {haLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+            </div>
+          ) : haSensors && haSensors.length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {haSensors.map((sensor: any) => (
+                <div key={sensor.entity_id} className="flex items-center justify-between p-2 bg-card rounded border">
+                  <div>
+                    <div className="text-sm font-medium">{sensor.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-mono">{sensor.entity_id}</span>
+                      <span className="ml-2">{sensor.sensor_type}</span>
+                      {sensor.last_value && (
+                        <span className="ml-2 font-mono">{sensor.last_value} {sensor.unit}</span>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleImport(sensor)}
+                    disabled={importSensor.isPending}
+                  >
+                    <Import className="w-3 h-3 mr-1" /> Importieren
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Keine passenden Sensoren gefunden</p>
+          )}
         </div>
       )}
     </div>

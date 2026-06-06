@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getModbusClient } from "./lib/modbus";
 import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulator";
 import { startAutomationEngine, stopAutomationEngine } from "./lib/automation";
+import { discoverHomeAssistantSensors, getHomeAssistantState, isHomeAssistantAvailable } from "./lib/ha-client";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -293,6 +294,66 @@ export async function registerRoutes(
     if (!sensor) return res.status(404).json({ message: 'Sensor not found' });
     await storage.updateExternalSensorValue(Number(req.params.id), req.body.value);
     res.json({ success: true });
+  });
+
+  // === Home Assistant Integration ===
+  // Check if HA is available
+  app.get('/api/ha/status', async (req, res) => {
+    const available = await isHomeAssistantAvailable();
+    res.json({ available, mode: process.env.SUPERVISOR_TOKEN ? 'supervisor' : 'standalone' });
+  });
+
+  // Discover HA sensors
+  app.get('/api/ha/sensors', async (req, res) => {
+    const discovered = await discoverHomeAssistantSensors();
+    res.json(discovered);
+  });
+
+  // Auto-import HA sensor into external_sensors
+  app.post('/api/devices/:id/external-sensors/ha-import', async (req, res) => {
+    try {
+      const { entityId, sensorType, name } = req.body;
+      const deviceId = Number(req.params.id);
+
+      // Get current value from HA
+      const haState = await getHomeAssistantState(entityId);
+      const lastValue = haState?.state || null;
+      const unit = haState?.attributes?.unit_of_measurement || "";
+
+      const sensor = await storage.createExternalSensor({
+        name: name || entityId,
+        sourceType: "homeassistant",
+        entityId,
+        sensorType,
+        deviceId,
+        unit,
+        lastValue: lastValue ? String(lastValue) : null,
+      });
+
+      res.status(201).json(sensor);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  // Sync all HA-linked sensors with current values
+  app.post('/api/devices/:id/external-sensors/sync', async (req, res) => {
+    const sensors = await storage.getExternalSensors(Number(req.params.id));
+    let updated = 0;
+
+    for (const sensor of sensors) {
+      if (sensor.sourceType !== 'homeassistant' || !sensor.entityId) continue;
+      const haState = await getHomeAssistantState(sensor.entityId);
+      if (haState && haState.state) {
+        await storage.updateExternalSensorValue(sensor.id, haState.state);
+        updated++;
+      }
+    }
+
+    res.json({ synced: updated });
   });
 
   return httpServer;
