@@ -67,7 +67,7 @@ export default function DeviceDetail() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleConnect}
-                disabled={connectMutation.isPending || device.isConnected}
+                disabled={connectMutation.isPending || !!device.isConnected}
                 className={device.isConnected ? "border-green-900/50 text-green-500 bg-green-900/10" : ""}
               >
                 <Power className="w-4 h-4 mr-2" />

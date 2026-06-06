@@ -163,7 +163,7 @@ export function AddRegisterDialog({ deviceId }: { deviceId: number }) {
                   <FormItem>
                     <FormLabel>Unit (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. °C, %" {...field} />
+                      <Input placeholder="e.g. °C, %" value={field.value ?? ""} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} disabled={field.disabled} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

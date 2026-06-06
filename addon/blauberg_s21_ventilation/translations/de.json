@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Blauberg S21 Konfiguration",
+        "data": {
+          "s21_ip": "S21 IP-Adresse",
+          "s21_port": "Modbus TCP Port",
+          "s21_slave_id": "Modbus Slave ID",
+          "mqtt_host": "MQTT Broker (optional, auto-erkannt)",
+          "mqtt_port": "MQTT Port",
+          "mqtt_user": "MQTT Benutzer",
+          "mqtt_password": "MQTT Passwort",
+          "ha_token": "HA Token (optional, Supervisor wird auto-erkannt)",
+          "poll_interval": "Abfrageintervall (Sekunden)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "S21 Einstellungen",
+        "data": {
+          "s21_ip": "S21 IP-Adresse",
+          "s21_port": "Modbus TCP Port",
+          "s21_slave_id": "Modbus Slave ID",
+          "mqtt_host": "MQTT Broker (optional, auto-erkannt)",
+          "mqtt_port": "MQTT Port",
+          "mqtt_user": "MQTT Benutzer",
+          "mqtt_password": "MQTT Passwort",
+          "ha_token": "HA Token (optional, Supervisor wird auto-erkannt)",
+          "poll_interval": "Abfrageintervall (Sekunden)"
+        }
+      }
+    }
+  }
+}

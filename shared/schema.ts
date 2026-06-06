@@ -30,9 +30,7 @@ export const registers = pgTable("registers", {
 
 // === SCHEMAS ===
 export const insertDeviceSchema = createInsertSchema(devices).omit({ 
-  id: true, 
-  isConnected: true, 
-  lastSeen: true 
+  id: true 
 });
 
 export const insertRegisterSchema = createInsertSchema(registers).omit({ 
@@ -130,7 +128,6 @@ export type InsertAutomationLog = z.infer<typeof insertAutomationLogSchema>;
 
 export const insertExternalSensorSchema = createInsertSchema(externalSensors).omit({
   id: true,
-  lastValue: true,
   updatedAt: true,
   createdAt: true,
 });

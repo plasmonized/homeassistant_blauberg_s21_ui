@@ -1,9 +1,12 @@
 import { storage } from "../storage";
 import { getModbusClient } from "./modbus";
 import { getHomeAssistantState } from "./ha-client";
+import { connectMqtt, isMqttConnected } from "./mqtt-client";
+import { discoverDevice, publishRegisterStates, setupCommandHandlers } from "./mqtt-discovery";
 
 let automationInterval: NodeJS.Timeout | null = null;
 const POLL_INTERVAL_MS = 30_000; // Check every 30 seconds
+let mqttInitialized = false;
 
 // Track last execution time per rule to prevent immediate re-trigger
 const lastExecution = new Map<number, { value: number; timestamp: number }>();
@@ -193,12 +196,19 @@ async function runAutomationCycle() {
     for (const device of devices) {
       if (!device.isConnected) continue;
 
+      // Ensure MQTT discovery is set up for this device
+      if (isMqttConnected()) {
+        await discoverDevice(device.id);
+      }
+
       const rules = await storage.getAutomationRules(device.id);
-      if (rules.length === 0) continue;
-
       const registers = await storage.getRegisters(device.id);
-
       const externalSensors = await storage.getExternalSensors(device.id);
+
+      // Publish register states to MQTT
+      if (isMqttConnected()) {
+        await publishRegisterStates(device.id);
+      }
 
       // Sync Home Assistant sensors before evaluating rules
       for (const sensor of externalSensors) {
@@ -213,6 +223,8 @@ async function runAutomationCycle() {
           }
         }
       }
+
+      if (rules.length === 0) continue;
 
       for (const rule of rules) {
         if (!rule.enabled) continue;
@@ -258,12 +270,30 @@ async function runAutomationCycle() {
   }
 }
 
-export function startAutomationEngine() {
+export async function startAutomationEngine() {
   if (automationInterval) return;
   console.log("[Automation] Engine started, checking every 30s");
+
+  // Initialize MQTT connection and discovery
+  try {
+    await connectMqtt();
+    if (isMqttConnected()) {
+      await setupCommandHandlers();
+      const devices = await storage.getDevices();
+      for (const device of devices) {
+        if (device.isConnected) {
+          await discoverDevice(device.id);
+        }
+      }
+      mqttInitialized = true;
+    }
+  } catch (err) {
+    console.log("[Automation] MQTT not available, continuing without MQTT Discovery");
+  }
+
   automationInterval = setInterval(runAutomationCycle, POLL_INTERVAL_MS);
   // Run once immediately
-  runAutomationCycle();
+  await runAutomationCycle();
 }
 
 export function stopAutomationEngine() {

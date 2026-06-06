@@ -47,15 +47,15 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [name, setName] = useState("");
-  const [sourceType, setSourceType] = useState("homeassistant");
+  const [sourceType, setSourceType] = useState<"homeassistant" | "openweather" | "manual">("homeassistant");
   const [entityId, setEntityId] = useState("");
-  const [sensorType, setSensorType] = useState("temperature");
+  const [sensorType, setSensorType] = useState<"temperature" | "humidity" | "co2" | "forecast_temp" | "pressure" | "wind_speed">("temperature");
   const [unit, setUnit] = useState("°C");
 
   const handleCreate = () => {
     if (!name.trim()) return;
     createSensor.mutate(
-      { name, sourceType, entityId: entityId || null, sensorType, unit },
+      { name, deviceId, sourceType, entityId: entityId || null, sensorType, unit },
       {
         onSuccess: () => {
           setIsOpen(false);
@@ -133,7 +133,7 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
 
               <div className="space-y-2">
                 <Label>Datenquelle</Label>
-                <Select value={sourceType} onValueChange={setSourceType}>
+                <Select value={sourceType} onValueChange={(v: string) => setSourceType(v as any)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -166,7 +166,7 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
 
               <div className="space-y-2">
                 <Label>Sensor-Typ</Label>
-                <Select value={sensorType} onValueChange={setSensorType}>
+                <Select value={sensorType} onValueChange={(v: string) => setSensorType(v as any)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -214,7 +214,7 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
         </div>
       ) : sensors && sensors.length > 0 ? (
         <div className="space-y-2">
-          {sensors.map((sensor) => (
+          {sensors.map((sensor: any) => (
             <Card key={sensor.id} className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-muted">

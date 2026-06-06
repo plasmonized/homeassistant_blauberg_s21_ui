@@ -143,7 +143,8 @@ export async function registerRoutes(
             value = resp.response.body.values[0] ? 1 : 0;
           } else if (reg.type === 'discrete') {
             const resp = await client.readDiscreteInputs(reg.address, 1);
-            value = resp.response.body.values[0] ? 1 : 0;
+            const body = resp.response.body as any;
+            value = body.values?.[0] ? 1 : 0;
           }
 
           if (reg.dataType === 'bool') {

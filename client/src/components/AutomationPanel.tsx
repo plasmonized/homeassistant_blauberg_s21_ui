@@ -242,12 +242,12 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
                       <SelectContent>
                         <SelectItem value="">Geräteintern (kein externer)</SelectItem>
                         {externalSensors
-                          .filter((s) => s.sensorType === form.sensorType ||
+                          .filter((s: any) => s.sensorType === form.sensorType ||
                             (form.sensorType === "outdoor_temp" && s.sensorType === "temperature") ||
                             (form.sensorType === "forecast_temp" && s.sensorType === "forecast_temp") ||
                             (form.sensorType === "humidity" && s.sensorType === "humidity") ||
                             (form.sensorType === "co2" && s.sensorType === "co2"))
-                          .map((sensor) => (
+                          .map((sensor: any) => (
                             <SelectItem key={sensor.id} value={String(sensor.id)}>
                               <div className="flex items-center gap-2">
                                 <Home className="w-3 h-3" />

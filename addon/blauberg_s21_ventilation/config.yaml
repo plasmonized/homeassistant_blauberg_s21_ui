@@ -1,8 +1,7 @@
-# Blauberg S21 Ventilation Controller Home Assistant Add-on
 name: "Blauberg S21 Ventilation Controller"
 description: "Modbus TCP Steuerung und Automation für Blauberg S21 Lüftungsgeräte mit Home Assistant Integration"
 version: "1.0.0"
-slug: blauberg-ventilation
+slug: blauberg_s21_ventilation
 logo: logo.png
 init: false
 arch:
@@ -30,15 +29,23 @@ options:
   s21_ip: "192.168.1.100"
   s21_port: 502
   s21_slave_id: 1
-  ha_api_url: "http://supervisor/core/api"
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
   ha_token: ""
   log_level: "info"
   web_port: 5000
+  poll_interval: 30
 schema:
-  s21_ip: "str"
-  s21_port: "port"
-  s21_slave_id: "int"
-  ha_api_url: "str"
-  ha_token: "password?"
-  log_level: "list(debug|info|warning|error)?"
-  web_port: "port"
+  s21_ip: str
+  s21_port: port
+  s21_slave_id: int
+  mqtt_host: str?
+  mqtt_port: port?
+  mqtt_user: str?
+  mqtt_password: str?
+  ha_token: str?
+  log_level: list(debug|info|warning|error)?
+  web_port: port
+  poll_interval: int(1,3600)

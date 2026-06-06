@@ -9,19 +9,27 @@ CONFIG_PATH=/data/options.json
 S21_IP=$(bashio::config 's21_ip')
 S21_PORT=$(bashio::config 's21_port')
 S21_SLAVE_ID=$(bashio::config 's21_slave_id')
-HA_API_URL=$(bashio::config 'ha_api_url')
+MQTT_HOST=$(bashio::config 'mqtt_host')
+MQTT_PORT=$(bashio::config 'mqtt_port')
+MQTT_USER=$(bashio::config 'mqtt_user')
+MQTT_PASSWORD=$(bashio::config 'mqtt_password')
 HA_TOKEN=$(bashio::config 'ha_token')
 LOG_LEVEL=$(bashio::config 'log_level')
 WEB_PORT=$(bashio::config 'web_port')
+POLL_INTERVAL=$(bashio::config 'poll_interval')
 
 # Export environment variables
 export S21_IP="$S21_IP"
 export S21_PORT="$S21_PORT"
 export S21_SLAVE_ID="$S21_SLAVE_ID"
-export HA_API_URL="$HA_API_URL"
+export MQTT_HOST="$MQTT_HOST"
+export MQTT_PORT="$MQTT_PORT"
+export MQTT_USER="$MQTT_USER"
+export MQTT_PASSWORD="$MQTT_PASSWORD"
 export HA_TOKEN="$HA_TOKEN"
 export LOG_LEVEL="$LOG_LEVEL"
 export PORT="$WEB_PORT"
+export POLL_INTERVAL="$POLL_INTERVAL"
 export NODE_ENV="production"
 
 # Persistent data directory for Home Assistant Add-on
@@ -40,6 +48,15 @@ if bashio::supervisor.ping 2>/dev/null; then
     export SUPERVISOR_TOKEN="$(bashio::supervisor.token)"
     export HA_API_URL="http://supervisor/core/api"
     bashio::log.info "Home Assistant Supervisor API verfügbar"
+fi
+
+# Auto-detect MQTT if Mosquitto addon is installed
+if bashio::services.available "mqtt" 2>/dev/null; then
+    bashio::log.info "MQTT Service gefunden, auto-konfiguriere..."
+    export MQTT_HOST="$(bashio::services mqtt host)"
+    export MQTT_PORT="$(bashio::services mqtt port)"
+    export MQTT_USER="$(bashio::services mqtt username)"
+    export MQTT_PASSWORD="$(bashio::services mqtt password)"
 fi
 
 bashio::log.info "Starte Blauberg S21 Ventilation Controller..."
