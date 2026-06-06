@@ -65,7 +65,7 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
         </div>
 
         {/* Top-right arrow: Extract (Abluft) going out of the house → left-pointing */}
-        <div className="absolute top-[58%] right-[40%] translate-y-[-50%]">
+        <div className="absolute top-[58%] right-[30%] translate-y-[-50%]">
           <div className="bg-transparent px-2 py-1">
             <div className="text-[10px] text-muted-foreground leading-none">Abluft</div>
             <div className="text-sm font-bold font-mono text-red-400">
@@ -85,7 +85,7 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
         </div>
 
         {/* Bottom-right arrow: Supply (Zuluft) entering the house → right-pointing */}
-        <div className="absolute top-[76%] right-[40%] translate-y-[-50%]">
+        <div className="absolute top-[76%] right-[30%] translate-y-[-50%]">
           <div className="bg-transparent px-2 py-1">
             <div className="text-[10px] text-muted-foreground leading-none">Zuluft</div>
             <div className="text-sm font-bold font-mono text-green-400">
