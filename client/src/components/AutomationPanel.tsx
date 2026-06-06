@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAutomationRules, useAutomationLogs, useCreateRule, useUpdateRule, useDeleteRule } from "@/hooks/use-automation";
+import { useExternalSensors } from "@/hooks/use-external-sensors";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Plus, Trash2, Pencil, Bot, Clock, Thermometer, Droplets, Wind, History } from "lucide-react";
+import { Plus, Trash2, Pencil, Bot, Clock, Thermometer, Droplets, Wind, History, Home } from "lucide-react";
 
 interface AutomationPanelProps {
   deviceId: number;
@@ -66,6 +67,7 @@ const seasonOptions = [
 export function AutomationPanel({ deviceId }: AutomationPanelProps) {
   const { data: rules, isLoading: rulesLoading } = useAutomationRules(deviceId);
   const { data: logs, isLoading: logsLoading } = useAutomationLogs(deviceId);
+  const { data: externalSensors } = useExternalSensors(deviceId);
   const createRule = useCreateRule(deviceId);
   const updateRule = useUpdateRule(deviceId);
   const deleteRule = useDeleteRule(deviceId);
@@ -77,6 +79,7 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
     name: "",
     season: "all" as string,
     sensorType: "outdoor_temp" as string,
+    externalSensorId: null as number | null,
     operator: "gt" as string,
     threshold: 25,
     actionType: "fan_speed" as string,
@@ -91,6 +94,7 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
       name: "",
       season: "all",
       sensorType: "outdoor_temp",
+      externalSensorId: null,
       operator: "gt",
       threshold: 25,
       actionType: "fan_speed",
@@ -103,15 +107,17 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
   };
 
   const handleSubmit = () => {
-    const payload = {
+    const payload: any = {
       ...form,
       deviceId,
       enabled: true,
     };
+    // If no external sensor selected, remove the field
+    if (!payload.externalSensorId) delete payload.externalSensorId;
     if (editingRule) {
       updateRule.mutate({ id: editingRule.id, data: payload });
     } else {
-      createRule.mutate(payload as any);
+      createRule.mutate(payload);
     }
     setDialogOpen(false);
     resetForm();
@@ -123,6 +129,7 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
       name: rule.name,
       season: rule.season,
       sensorType: rule.sensorType,
+      externalSensorId: rule.externalSensorId || null,
       operator: rule.operator,
       threshold: rule.threshold,
       actionType: rule.actionType,
@@ -204,7 +211,7 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
                   <Label>Sensor</Label>
                   <Select
                     value={form.sensorType}
-                    onValueChange={(v) => setForm({ ...form, sensorType: v })}
+                    onValueChange={(v) => setForm({ ...form, sensorType: v, externalSensorId: null })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -218,6 +225,50 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Specific external sensor selection */}
+                {externalSensors && externalSensors.length > 0 && (
+                  <div>
+                    <Label>Spezifischer Home Assistant Sensor</Label>
+                    <Select
+                      value={form.externalSensorId?.toString() || ""}
+                      onValueChange={(v) =>
+                        setForm({ ...form, externalSensorId: v ? Number(v) : null })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Geräteintern (kein externer)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Geräteintern (kein externer)</SelectItem>
+                        {externalSensors
+                          .filter((s) => s.sensorType === form.sensorType ||
+                            (form.sensorType === "outdoor_temp" && s.sensorType === "temperature") ||
+                            (form.sensorType === "forecast_temp" && s.sensorType === "forecast_temp") ||
+                            (form.sensorType === "humidity" && s.sensorType === "humidity") ||
+                            (form.sensorType === "co2" && s.sensorType === "co2"))
+                          .map((sensor) => (
+                            <SelectItem key={sensor.id} value={String(sensor.id)}>
+                              <div className="flex items-center gap-2">
+                                <Home className="w-3 h-3" />
+                                {sensor.name}
+                                {sensor.lastValue && (
+                                  <span className="text-muted-foreground text-xs">
+                                    ({sensor.lastValue} {sensor.unit})
+                                  </span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {form.externalSensorId
+                        ? "Verwendet den Wert dieses Home Assistant Sensors"
+                        : "Verwendet den Wert des Geräts selbst"}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

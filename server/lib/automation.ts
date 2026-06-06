@@ -24,9 +24,22 @@ export function setForecastTemp(temp: number) {
   cachedForecast = { temp, timestamp: Date.now() };
 }
 
-async function getSensorValue(registers: any[], sensorType: string, externalSensors?: any[]): Promise<number | null> {
+async function getSensorValue(
+  registers: any[],
+  sensorType: string,
+  externalSensors?: any[],
+  externalSensorId?: number | null
+): Promise<number | null> {
   const findReg = (name: string) => registers.find((r) => r.name.includes(name));
   const findExt = (type: string) => externalSensors?.find((s) => s.sensorType === type && s.lastValue !== null);
+
+  // If a specific external sensor is linked, use it directly
+  if (externalSensorId) {
+    const sensor = externalSensors?.find((s) => s.id === externalSensorId);
+    if (sensor && sensor.lastValue !== null) {
+      return parseFloat(sensor.lastValue);
+    }
+  }
 
   switch (sensorType) {
     case "outdoor_temp": {
@@ -191,7 +204,7 @@ async function runAutomationCycle() {
         if (!isSeasonMatch(rule.season)) continue;
         if (!isInTimeRange(rule.timeFrom, rule.timeTo)) continue;
 
-        const sensorValue = await getSensorValue(registers, rule.sensorType, externalSensors);
+        const sensorValue = await getSensorValue(registers, rule.sensorType, externalSensors, rule.externalSensorId);
         if (sensorValue === null) continue;
 
         const conditionMet = evaluateCondition(sensorValue, rule.operator, rule.threshold);

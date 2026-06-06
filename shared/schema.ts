@@ -82,6 +82,8 @@ export const automationRules = pgTable("automation_rules", {
   // Optional: time range restriction (HH:MM)
   timeFrom: text("time_from"),
   timeTo: text("time_to"),
+  // Optional: link to specific external sensor (overrides generic sensorType lookup)
+  externalSensorId: integer("external_sensor_id"),
   // Optional: hysteresis to prevent flapping
   hysteresis: integer("hysteresis").default(0),
   createdAt: timestamp("created_at").defaultNow(),

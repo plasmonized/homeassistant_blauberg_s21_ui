@@ -24,8 +24,6 @@ import { Plus, Trash2, Radio, Home, Cloud, Thermometer, Droplets, Wind, Gauge, C
 
 const sourceOptions = [
   { value: "homeassistant", label: "Home Assistant", icon: Home },
-  { value: "openweather", label: "OpenWeatherMap", icon: CloudRain },
-  { value: "manual", label: "Manuell / API", icon: Radio },
 ];
 
 const sensorTypeOptions = [
