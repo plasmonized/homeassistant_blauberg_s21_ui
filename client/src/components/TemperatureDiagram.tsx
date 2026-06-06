@@ -3,7 +3,7 @@ import { Register } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Thermometer } from "lucide-react";
-import houseImg from "@assets/AISelect_20260529_183307_1780072475244.jpg";
+import houseImg from "@assets/AISelect_20260529_183307(1)_1780726688481.jpg";
 
 interface TemperatureDiagramProps {
   registers: Register[] | undefined;
@@ -53,9 +53,9 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
           <Skeleton className="absolute inset-0 w-full h-full rounded-lg" />
         )}
 
-        {/* Temperature overlays - positioned absolutely over the image */}
-        {/* Top-left: Outdoor */}
-        <div className="absolute top-[35%] left-[2%] sm:top-[38%] sm:left-[5%]">
+        {/* Temperature overlays - positioned directly at the arrow tips */}
+        {/* Top-left arrow: Outdoor (Außenluft) coming from left into heat exchanger */}
+        <div className="absolute top-[52%] left-[2%]">
           <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
             <div className="text-[10px] text-muted-foreground leading-none">Außenluft</div>
             <div className="text-sm font-bold font-mono text-blue-400">
@@ -64,8 +64,8 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
           </div>
         </div>
 
-        {/* Top-right: Supply */}
-        <div className="absolute top-[35%] right-[2%] sm:top-[38%] sm:right-[5%]">
+        {/* Top-right arrow: Supply (Zuluft) going out to the house */}
+        <div className="absolute top-[52%] right-[2%]">
           <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
             <div className="text-[10px] text-muted-foreground leading-none">Zuluft</div>
             <div className="text-sm font-bold font-mono text-green-400">
@@ -74,8 +74,8 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
           </div>
         </div>
 
-        {/* Bottom-left: Exhaust */}
-        <div className="absolute bottom-[28%] left-[2%] sm:bottom-[30%] sm:left-[5%]">
+        {/* Bottom-left arrow: Exhaust (Fortluft) going out to the left */}
+        <div className="absolute top-[72%] left-[2%]">
           <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
             <div className="text-[10px] text-muted-foreground leading-none">Fortluft</div>
             <div className="text-sm font-bold font-mono text-orange-400">
@@ -84,8 +84,8 @@ export function TemperatureDiagram({ registers, isLoading }: TemperatureDiagramP
           </div>
         </div>
 
-        {/* Bottom-right: Extract */}
-        <div className="absolute bottom-[28%] right-[2%] sm:bottom-[30%] sm:right-[5%]">
+        {/* Bottom-right arrow: Extract (Abluft) coming from the house */}
+        <div className="absolute top-[72%] right-[2%]">
           <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg px-2 py-1 shadow-lg">
             <div className="text-[10px] text-muted-foreground leading-none">Abluft</div>
             <div className="text-sm font-bold font-mono text-red-400">
