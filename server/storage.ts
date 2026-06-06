@@ -2,14 +2,21 @@ import { db } from "./db";
 import {
   devices,
   registers,
+  automationRules,
+  automationLogs,
   type Device,
   type InsertDevice,
   type Register,
   type InsertRegister,
   type UpdateDeviceRequest,
-  type UpdateRegisterRequest
+  type UpdateRegisterRequest,
+  type AutomationRule,
+  type InsertAutomationRule,
+  type UpdateAutomationRuleRequest,
+  type AutomationLog,
+  type InsertAutomationLog
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Devices
@@ -26,6 +33,17 @@ export interface IStorage {
   updateRegister(id: number, updates: UpdateRegisterRequest): Promise<Register>;
   deleteRegister(id: number): Promise<void>;
   updateRegisterValue(id: number, value: any): Promise<void>;
+
+  // Automation Rules
+  getAutomationRules(deviceId: number): Promise<AutomationRule[]>;
+  getAutomationRule(id: number): Promise<AutomationRule | undefined>;
+  createAutomationRule(rule: InsertAutomationRule): Promise<AutomationRule>;
+  updateAutomationRule(id: number, updates: UpdateAutomationRuleRequest): Promise<AutomationRule>;
+  deleteAutomationRule(id: number): Promise<void>;
+
+  // Automation Logs
+  getAutomationLogs(deviceId: number, limit?: number): Promise<AutomationLog[]>;
+  createAutomationLog(log: InsertAutomationLog): Promise<AutomationLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -85,6 +103,46 @@ export class DatabaseStorage implements IStorage {
     await db.update(registers)
       .set({ lastValue: String(value), updatedAt: new Date() })
       .where(eq(registers.id, id));
+  }
+
+  // Automation Rules
+  async getAutomationRules(deviceId: number): Promise<AutomationRule[]> {
+    return await db.select().from(automationRules).where(eq(automationRules.deviceId, deviceId)).orderBy(automationRules.createdAt);
+  }
+
+  async getAutomationRule(id: number): Promise<AutomationRule | undefined> {
+    const [rule] = await db.select().from(automationRules).where(eq(automationRules.id, id));
+    return rule;
+  }
+
+  async createAutomationRule(rule: InsertAutomationRule): Promise<AutomationRule> {
+    const [newRule] = await db.insert(automationRules).values(rule).returning();
+    return newRule;
+  }
+
+  async updateAutomationRule(id: number, updates: UpdateAutomationRuleRequest): Promise<AutomationRule> {
+    const [updated] = await db.update(automationRules)
+      .set(updates)
+      .where(eq(automationRules.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAutomationRule(id: number): Promise<void> {
+    await db.delete(automationRules).where(eq(automationRules.id, id));
+  }
+
+  // Automation Logs
+  async getAutomationLogs(deviceId: number, limit = 50): Promise<AutomationLog[]> {
+    return await db.select().from(automationLogs)
+      .where(eq(automationLogs.deviceId, deviceId))
+      .orderBy(desc(automationLogs.triggeredAt))
+      .limit(limit);
+  }
+
+  async createAutomationLog(log: InsertAutomationLog): Promise<AutomationLog> {
+    const [newLog] = await db.insert(automationLogs).values(log).returning();
+    return newLog;
   }
 }
 

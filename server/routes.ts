@@ -5,12 +5,16 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { getModbusClient } from "./lib/modbus";
 import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulator";
+import { startAutomationEngine, stopAutomationEngine } from "./lib/automation";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
+  // Start automation engine on server start
+  startAutomationEngine();
+
   // Devices
   app.get(api.devices.list.path, async (req, res) => {
     const devices = await storage.getDevices();
@@ -214,6 +218,43 @@ export async function registerRoutes(
 
   app.get('/api/simulator/status', async (req, res) => {
     res.json({ running: getSimulatorStatus() });
+  });
+
+  // Automation Rules
+  app.get('/api/devices/:id/rules', async (req, res) => {
+    const rules = await storage.getAutomationRules(Number(req.params.id));
+    res.json(rules);
+  });
+
+  app.post('/api/devices/:id/rules', async (req, res) => {
+    try {
+      const rule = await storage.createAutomationRule({
+        ...req.body,
+        deviceId: Number(req.params.id),
+      });
+      res.status(201).json(rule);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put('/api/rules/:id', async (req, res) => {
+    const rule = await storage.updateAutomationRule(Number(req.params.id), req.body);
+    res.json(rule);
+  });
+
+  app.delete('/api/rules/:id', async (req, res) => {
+    await storage.deleteAutomationRule(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // Automation Logs
+  app.get('/api/devices/:id/logs', async (req, res) => {
+    const logs = await storage.getAutomationLogs(Number(req.params.id), 50);
+    res.json(logs);
   });
 
   return httpServer;

@@ -62,3 +62,56 @@ export const modbusCommandSchema = z.object({
 });
 
 export type ModbusCommand = z.infer<typeof modbusCommandSchema>;
+
+// === AUTOMATION RULES ===
+export const automationRules = pgTable("automation_rules", {
+  id: serial("id").primaryKey(),
+  deviceId: integer("device_id").notNull(),
+  name: text("name").notNull(),
+  enabled: boolean("enabled").default(true),
+  season: text("season", { enum: ["summer", "winter", "all"] }).default("all").notNull(),
+  // Condition: sensor to check (e.g. "outdoor_temp", "indoor_temp", "humidity", "co2")
+  sensorType: text("sensor_type", { enum: ["outdoor_temp", "indoor_temp", "humidity", "co2", "forecast_temp"] }).notNull(),
+  // Condition operator: gt, lt, gte, lte, eq
+  operator: text("operator", { enum: ["gt", "lt", "gte", "lte", "eq"] }).notNull(),
+  // Threshold value
+  threshold: integer("threshold").notNull(),
+  // Action: what to change
+  actionType: text("action_type", { enum: ["fan_speed", "bypass", "mode", "boost", "standby"] }).notNull(),
+  actionValue: integer("action_value").notNull(),
+  // Optional: time range restriction (HH:MM)
+  timeFrom: text("time_from"),
+  timeTo: text("time_to"),
+  // Optional: hysteresis to prevent flapping
+  hysteresis: integer("hysteresis").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const automationLogs = pgTable("automation_logs", {
+  id: serial("id").primaryKey(),
+  ruleId: integer("rule_id").notNull(),
+  deviceId: integer("device_id").notNull(),
+  triggeredAt: timestamp("triggered_at").defaultNow(),
+  sensorValue: integer("sensor_value"),
+  actionTaken: text("action_taken"),
+  success: boolean("success").default(true),
+  message: text("message"),
+});
+
+export const insertAutomationRuleSchema = createInsertSchema(automationRules).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAutomationLogSchema = createInsertSchema(automationLogs).omit({
+  id: true,
+  triggeredAt: true,
+});
+
+export type AutomationRule = typeof automationRules.$inferSelect;
+export type InsertAutomationRule = z.infer<typeof insertAutomationRuleSchema>;
+export type AutomationLog = typeof automationLogs.$inferSelect;
+export type InsertAutomationLog = z.infer<typeof insertAutomationLogSchema>;
+
+export type CreateAutomationRuleRequest = InsertAutomationRule;
+export type UpdateAutomationRuleRequest = Partial<InsertAutomationRule>;

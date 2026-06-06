@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, Activity, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, Activity, LayoutDashboard, Bot } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
+import { AutomationPanel } from "@/components/AutomationPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDistanceToNow } from "date-fns";
 
@@ -109,6 +110,9 @@ export default function DeviceDetail() {
               <TabsTrigger value="sensors" className="gap-2">
                 <Activity className="w-4 h-4" /> Sensors
               </TabsTrigger>
+              <TabsTrigger value="automation" className="gap-2">
+                <Bot className="w-4 h-4" /> Automation
+              </TabsTrigger>
               <TabsTrigger value="config" className="gap-2">
                 <Settings2 className="w-4 h-4" /> Configuration
               </TabsTrigger>
@@ -157,6 +161,10 @@ export default function DeviceDetail() {
                 <p className="text-sm">Add registers to monitor temperatures, humidity, or status flags.</p>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="automation">
+            <AutomationPanel deviceId={deviceId} />
           </TabsContent>
 
           <TabsContent value="config">
