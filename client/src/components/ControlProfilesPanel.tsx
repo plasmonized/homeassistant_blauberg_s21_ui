@@ -7,6 +7,7 @@ import {
   useUpdateControlProfile,
   useDeleteControlProfile,
 } from "@/hooks/use-control-profiles";
+import { useRegisters } from "@/hooks/use-registers";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,13 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +28,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Plus, Trash2, Pencil, Bot, Thermometer, Droplets, Wind, Moon, Sun, Gauge, History } from "lucide-react";
+import {
+  Plus, Trash2, Pencil, Bot, Thermometer, Droplets, Wind, Moon, Sun, Gauge,
+  History, Power, Settings2, ChevronDown, ChevronUp,
+} from "lucide-react";
 
 interface ControlProfilesPanelProps {
   deviceId: number;
@@ -58,10 +55,68 @@ const controlTypeLabels: Record<string, string> = {
   weather_compensated: "Wetterkompensiert",
 };
 
+const controlTypeUnits: Record<string, string> = {
+  temperature_control: "°C",
+  humidity_control: "%",
+  co2_control: "ppm",
+  summer_winter: "°C",
+  night_setback: "°C",
+  weather_compensated: "°C",
+};
+
+const controlTypeSetpointKeys: Record<string, string[]> = {
+  temperature_control: ["setpoint"],
+  humidity_control: ["setpoint"],
+  co2_control: ["setpoint"],
+  summer_winter: ["summerSetpoint", "winterSetpoint"],
+  night_setback: ["daySetpoint", "nightSetpoint"],
+  weather_compensated: ["roomSetpoint"],
+};
+
+const expertParamKeys = [
+  "kp","ki","kd","outputMin","outputMax","hysteresis","summerHysteresis",
+  "switchTemp","nightStart","nightEnd","fanSpeedDay","fanSpeedNight",
+  "heatingCurveSlope","heatingCurveOffset","minSupply","maxSupply","emergencyThreshold",
+];
+
+function isExpertParam(key: string) {
+  return expertParamKeys.some((k) => key.toLowerCase().includes(k.toLowerCase()));
+}
+
+function getSetpointKey(controlType: string, params: Record<string, any>): string | null {
+  const keys = controlTypeSetpointKeys[controlType] || ["setpoint"];
+  for (const k of keys) {
+    if (params[k] !== undefined && params[k] !== null) return k;
+  }
+  return keys[0] || null;
+}
+
+function getSetpointValue(controlType: string, params: Record<string, any>): number | null {
+  const key = getSetpointKey(controlType, params);
+  if (!key) return null;
+  const val = params[key];
+  return val !== undefined && val !== null ? Number(val) : null;
+}
+
+function getSetpointLabel(controlType: string, params: Record<string, any>): string {
+  const key = getSetpointKey(controlType, params);
+  if (!key) return "Sollwert";
+  const map: Record<string, string> = {
+    setpoint: "Sollwert",
+    summerSetpoint: "Sommer-Soll",
+    winterSetpoint: "Winter-Soll",
+    daySetpoint: "Tag-Soll",
+    nightSetpoint: "Nacht-Soll",
+    roomSetpoint: "Raum-Soll",
+  };
+  return map[key] || "Sollwert";
+}
+
 export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const { data: profiles, isLoading: profilesLoading } = useControlProfiles(deviceId);
   const { data: logs, isLoading: logsLoading } = useControlLogs(deviceId);
   const { data: templates } = useControlProfileTemplates();
+  const { data: registers } = useRegisters(deviceId);
   const createProfile = useCreateControlProfile(deviceId);
   const updateProfile = useUpdateControlProfile(deviceId);
   const deleteProfile = useDeleteControlProfile(deviceId);
@@ -71,6 +126,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [params, setParams] = useState<Record<string, any>>({});
   const [name, setName] = useState("");
+  const [showExpert, setShowExpert] = useState(false);
 
   const handleTemplateChange = (templateKey: string) => {
     setSelectedTemplate(templateKey);
@@ -82,11 +138,16 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   };
 
   const handleSave = () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate && !editingProfile) return;
+
+    const schemaType = editingProfile
+      ? editingProfile.schemaType || editingProfile.controlType
+      : selectedTemplate;
 
     const data = {
       name,
-      controlType: selectedTemplate,
+      schemaType,
+      controlType: schemaType,
       parameters: params,
       enabled: true,
       deviceId,
@@ -103,6 +164,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     setSelectedTemplate("");
     setParams({});
     setName("");
+    setShowExpert(false);
   };
 
   const handleEdit = (profile: any) => {
@@ -110,6 +172,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     setSelectedTemplate(profile.schemaType || profile.controlType);
     setName(profile.name);
     setParams(profile.parameters || {});
+    setShowExpert(false);
     setDialogOpen(true);
   };
 
@@ -117,6 +180,16 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     updateProfile.mutate({
       id: profile.id,
       data: { enabled: !profile.enabled },
+    });
+  };
+
+  const handleQuickSetpoint = (profile: any, newValue: number) => {
+    const key = getSetpointKey(profile.schemaType || profile.controlType, profile.parameters || {});
+    if (!key) return;
+    const newParams = { ...profile.parameters, [key]: newValue };
+    updateProfile.mutate({
+      id: profile.id,
+      data: { parameters: newParams },
     });
   };
 
@@ -128,7 +201,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     if (key.toLowerCase().includes("entity") || key.toLowerCase().includes("sensor")) {
       return (
         <div key={key} className="space-y-2">
-          <Label>{label}</Label>
+          <Label className="text-sm">{label}</Label>
           <Input
             value={value || ""}
             onChange={(e) => handleParamChange(key, e.target.value || null)}
@@ -141,7 +214,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     if (key.toLowerCase().includes("time") && typeof value === "string" && value.includes(":")) {
       return (
         <div key={key} className="space-y-2">
-          <Label>{label}</Label>
+          <Label className="text-sm">{label}</Label>
           <Input
             type="time"
             value={value || "00:00"}
@@ -159,13 +232,13 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             onCheckedChange={(v) => handleParamChange(key, v)}
             data-testid={`switch-param-${key}`}
           />
-          <Label>{label}</Label>
+          <Label className="text-sm">{label}</Label>
         </div>
       );
     }
     return (
       <div key={key} className="space-y-2">
-        <Label>{label}</Label>
+        <Label className="text-sm">{label}</Label>
         <Input
           type="number"
           value={value ?? 0}
@@ -177,13 +250,24 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     );
   };
 
+  const currentTemplate = selectedTemplate && templates ? templates[selectedTemplate] : null;
+
+  // Split params into setpoint and expert for dialog
+  const dialogParamEntries = currentTemplate
+    ? Object.entries(currentTemplate.paramLabels || {})
+    : [];
+  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key));
+  const expertEntries = dialogParamEntries.filter(([key]) => isExpertParam(key));
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Regelungsschemata</h3>
+        <div>
+          <h3 className="text-lg font-semibold">Sollwerte</h3>
+          <p className="text-sm text-muted-foreground">
+            Geben Sie die gewünschten Werte ein – die Anlage regelt automatisch.
+          </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -194,42 +278,46 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                 setSelectedTemplate("");
                 setParams({});
                 setName("");
+                setShowExpert(false);
               }}
               data-testid="button-add-control-profile"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Schema hinzufügen
+              Sollwert hinzufügen
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingProfile ? "Regelschema bearbeiten" : "Neues Regelschema"}
+                {editingProfile ? "Sollwert bearbeiten" : "Neuen Sollwert einrichten"}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               {!editingProfile && (
                 <div className="space-y-2">
-                  <Label>Regelschema-Typ</Label>
-                  <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
-                    <SelectTrigger data-testid="select-template-type">
-                      <SelectValue placeholder="Schema auswählen..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates &&
-                        Object.entries(templates).map(([key, t]: [string, any]) => (
-                          <SelectItem key={key} value={key}>
-                            <div className="flex items-center gap-2">
-                              {(() => {
-                                const Icon = controlTypeIcons[key] || Bot;
-                                return <Icon className="h-4 w-4" />;
-                              })()}
-                              {t.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Regelungstyp</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {templates &&
+                      Object.entries(templates).map(([key, t]: [string, any]) => {
+                        const Icon = controlTypeIcons[key] || Bot;
+                        const active = selectedTemplate === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => handleTemplateChange(key)}
+                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors text-left ${
+                              active
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:bg-muted/50"
+                            }`}
+                            data-testid={`template-card-${key}`}
+                          >
+                            <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                            <span className="text-sm font-medium">{t.name}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
                 </div>
               )}
 
@@ -238,21 +326,66 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Name des Regelschemas"
+                  placeholder="z.B. Wohnzimmer-Temperatur"
                   data-testid="input-profile-name"
                 />
               </div>
 
-              {selectedTemplate && templates && templates[selectedTemplate] && (
+              {currentTemplate && (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    {templates[selectedTemplate].description}
+                    {currentTemplate.description}
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {Object.entries(templates[selectedTemplate].paramLabels || {}).map(([key, label]) =>
-                      renderParamInput(key, params[key], label as string)
-                    )}
-                  </div>
+
+                  {/* Setpoint params */}
+                  {setpointEntries.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold">Sollwert</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {setpointEntries.map(([key, label]) =>
+                          renderParamInput(key, params[key], label as string)
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* External sensor */}
+                  {dialogParamEntries.some(([key]) => key.toLowerCase().includes("entity")) && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold">Externer Sensor</h4>
+                      <div className="grid grid-cols-1 gap-4">
+                        {dialogParamEntries
+                          .filter(([key]) => key.toLowerCase().includes("entity"))
+                          .map(([key, label]) =>
+                            renderParamInput(key, params[key], label as string)
+                          )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expert params collapsible */}
+                  {expertEntries.length > 0 && (
+                    <div className="border rounded-lg">
+                      <button
+                        onClick={() => setShowExpert((s) => !s)}
+                        className="w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 rounded-lg"
+                        data-testid="button-toggle-expert"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Settings2 className="h-4 w-4 text-muted-foreground" />
+                          <span>Erweitert (PID-Parameter)</span>
+                        </div>
+                        {showExpert ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </button>
+                      {showExpert && (
+                        <div className="p-3 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {expertEntries.map(([key, label]) =>
+                            renderParamInput(key, params[key], label as string)
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -262,7 +395,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                 </Button>
                 <Button
                   onClick={handleSave}
-                  disabled={!selectedTemplate || !name}
+                  disabled={(!selectedTemplate && !editingProfile) || !name}
                   data-testid="button-save-control-profile"
                 >
                   {editingProfile ? "Speichern" : "Erstellen"}
@@ -273,81 +406,123 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
         </Dialog>
       </div>
 
-      {/* Active Profiles */}
-      <div className="space-y-3">
+      {/* Active Profiles — Setpoint Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {profilesLoading ? (
-          <Skeleton className="h-24" />
+          <>
+            <Skeleton className="h-40" />
+            <Skeleton className="h-40" />
+            <Skeleton className="h-40" />
+          </>
         ) : profiles && profiles.length > 0 ? (
           profiles.map((profile: any) => {
             const controlType = profile.schemaType || profile.controlType;
             const Icon = controlTypeIcons[controlType] || Bot;
+            const unit = controlTypeUnits[controlType] || "";
+            const setpoint = getSetpointValue(controlType, profile.parameters || {});
+            const setpointLabel = getSetpointLabel(controlType, profile.parameters || {});
+            const enabled = profile.enabled;
+
             return (
-              <Card key={profile.id} className="p-4" data-testid={`card-control-profile-${profile.id}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Icon className="h-4 w-4 text-primary" />
+              <Card
+                key={profile.id}
+                className={`p-4 border-border/40 transition-opacity ${!enabled ? "opacity-60" : ""}`}
+                data-testid={`card-control-profile-${profile.id}`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-lg ${enabled ? "bg-primary/10" : "bg-muted"}`}>
+                      <Icon className={`h-4 w-4 ${enabled ? "text-primary" : "text-muted-foreground"}`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{profile.name}</h4>
+                        <h4 className="font-medium text-sm">{profile.name}</h4>
                         <Badge
-                          variant={profile.enabled ? "default" : "secondary"}
-                          className="text-xs"
+                          variant={enabled ? "default" : "secondary"}
+                          className="text-[10px] px-1.5 py-0"
                         >
-                          {profile.enabled ? "Aktiv" : "Inaktiv"}
+                          {enabled ? "Aktiv" : "Inaktiv"}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {controlTypeLabels[controlType] || controlType}
                       </p>
-                      {profile.parameters && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {Object.entries(profile.parameters)
-                            .filter(([k, v]) => v !== null && v !== undefined && !k.includes("Entity") && !k.includes("entity"))
-                            .slice(0, 4)
-                            .map(([k, v]) => (
-                              <Badge key={k} variant="outline" className="text-xs">
-                                {k}: {String(v)}
-                              </Badge>
-                            ))}
-                        </div>
-                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Switch
-                      checked={profile.enabled}
+                      checked={enabled}
                       onCheckedChange={() => handleToggle(profile)}
                       data-testid={`switch-profile-enabled-${profile.id}`}
                     />
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-7 w-7"
                       onClick={() => handleEdit(profile)}
                       data-testid={`button-edit-profile-${profile.id}`}
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-7 w-7"
                       onClick={() => deleteProfile.mutate(profile.id)}
                       data-testid={`button-delete-profile-${profile.id}`}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>
                 </div>
+
+                {/* Setpoint quick edit */}
+                {setpoint !== null && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">{setpointLabel}</Label>
+                      <span className="text-xs font-medium tabular-nums">
+                        {setpoint.toFixed(1)} {unit}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={setpoint}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? 0 : Number(e.target.value);
+                          handleQuickSetpoint(profile, val);
+                        }}
+                        step={0.1}
+                        className="text-sm"
+                        data-testid={`input-setpoint-${profile.id}`}
+                      />
+                      <span className="text-sm text-muted-foreground w-8">{unit}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status indicators */}
+                {enabled && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Power className="h-3 w-3 text-green-500" />
+                    <span>Regelung aktiv</span>
+                    {profile.parameters?.outputMin !== undefined && (
+                      <span className="ml-auto">
+                        Lüfter {profile.parameters.outputMin}–{profile.parameters.outputMax}
+                      </span>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Keine Regelungsschemata konfiguriert</p>
+          <div className="col-span-full text-center py-12 border border-dashed rounded-xl opacity-60">
+            <Bot className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+            <p>Noch keine Sollwerte eingerichtet</p>
             <p className="text-sm mt-1">
-              Wählen Sie ein vorgefertigtes Schema und passen Sie nur die Parameter an.
+              Fügen Sie einen Regelungstyp hinzu und legen Sie den gewünschten Wert fest.
             </p>
           </div>
         )}

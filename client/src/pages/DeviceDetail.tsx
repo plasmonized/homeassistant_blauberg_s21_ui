@@ -124,7 +124,7 @@ export default function DeviceDetail() {
                 <Activity className="w-4 h-4" /> Sensors
               </TabsTrigger>
               <TabsTrigger value="automation" className="gap-2">
-                <Bot className="w-4 h-4" /> Automation
+                <Bot className="w-4 h-4" /> Klima
               </TabsTrigger>
               <TabsTrigger value="config" className="gap-2">
                 <Settings2 className="w-4 h-4" /> Configuration
