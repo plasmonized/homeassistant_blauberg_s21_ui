@@ -357,5 +357,187 @@ export async function registerRoutes(
     res.json({ synced: updated });
   });
 
+  // === Control Profiles (Regulation Schemas) ===
+  // List control profiles for a device
+  app.get('/api/devices/:id/control-profiles', async (req, res) => {
+    const profiles = await storage.getControlProfiles(Number(req.params.id));
+    res.json(profiles);
+  });
+
+  // Create a control profile
+  app.post('/api/devices/:id/control-profiles', async (req, res) => {
+    try {
+      const body = req.body;
+      // Derive schemaType from controlType if not provided
+      const schemaType = body.schemaType || body.controlType || "temperature_control";
+      const profile = await storage.createControlProfile({
+        ...body,
+        schemaType,
+        deviceId: Number(req.params.id),
+      });
+      res.status(201).json(profile);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  // Update a control profile
+  app.put('/api/control-profiles/:id', async (req, res) => {
+    const profile = await storage.updateControlProfile(Number(req.params.id), req.body);
+    res.json(profile);
+  });
+
+  // Delete a control profile
+  app.delete('/api/control-profiles/:id', async (req, res) => {
+    await storage.deleteControlProfile(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // Control profile templates (pre-built schemas)
+  app.get('/api/control-profiles/templates', async (req, res) => {
+    const templates = {
+      temperature_control: {
+        name: "Temperaturregelung",
+        description: "PID-Regelung der Raumtemperatur über Lüfterstufe",
+        defaultParams: {
+          setpoint: 22,
+          kp: 2.0,
+          ki: 0.1,
+          kd: 0.5,
+          outputMin: 0,
+          outputMax: 2,
+          externalTempEntity: null,
+        },
+        paramLabels: {
+          setpoint: "Sollwert (°C)",
+          kp: "Kp (Proportional)",
+          ki: "Ki (Integral)",
+          kd: "Kd (Differential)",
+          outputMin: "Min. Lüfterstufe",
+          outputMax: "Max. Lüfterstufe",
+          externalTempEntity: "Externer Temperatursensor (Entity ID)",
+        },
+      },
+      humidity_control: {
+        name: "Feuchtigkeitsregelung",
+        description: "PID-Regelung der Luftfeuchtigkeit über Lüfterstufe",
+        defaultParams: {
+          setpoint: 50,
+          kp: 1.0,
+          ki: 0.05,
+          kd: 0.2,
+          outputMin: 0,
+          outputMax: 2,
+          externalHumidityEntity: null,
+        },
+        paramLabels: {
+          setpoint: "Sollwert (%)",
+          kp: "Kp (Proportional)",
+          ki: "Ki (Integral)",
+          kd: "Kd (Differential)",
+          outputMin: "Min. Lüfterstufe",
+          outputMax: "Max. Lüfterstufe",
+          externalHumidityEntity: "Externer Feuchtigkeitssensor (Entity ID)",
+        },
+      },
+      co2_control: {
+        name: "CO2-Regelung",
+        description: "Bedarfsgesteuerte Lüftung bei hohem CO2-Wert",
+        defaultParams: {
+          setpoint: 800,
+          kp: 0.005,
+          ki: 0.0001,
+          kd: 0.001,
+          outputMin: 0,
+          outputMax: 2,
+          emergencyThreshold: 1200,
+          externalCo2Entity: null,
+        },
+        paramLabels: {
+          setpoint: "CO2-Sollwert (ppm)",
+          kp: "Kp (Proportional)",
+          ki: "Ki (Integral)",
+          kd: "Kd (Differential)",
+          outputMin: "Min. Lüfterstufe",
+          outputMax: "Max. Lüfterstufe",
+          emergencyThreshold: "Notfalldrehwert (ppm)",
+          externalCo2Entity: "Externer CO2-Sensor (Entity ID)",
+        },
+      },
+      summer_winter: {
+        name: "Sommer/Winter-Umschaltung",
+        description: "Automatische Umschaltung zwischen Heizen und Kühlen",
+        defaultParams: {
+          summerSetpoint: 24,
+          winterSetpoint: 20,
+          switchTemp: 18,
+          summerHysteresis: 1,
+          externalOutdoorTempEntity: null,
+        },
+        paramLabels: {
+          summerSetpoint: "Sommer-Sollwert (°C)",
+          winterSetpoint: "Winter-Sollwert (°C)",
+          switchTemp: "Umschalttemperatur (°C)",
+          summerHysteresis: "Hysterese (°C)",
+          externalOutdoorTempEntity: "Externer Außentemperatursensor (Entity ID)",
+        },
+      },
+      night_setback: {
+        name: "Nachtabsenkung",
+        description: "Reduzierte Temperatur und Lüftung in der Nacht",
+        defaultParams: {
+          daySetpoint: 22,
+          nightSetpoint: 18,
+          nightStart: "22:00",
+          nightEnd: "06:00",
+          fanSpeedDay: 1,
+          fanSpeedNight: 0,
+          externalTempEntity: null,
+        },
+        paramLabels: {
+          daySetpoint: "Tages-Sollwert (°C)",
+          nightSetpoint: "Nacht-Sollwert (°C)",
+          nightStart: "Nachtbeginn",
+          nightEnd: "Nachtende",
+          fanSpeedDay: "Lüfterstufe Tag",
+          fanSpeedNight: "Lüfterstufe Nacht",
+          externalTempEntity: "Externer Temperatursensor (Entity ID)",
+        },
+      },
+      weather_compensated: {
+        name: "Wetterkompensiert",
+        description: "Heizkurve basierend auf Außentemperatur",
+        defaultParams: {
+          roomSetpoint: 21,
+          heatingCurveSlope: 1.5,
+          heatingCurveOffset: 20,
+          minSupply: 16,
+          maxSupply: 50,
+          externalOutdoorTempEntity: null,
+          externalTempEntity: null,
+        },
+        paramLabels: {
+          roomSetpoint: "Raum-Sollwert (°C)",
+          heatingCurveSlope: "Heizkurve-Steigung",
+          heatingCurveOffset: "Heizkurve-Offset (°C)",
+          minSupply: "Min. Zulauftemperatur (°C)",
+          maxSupply: "Max. Zulauftemperatur (°C)",
+          externalOutdoorTempEntity: "Externer Außentemperatursensor (Entity ID)",
+          externalTempEntity: "Externer Raumtemperatursensor (Entity ID)",
+        },
+      },
+    };
+    res.json(templates);
+  });
+
+  // Control Logs
+  app.get('/api/devices/:id/control-logs', async (req, res) => {
+    const logs = await storage.getControlLogs(Number(req.params.id), 50);
+    res.json(logs);
+  });
+
   return httpServer;
 }

@@ -35,6 +35,18 @@ export default function DeviceDetail() {
   const controls = registers?.filter(r => (r.type === 'coil' || r.isWritable));
   const sensors = registers?.filter(r => (r.type === 'input' || r.type === 'discrete' || (!r.isWritable && r.type === 'holding')));
 
+  // Group controls by category
+  const systemControls = controls?.filter(r => r.name.includes('System') || r.name.includes('Standby'));
+  const ventilationControls = controls?.filter(r => r.name.includes('Fan') || r.name.includes('Operation') || r.name.includes('Bypass'));
+  const timerControls = controls?.filter(r => r.name.includes('Boost') || r.name.includes('Timer'));
+  const otherControls = controls?.filter(r => !systemControls?.includes(r) && !ventilationControls?.includes(r) && !timerControls?.includes(r));
+
+  // Group sensors by category
+  const tempSensors = sensors?.filter(r => r.name.includes('Temperature'));
+  const airQualitySensors = sensors?.filter(r => r.name.includes('Humidity') || r.name.includes('CO2'));
+  const statusSensors = sensors?.filter(r => r.name.includes('Filter') || r.name.includes('Timer'));
+  const otherSensors = sensors?.filter(r => !tempSensors?.includes(r) && !airQualitySensors?.includes(r) && !statusSensors?.includes(r));
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Header */}
@@ -132,15 +144,52 @@ export default function DeviceDetail() {
                 {[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}
               </div>
             ) : controls && controls.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {controls.map(register => (
-                  <RegisterCard key={register.id} register={register} deviceId={deviceId} />
-                ))}
+              <div className="space-y-6">
+                {systemControls && systemControls.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">System</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {systemControls.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {ventilationControls && ventilationControls.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Lüftung</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {ventilationControls.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {timerControls && timerControls.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Timer</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {timerControls.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {otherControls && otherControls.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Sonstige</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {otherControls.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-20 border border-dashed rounded-xl opacity-60">
-                <p>No controllable registers defined.</p>
-                <p className="text-sm">Add registers to control fan speed, mode, or relays.</p>
+                <p>Keine steuerbaren Register definiert.</p>
+                <p className="text-sm">Fügen Sie Register hinzu, um Lüftergeschwindigkeit, Modus oder Relais zu steuern.</p>
               </div>
             )}
           </TabsContent>
@@ -151,15 +200,52 @@ export default function DeviceDetail() {
                 {[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}
               </div>
             ) : sensors && sensors.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {sensors.map(register => (
-                  <RegisterCard key={register.id} register={register} deviceId={deviceId} />
-                ))}
+              <div className="space-y-6">
+                {tempSensors && tempSensors.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Temperaturen</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {tempSensors.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {airQualitySensors && airQualitySensors.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Luftqualität</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {airQualitySensors.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {statusSensors && statusSensors.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Status</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {statusSensors.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {otherSensors && otherSensors.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Sonstige</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {otherSensors.map(register => (
+                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-20 border border-dashed rounded-xl opacity-60">
-                <p>No sensor registers defined.</p>
-                <p className="text-sm">Add registers to monitor temperatures, humidity, or status flags.</p>
+                <p>Keine Sensor-Register definiert.</p>
+                <p className="text-sm">Fügen Sie Register hinzu, um Temperaturen, Feuchtigkeit oder Status zu überwachen.</p>
               </div>
             )}
           </TabsContent>

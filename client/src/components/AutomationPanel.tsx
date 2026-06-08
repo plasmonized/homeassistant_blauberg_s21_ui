@@ -29,6 +29,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Plus, Trash2, Pencil, Bot, Clock, Thermometer, Droplets, Wind, History, Home } from "lucide-react";
+import { ControlProfilesPanel } from "./ControlProfilesPanel";
 
 interface AutomationPanelProps {
   deviceId: number;
@@ -528,6 +529,11 @@ export function AutomationPanel({ deviceId }: AutomationPanelProps) {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      <hr className="border-border/40 my-6" />
+
+      {/* Control Profiles (Regulation Schemas) */}
+      <ControlProfilesPanel deviceId={deviceId} />
     </div>
   );
 }

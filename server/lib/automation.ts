@@ -3,6 +3,16 @@ import { getModbusClient } from "./modbus";
 import { getHomeAssistantState } from "./ha-client";
 import { connectMqtt, isMqttConnected } from "./mqtt-client";
 import { discoverDevice, publishRegisterStates, setupCommandHandlers } from "./mqtt-discovery";
+import {
+  runTemperatureControl,
+  runHumidityControl,
+  runCo2Control,
+  runSummerWinterControl,
+  runNightSetback,
+  runWeatherCompensated,
+  type ControlResult,
+  resetPidState,
+} from "./control-engine";
 
 let automationInterval: NodeJS.Timeout | null = null;
 const POLL_INTERVAL_MS = 30_000; // Check every 30 seconds
@@ -224,6 +234,13 @@ async function runAutomationCycle() {
         }
       }
 
+      // Run control profiles (regulation schemas)
+      const profiles = await storage.getControlProfiles(device.id);
+      for (const profile of profiles) {
+        if (!profile.enabled) continue;
+        await evaluateControlProfile(device.id, profile, registers, externalSensors);
+      }
+
       if (rules.length === 0) continue;
 
       for (const rule of rules) {
@@ -294,6 +311,193 @@ export async function startAutomationEngine() {
   automationInterval = setInterval(runAutomationCycle, POLL_INTERVAL_MS);
   // Run once immediately
   await runAutomationCycle();
+}
+
+async function evaluateControlProfile(
+  deviceId: number,
+  profile: any,
+  registers: any[],
+  externalSensors: any[]
+): Promise<void> {
+  try {
+    const params = profile.parameters;
+    let result: ControlResult | null = null;
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    // Get sensor values
+    const getSensor = (name: string) => {
+      const reg = registers.find((r) => r.name === name);
+      if (reg && reg.lastValue !== null && reg.lastValue !== undefined) {
+        return parseFloat(reg.lastValue);
+      }
+      return null;
+    };
+
+    const getExternalSensor = (entityId: string) => {
+      const sensor = externalSensors.find((s) => s.entityId === entityId);
+      if (sensor && sensor.lastValue !== null && sensor.lastValue !== undefined) {
+        return parseFloat(sensor.lastValue);
+      }
+      return null;
+    };
+
+    // Get indoor temperature (use external HA sensor if configured, else supply temp)
+    let indoorTemp: number | null = null;
+    if (params?.externalTempEntity) {
+      indoorTemp = getExternalSensor(params.externalTempEntity);
+    }
+    if (indoorTemp === null) {
+      indoorTemp = getSensor("Supply Temperature") || getSensor("Temperature") || getSensor("Indoor Temperature") || 20;
+    }
+
+    // Get outdoor temperature
+    let outdoorTemp: number | null = null;
+    if (params?.externalOutdoorTempEntity) {
+      outdoorTemp = getExternalSensor(params.externalOutdoorTempEntity);
+    }
+    if (outdoorTemp === null) {
+      outdoorTemp = getSensor("Outdoor Temperature") || getSensor("Außentemperatur") || 10;
+    }
+
+    // Get humidity
+    let humidity: number | null = null;
+    if (params?.externalHumidityEntity) {
+      humidity = getExternalSensor(params.externalHumidityEntity);
+    }
+    if (humidity === null) {
+      humidity = getSensor("Humidity") || getSensor("Humidity") || getSensor("Feuchtigkeit") || 50;
+    }
+
+    // Get CO2
+    let co2: number | null = null;
+    if (params?.externalCo2Entity) {
+      co2 = getExternalSensor(params.externalCo2Entity);
+    }
+    if (co2 === null) {
+      co2 = getSensor("CO2") || getSensor("CO2") || getSensor("Kohlendioxid") || 400;
+    }
+
+    // Evaluate based on control type
+    const controlType = profile.schemaType || profile.controlType;
+    switch (controlType) {
+      case "temperature_control": {
+        if (indoorTemp !== null) {
+          result = await runTemperatureControl(profile.id, deviceId, params, indoorTemp);
+        }
+        break;
+      }
+      case "humidity_control": {
+        if (humidity !== null) {
+          result = await runHumidityControl(profile.id, deviceId, params, humidity);
+        }
+        break;
+      }
+      case "co2_control": {
+        if (co2 !== null) {
+          result = await runCo2Control(profile.id, deviceId, params, co2);
+        }
+        break;
+      }
+      case "summer_winter": {
+        if (outdoorTemp !== null && indoorTemp !== null) {
+          result = await runSummerWinterControl(profile.id, deviceId, params, outdoorTemp, indoorTemp);
+        }
+        break;
+      }
+      case "night_setback": {
+        if (indoorTemp !== null) {
+          result = await runNightSetback(profile.id, deviceId, params, indoorTemp, currentTime);
+        }
+        break;
+      }
+      case "weather_compensated": {
+        if (outdoorTemp !== null && indoorTemp !== null) {
+          result = await runWeatherCompensated(profile.id, deviceId, params, outdoorTemp, indoorTemp);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    if (result) {
+      // Execute the control action
+      const actionResult = await executeControlAction(deviceId, result);
+
+      // Log control action
+      await storage.createControlLog({
+        profileId: profile.id,
+        deviceId: deviceId,
+        controlType: controlType,
+        measuredValue: result.actionType === "fan_speed" ? (indoorTemp ?? 0) : (outdoorTemp ?? 0),
+        setpointValue: params?.setpoint || 0,
+        actionTaken: `${result.actionType}=${result.value}`,
+        success: actionResult.success,
+        message: `${result.reason} → ${actionResult.message}`,
+      });
+
+      // Publish control state to MQTT
+      if (isMqttConnected()) {
+        const topic = `blauberg/${deviceId}/control/${controlType}`;
+        const payload = JSON.stringify({
+          value: result.value,
+          reason: result.reason,
+          timestamp: new Date().toISOString(),
+        });
+        try {
+          const mqttClient = await import("./mqtt-client");
+          const mqttClientInstance = await mqttClient.connectMqtt();
+          if (mqttClientInstance) {
+            mqttClientInstance.publish(topic, payload, { qos: 1, retain: false });
+          }
+        } catch (e) {
+          // MQTT publish failed silently
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`[Control] Profile ${profile.id} error:`, error);
+  }
+}
+
+async function executeControlAction(
+  deviceId: number,
+  result: ControlResult
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const device = await storage.getDevice(deviceId);
+    if (!device) {
+      return { success: false, message: "Device not found" };
+    }
+
+    const client = await getModbusClient(deviceId, device.ip, device.port, device.slaveId);
+    if (!client) {
+      return { success: false, message: "No Modbus client" };
+    }
+
+    const registers = await storage.getRegisters(deviceId);
+
+    if (result.actionType === "fan_speed") {
+      const fanReg = registers.find((r) => r.name.includes("Fan Speed"));
+      if (fanReg) {
+        await client.writeSingleRegister(fanReg.address, result.value);
+        await storage.updateRegisterValue(fanReg.id, result.value);
+        return { success: true, message: `Lüfterstufe: ${result.value}` };
+      }
+    } else if (result.actionType === "mode") {
+      const modeReg = registers.find((r) => r.name.includes("Operation Mode"));
+      if (modeReg) {
+        await client.writeSingleRegister(modeReg.address, result.value);
+        await storage.updateRegisterValue(modeReg.id, result.value);
+        return { success: true, message: `Betriebsmodus: ${result.value}` };
+      }
+    }
+
+    return { success: false, message: `Aktion nicht unterstützt: ${result.actionType}` };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
 }
 
 export function stopAutomationEngine() {

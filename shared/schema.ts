@@ -61,30 +61,81 @@ export const modbusCommandSchema = z.object({
 
 export type ModbusCommand = z.infer<typeof modbusCommandSchema>;
 
-// === AUTOMATION RULES ===
+// === AUTOMATION RULES (legacy simple if-else) ===
 export const automationRules = pgTable("automation_rules", {
   id: serial("id").primaryKey(),
   deviceId: integer("device_id").notNull(),
   name: text("name").notNull(),
   enabled: boolean("enabled").default(true),
   season: text("season", { enum: ["summer", "winter", "all"] }).default("all").notNull(),
-  // Condition: sensor to check (e.g. "outdoor_temp", "indoor_temp", "humidity", "co2")
   sensorType: text("sensor_type", { enum: ["outdoor_temp", "indoor_temp", "humidity", "co2", "forecast_temp"] }).notNull(),
-  // Condition operator: gt, lt, gte, lte, eq
   operator: text("operator", { enum: ["gt", "lt", "gte", "lte", "eq"] }).notNull(),
-  // Threshold value
   threshold: integer("threshold").notNull(),
-  // Action: what to change
   actionType: text("action_type", { enum: ["fan_speed", "bypass", "mode", "boost", "standby"] }).notNull(),
   actionValue: integer("action_value").notNull(),
-  // Optional: time range restriction (HH:MM)
   timeFrom: text("time_from"),
   timeTo: text("time_to"),
-  // Optional: link to specific external sensor (overrides generic sensorType lookup)
   externalSensorId: integer("external_sensor_id"),
-  // Optional: hysteresis to prevent flapping
   hysteresis: integer("hysteresis").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CONTROL PROFILES (professional control schemas) ===
+export const controlProfiles = pgTable("control_profiles", {
+  id: serial("id").primaryKey(),
+  deviceId: integer("device_id").notNull(),
+  name: text("name").notNull(),
+  enabled: boolean("enabled").default(true),
+  // Schema type: temperature_control, humidity_control, co2_control, summer_winter, night_setback, weather_compensated
+  schemaType: text("schema_type", { enum: [
+    "temperature_control",
+    "humidity_control",
+    "co2_control",
+    "summer_winter",
+    "night_setback",
+    "weather_compensated"
+  ] }).notNull(),
+  // Parameters as JSON - each schema has its own parameter set
+  parameters: jsonb("parameters").notNull(),
+  // Override: external sensor to use instead of device-internal
+  externalSensorId: integer("external_sensor_id"),
+  // Time range when active
+  timeFrom: text("time_from"),
+  timeTo: text("time_to"),
+  // Season restriction
+  season: text("season", { enum: ["summer", "winter", "all"] }).default("all").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// === CONTROL LOGS (regulation history) ===
+export const controlLogs = pgTable("control_logs", {
+  id: serial("id").primaryKey(),
+  profileId: integer("profile_id").notNull(),
+  deviceId: integer("device_id").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+  // Control type / schema
+  controlType: text("control_type", { enum: [
+    "temperature_control",
+    "humidity_control",
+    "co2_control",
+    "summer_winter",
+    "night_setback",
+    "weather_compensated"
+  ] }),
+  // Measured value
+  measuredValue: integer("measured_value"),
+  // Setpoint
+  setpointValue: integer("setpoint_value"),
+  // Control deviation (measured - setpoint)
+  deviation: integer("deviation"),
+  // Control output (0-100% or raw value)
+  controlOutput: integer("control_output"),
+  // Action taken
+  actionTaken: text("action_taken"),
+  // Message (reason + result)
+  message: text("message"),
+  success: boolean("success").default(true),
 });
 
 export const externalSensors = pgTable("external_sensors", {
@@ -132,11 +183,31 @@ export const insertExternalSensorSchema = createInsertSchema(externalSensors).om
   createdAt: true,
 });
 
+export const insertControlProfileSchema = createInsertSchema(controlProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertControlLogSchema = createInsertSchema(controlLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
 export type ExternalSensor = typeof externalSensors.$inferSelect;
 export type InsertExternalSensor = z.infer<typeof insertExternalSensorSchema>;
+
+export type ControlProfile = typeof controlProfiles.$inferSelect;
+export type InsertControlProfile = z.infer<typeof insertControlProfileSchema>;
+export type ControlLog = typeof controlLogs.$inferSelect;
+export type InsertControlLog = z.infer<typeof insertControlLogSchema>;
 
 export type CreateAutomationRuleRequest = InsertAutomationRule;
 export type UpdateAutomationRuleRequest = Partial<InsertAutomationRule>;
 
 export type CreateExternalSensorRequest = InsertExternalSensor;
 export type UpdateExternalSensorRequest = Partial<InsertExternalSensor>;
+
+export type CreateControlProfileRequest = InsertControlProfile;
+export type UpdateControlProfileRequest = Partial<InsertControlProfile>;
+export type CreateControlLogRequest = InsertControlLog;

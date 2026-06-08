@@ -5,6 +5,8 @@ import {
   automationRules,
   automationLogs,
   externalSensors,
+  controlProfiles,
+  controlLogs,
   type Device,
   type InsertDevice,
   type Register,
@@ -18,7 +20,12 @@ import {
   type InsertAutomationLog,
   type ExternalSensor,
   type InsertExternalSensor,
-  type UpdateExternalSensorRequest
+  type UpdateExternalSensorRequest,
+  type ControlProfile,
+  type InsertControlProfile,
+  type UpdateControlProfileRequest,
+  type ControlLog,
+  type InsertControlLog
 } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -56,6 +63,17 @@ export interface IStorage {
   updateExternalSensor(id: number, updates: UpdateExternalSensorRequest): Promise<ExternalSensor>;
   deleteExternalSensor(id: number): Promise<void>;
   updateExternalSensorValue(id: number, value: any): Promise<void>;
+
+  // Control Profiles
+  getControlProfiles(deviceId: number): Promise<ControlProfile[]>;
+  getControlProfile(id: number): Promise<ControlProfile | undefined>;
+  createControlProfile(profile: InsertControlProfile): Promise<ControlProfile>;
+  updateControlProfile(id: number, updates: UpdateControlProfileRequest): Promise<ControlProfile>;
+  deleteControlProfile(id: number): Promise<void>;
+
+  // Control Logs
+  getControlLogs(deviceId: number, limit?: number): Promise<ControlLog[]>;
+  createControlLog(log: InsertControlLog): Promise<ControlLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -188,6 +206,46 @@ export class DatabaseStorage implements IStorage {
     await db.update(externalSensors)
       .set({ lastValue: String(value), updatedAt: new Date() })
       .where(eq(externalSensors.id, id));
+  }
+
+  // Control Profiles
+  async getControlProfiles(deviceId: number): Promise<ControlProfile[]> {
+    return await db.select().from(controlProfiles).where(eq(controlProfiles.deviceId, deviceId)).orderBy(controlProfiles.createdAt);
+  }
+
+  async getControlProfile(id: number): Promise<ControlProfile | undefined> {
+    const [profile] = await db.select().from(controlProfiles).where(eq(controlProfiles.id, id));
+    return profile;
+  }
+
+  async createControlProfile(profile: InsertControlProfile): Promise<ControlProfile> {
+    const [newProfile] = await db.insert(controlProfiles).values(profile).returning();
+    return newProfile;
+  }
+
+  async updateControlProfile(id: number, updates: UpdateControlProfileRequest): Promise<ControlProfile> {
+    const [updated] = await db.update(controlProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(controlProfiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteControlProfile(id: number): Promise<void> {
+    await db.delete(controlProfiles).where(eq(controlProfiles.id, id));
+  }
+
+  // Control Logs
+  async getControlLogs(deviceId: number, limit = 50): Promise<ControlLog[]> {
+    return await db.select().from(controlLogs)
+      .where(eq(controlLogs.deviceId, deviceId))
+      .orderBy(desc(controlLogs.timestamp))
+      .limit(limit);
+  }
+
+  async createControlLog(log: InsertControlLog): Promise<ControlLog> {
+    const [newLog] = await db.insert(controlLogs).values(log).returning();
+    return newLog;
   }
 }
 
