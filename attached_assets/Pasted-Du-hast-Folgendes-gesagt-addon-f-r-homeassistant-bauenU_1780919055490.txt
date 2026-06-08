@@ -1,0 +1,23 @@
+Du hast Folgendes gesagt: addon für homeassistant bauenUm ein eigenes Add-on für Home Assistant zu bauen, erstellst du im Kern einen Docker-Container, den der Home Assistant Supervisor steuern und verwalten kann. Home Assistant Add-ons sind eigenständige Anwendungen, die als separate Dienste neben Home Assistant laufen.Hier ist die Schritt-für-Schritt-Anleitung nach den offiziellen Home Assistant Developer Richtlinien:1. Vorbereitungen auf deinem Home Assistant ServerDu musst Zugriff auf das Dateisystem deines Home Assistant OS erhalten.Installiere ein Add-on wie Samba Share oder SSH & Web Terminal über den offiziellen Add-on Store.Stelle sicher, dass du in deinem Benutzerprofil den Erweiterten Modus aktiviert hast.2. Die Ordnerstruktur anlegenNavigiere über Samba oder SSH in das Verzeichnis /addons/ auf deinem Home Assistant Server. Erstelle dort einen neuen Ordner für dein Add-on (z. B. mein_erstes_addon).Innerhalb dieses Ordners benötigst du exakt diese drei Basisdateien:config.yaml (Die Metadaten und Einstellungen für Home Assistant)Dockerfile (Bauanleitung für den Docker-Container)run.sh (Das Startskript für deine Anwendung)3. Die Dateien befüllenconfig.yamlDiese Datei sagt dem Supervisor, wie dein Add-on heißt, welche Systemarchitekturen es unterstützt und welche Konfigurationen es braucht.yamlname: "Mein Erstes Add-on"
+description: "Ein einfaches Hello World Test-Add-on"
+version: "1.0.0"
+slug: "mein_erstes_addon"
+init: false
+arch:
+  - aarch64
+  - amd64
+Verwende Code mit Vorsicht.DockerfileHier definierst du das Basis-Image. Home Assistant bietet dafür optimierte Linux-Abbilder an.dockerfileARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+FROM $BUILD_FROM
+
+# Kopiere das Startskript in den Container
+COPY run.sh /
+RUN chmod a+x /run.sh
+
+CMD [ "/run.sh" ]
+Verwende Code mit Vorsicht.run.shWichtig: Verwende einen Editor, der Unix-Zeilenumbrüche (LF) speichert, da Windows-Zeilenumbrüche (CRLF) unter Linux zu Fehlern führen.bash#!/usr/bin/with-contenv bashio
+
+echo "Hallo Welt! Mein erstes Home Assistant Add-on läuft!"
+
+# Verhindert, dass der Container sich sofort wieder beendet
+while true; do sleep 1000; done
+Verwende Code mit Vorsicht.4. Das Add-on lokal testenGehe in der Home Assistant Oberfläche auf Einstellungen -> Add-ons -> Add-on Store.Klicke oben rechts auf die drei Punkte und wähle Nach Updates suchen.Lade die Seite neu. Ganz oben erscheint nun eine neue Kategorie namens "Lokale Add-ons".Klicke auf dein Add-on, installiere es und klicke auf Starten.Überprüfe den Reiter Protokolle (Logs) – dort sollte nun dein "Hallo Welt!" auftauchen.Wichtiger Unterschied: Add-on vs. IntegrationÜberlege vorab genau, ob ein Add-on der richtige Weg für dein Ziel ist:Add-on: Startet eine komplett eigenständige Software (z. B. eine eigene Datenbank, ein Python-Skript oder einen Node-RED Server) in einer isolierten Docker-Umgebung.Integration: Wird direkt in den Kern von Home Assistant eingebunden, um neue Geräte, Entitäten oder Sensoren hinzuzufügen. Integrationen werden in Python geschrieben und meist über HACS (Home Assistant Community Store) verteilt.Um tiefer in die fortgeschrittene Entwicklung einzusteigen (z. B. Portfreigaben, Web-UIs oder den Zugriff auf die Home Assistant API), nutzt du am besten das offizielle Home Assistant Add-on GitHub Template.Wenn du mir sagst, was für eine Anwendung oder welches Skript dein Add-on am Ende ausführen soll, kann ich dir den Code für die Konfiguration genauer anpassen. suchst du eventuell eher nach einer Möglichkeit, eine Integration für ein bestimmtes Gerät zu schreiben?
