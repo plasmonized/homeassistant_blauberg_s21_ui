@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Fix: `/run/postgresql/` Socket-Verzeichnis wird erstellt und an postgres übergeben
+- Fix: PostgreSQL-Fehlerlog wird bei Startfehler direkt im HA-Log ausgegeben
+- Fix: Web-UI Port von 5000 auf 8099 (Port 5000 oft belegt)
+
 ## 0.1.4
 
 - Fix: `chown -R postgres /var/lib/postgresql/` — Parent-Ordner gehört jetzt postgres (Log-Datei konnte nicht erstellt werden)

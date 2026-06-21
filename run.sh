@@ -55,7 +55,9 @@ PG_DATA="$PG_BASE/data"
 PG_LOG="$PG_DATA/server.log"
 
 mkdir -p "$PG_DATA"
+mkdir -p /run/postgresql
 chown -R postgres:postgres "$PG_BASE"
+chown postgres:postgres /run/postgresql
 
 # Only run initdb if database was never initialized
 if [ ! -f "$PG_DATA/PG_VERSION" ]; then
@@ -69,7 +71,11 @@ if ! grep -q "127.0.0.1/32 trust" "$PG_DATA/pg_hba.conf" 2>/dev/null; then
 fi
 
 # Start PostgreSQL — log inside data dir (postgres-owned)
-su - postgres -c "pg_ctl -D $PG_DATA -l $PG_LOG start"
+if ! su - postgres -c "pg_ctl -D $PG_DATA -l $PG_LOG start"; then
+    bashio::log.error "PostgreSQL konnte nicht gestartet werden. Log:"
+    cat "$PG_LOG" 2>/dev/null || echo "(kein Log vorhanden)"
+    exit 1
+fi
 
 sleep 2
 su - postgres -c "psql -c \"CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';\" 2>/dev/null || true"
