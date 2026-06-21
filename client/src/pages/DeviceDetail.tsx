@@ -276,25 +276,15 @@ export default function DeviceDetail() {
                 <p className="text-sm">Fügen Sie Register hinzu, um Lüftergeschwindigkeit, Modus oder Relais zu steuern.</p>
               </div>
             )}
-          </TabsContent>
 
-          <TabsContent value="automation">
-            <AutomationPanel deviceId={deviceId} />
-          </TabsContent>
-
-          <TabsContent value="einstellungen" className="space-y-8">
             {/* Sensoren */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold">Sensoren</h3>
-              {isRegistersLoading ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}
-                </div>
-              ) : sensors && sensors.length > 0 ? (
+            {sensors && sensors.length > 0 && (
+              <>
+                <Separator />
                 <div className="space-y-6">
                   {tempSensors && tempSensors.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Temperaturen</h4>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Temperaturen</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {tempSensors.map(register => (
                           <RegisterCard key={register.id} register={register} deviceId={deviceId} />
@@ -304,7 +294,7 @@ export default function DeviceDetail() {
                   )}
                   {airQualitySensors && airQualitySensors.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Luftqualität</h4>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Luftqualität</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {airQualitySensors.map(register => (
                           <RegisterCard key={register.id} register={register} deviceId={deviceId} />
@@ -314,7 +304,7 @@ export default function DeviceDetail() {
                   )}
                   {statusSensors && statusSensors.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Status</h4>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Status</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {statusSensors.map(register => (
                           <RegisterCard key={register.id} register={register} deviceId={deviceId} />
@@ -324,7 +314,7 @@ export default function DeviceDetail() {
                   )}
                   {otherSensors && otherSensors.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Sonstige</h4>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Sonstige Sensoren</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {otherSensors.map(register => (
                           <RegisterCard key={register.id} register={register} deviceId={deviceId} />
@@ -333,16 +323,15 @@ export default function DeviceDetail() {
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="text-center py-10 border border-dashed rounded-xl opacity-60">
-                  <p>Keine Sensor-Register definiert.</p>
-                  <p className="text-sm">Fügen Sie Register hinzu, um Temperaturen, Feuchtigkeit oder Status zu überwachen.</p>
-                </div>
-              )}
-            </div>
+              </>
+            )}
+          </TabsContent>
 
-            <Separator />
+          <TabsContent value="automation">
+            <AutomationPanel deviceId={deviceId} />
+          </TabsContent>
 
+          <TabsContent value="einstellungen" className="space-y-8">
             {/* Externe Sensoren */}
             <ExternalSensorsPanel deviceId={deviceId} />
 
