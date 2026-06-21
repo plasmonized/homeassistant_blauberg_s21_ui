@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0
+## 0.1.1
 
 - Korrekte S21 Register-Map nach offiziellem Handbuch (Lüfterstufen 1–5, Bypass Auto/Offen/Geschlossen)
 - Dashboard: Auto-Redirect zum einzelnen Gerät, Setup-Screen wenn kein Gerät vorhanden
