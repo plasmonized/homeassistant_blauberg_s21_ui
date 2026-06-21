@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
 
@@ -12,8 +12,22 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // Serve index.html for all non-API routes, injecting the HA Ingress base path
+  app.use("*", (req: Request, res: Response) => {
+    const indexPath = path.resolve(distPath, "index.html");
+    let html = fs.readFileSync(indexPath, "utf-8");
+
+    // HA Ingress sends X-Ingress-Path header with the base path
+    const ingressPath = (req.headers["x-ingress-path"] as string) || "";
+    const basePath = ingressPath ? ingressPath.replace(/\/$/, "") + "/" : "/";
+
+    // Inject base path so the frontend router can use it
+    html = html.replace(
+      "<head>",
+      `<head>\n  <script>window.__BASE_PATH__ = "${basePath}";</script>`,
+    );
+
+    res.setHeader("Content-Type", "text/html");
+    res.send(html);
   });
 }

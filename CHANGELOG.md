@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.7
+
+- Fix: 404-Seite unter HA Ingress — wouter Router erhält den Ingress-Basispfad via `window.__BASE_PATH__`
+- Fix: Server injiziert `X-Ingress-Path` als `<script>` in `index.html` für korrekte SPA-Navigation
+
 ## 0.1.6
 
 - Fix: Weißes UI unter HA Ingress — Vite baut jetzt mit relativen Asset-Pfaden (`./`) statt absoluten (`/`)
