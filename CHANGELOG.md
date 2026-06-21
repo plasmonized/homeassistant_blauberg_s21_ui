@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- armv7 entfernt (deprecated), nur noch aarch64 + amd64
+- Build-Fix: package-lock.json aus Repo entfernt (Replit-Registry-Konflikt)
+- Base-Image auf Alpine 3.21 (Node.js 22.x für Vite 7 Kompatibilität)
+
 ## 0.1.1
 
 - Korrekte S21 Register-Map nach offiziellem Handbuch (Lüfterstufen 1–5, Bypass Auto/Offen/Geschlossen)
