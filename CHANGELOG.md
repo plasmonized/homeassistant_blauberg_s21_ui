@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6
+
+- Fix: Weißes UI unter HA Ingress — Vite baut jetzt mit relativen Asset-Pfaden (`./`) statt absoluten (`/`)
+
 ## 0.1.5
 
 - Fix: `/run/postgresql/` Socket-Verzeichnis wird erstellt und an postgres übergeben
