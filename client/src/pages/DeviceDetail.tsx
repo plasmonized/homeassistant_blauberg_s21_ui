@@ -6,14 +6,82 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot } from "lucide-react";
+import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot, CheckCircle2, Clock, Thermometer, Droplets, Wind, Sun, Moon } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 import { AutomationPanel } from "@/components/AutomationPanel";
 import { ExternalSensorsPanel } from "@/components/ExternalSensorsPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
+import { useControlProfiles } from "@/hooks/use-control-profiles";
 import { formatDistanceToNow } from "date-fns";
+import type { ControlProfile } from "@shared/schema";
+
+const schemaTypeLabel: Record<string, string> = {
+  temperature_control: "Temperaturregelung",
+  humidity_control: "Feuchtigkeitsregelung",
+  co2_control: "CO₂-Regelung",
+  summer_winter: "Sommer/Winter",
+  night_setback: "Nachtabsenkung",
+  weather_compensated: "Witterungsgeführt",
+};
+
+const schemaTypeIcon: Record<string, JSX.Element> = {
+  temperature_control: <Thermometer className="w-4 h-4 text-orange-400" />,
+  humidity_control: <Droplets className="w-4 h-4 text-blue-400" />,
+  co2_control: <Wind className="w-4 h-4 text-green-400" />,
+  summer_winter: <Sun className="w-4 h-4 text-amber-400" />,
+  night_setback: <Moon className="w-4 h-4 text-indigo-400" />,
+  weather_compensated: <Wind className="w-4 h-4 text-cyan-400" />,
+};
+
+function ActiveProfileCard({ profile }: { profile: ControlProfile }) {
+  const params = profile.parameters as Record<string, any>;
+  const timeRange = profile.timeFrom && profile.timeTo
+    ? `${profile.timeFrom} – ${profile.timeTo}`
+    : null;
+  const seasonLabel: Record<string, string> = { all: "Ganzjährig", summer: "Sommer", winter: "Winter" };
+
+  return (
+    <Card className="border-border/40 bg-card/60">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            {schemaTypeIcon[profile.schemaType] ?? <Bot className="w-4 h-4 text-primary" />}
+            <span className="font-medium text-sm">{profile.name}</span>
+          </div>
+          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+        </div>
+        <div className="text-xs text-muted-foreground mb-2">
+          {schemaTypeLabel[profile.schemaType] ?? profile.schemaType}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {params?.targetTemp !== undefined && (
+            <Badge variant="outline" className="text-[11px]">Soll {params.targetTemp} °C</Badge>
+          )}
+          {params?.targetHumidity !== undefined && (
+            <Badge variant="outline" className="text-[11px]">Soll {params.targetHumidity} %</Badge>
+          )}
+          {params?.targetCo2 !== undefined && (
+            <Badge variant="outline" className="text-[11px]">Soll {params.targetCo2} ppm</Badge>
+          )}
+          {params?.nightSetpointTemp !== undefined && (
+            <Badge variant="outline" className="text-[11px]">Nacht {params.nightSetpointTemp} °C</Badge>
+          )}
+          {timeRange && (
+            <Badge variant="secondary" className="text-[11px] gap-1">
+              <Clock className="w-3 h-3" />{timeRange}
+            </Badge>
+          )}
+          {profile.season && profile.season !== "all" && (
+            <Badge variant="secondary" className="text-[11px]">{seasonLabel[profile.season]}</Badge>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DeviceDetail() {
   const { id } = useParams();
@@ -22,6 +90,9 @@ export default function DeviceDetail() {
   const { data: device, isLoading: isDeviceLoading } = useDevice(deviceId);
   const { data: registers, isLoading: isRegistersLoading } = useRegisters(deviceId);
   
+  const { data: profiles } = useControlProfiles(deviceId);
+  const activeProfiles: ControlProfile[] = (profiles ?? []).filter((p: ControlProfile) => p.enabled);
+
   const connectMutation = useConnectDevice();
   const pollMutation = usePollDevice();
 
@@ -121,7 +192,7 @@ export default function DeviceDetail() {
                 <Sliders className="w-4 h-4" /> Controls
               </TabsTrigger>
               <TabsTrigger value="automation" className="gap-2">
-                <Bot className="w-4 h-4" /> Klima
+                <Bot className="w-4 h-4" /> Automatisierung
               </TabsTrigger>
               <TabsTrigger value="einstellungen" className="gap-2">
                 <Settings2 className="w-4 h-4" /> Einstellungen
@@ -133,6 +204,22 @@ export default function DeviceDetail() {
 
           <TabsContent value="overview" className="space-y-6">
             <TemperatureDiagram registers={registers} isLoading={isRegistersLoading} />
+
+            {/* Aktive Automatisierungen */}
+            {activeProfiles.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Bot className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Aktive Regelungen</h3>
+                  <Badge variant="secondary" className="text-xs">{activeProfiles.length}</Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {activeProfiles.map((profile) => (
+                    <ActiveProfileCard key={profile.id} profile={profile} />
+                  ))}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="controls" className="space-y-4">
