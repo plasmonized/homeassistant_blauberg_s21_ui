@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useDevice, useConnectDevice, usePollDevice, useDevices, useDeleteDevice } from "@/hooks/use-devices";
 import { useRegisters } from "@/hooks/use-registers";
@@ -101,8 +102,13 @@ export default function DeviceDetail() {
   const [, navigate] = useLocation();
   const otherDevices = (allDevices ?? []).filter(d => d.id !== deviceId);
 
-  if (isDeviceLoading) return <div className="p-8"><Skeleton className="h-12 w-64 mb-4" /><Skeleton className="h-64 w-full" /></div>;
-  if (!device) return <div className="p-8 text-center text-muted-foreground">Device not found</div>;
+  useEffect(() => {
+    if (!isDeviceLoading && !device) {
+      navigate("/");
+    }
+  }, [isDeviceLoading, device]);
+
+  if (isDeviceLoading || !device) return <div className="p-8"><Skeleton className="h-12 w-64 mb-4" /><Skeleton className="h-64 w-full" /></div>;
 
   const handleConnect = () => connectMutation.mutate(deviceId);
   const handlePoll = () => pollMutation.mutate(deviceId);
