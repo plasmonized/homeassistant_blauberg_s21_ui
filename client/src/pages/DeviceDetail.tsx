@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, Activity, LayoutDashboard, Bot } from "lucide-react";
+import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
@@ -120,14 +120,11 @@ export default function DeviceDetail() {
               <TabsTrigger value="controls" className="gap-2">
                 <Sliders className="w-4 h-4" /> Controls
               </TabsTrigger>
-              <TabsTrigger value="sensors" className="gap-2">
-                <Activity className="w-4 h-4" /> Sensors
-              </TabsTrigger>
               <TabsTrigger value="automation" className="gap-2">
                 <Bot className="w-4 h-4" /> Klima
               </TabsTrigger>
-              <TabsTrigger value="config" className="gap-2">
-                <Settings2 className="w-4 h-4" /> Configuration
+              <TabsTrigger value="einstellungen" className="gap-2">
+                <Settings2 className="w-4 h-4" /> Einstellungen
               </TabsTrigger>
             </TabsList>
             
@@ -194,85 +191,96 @@ export default function DeviceDetail() {
             )}
           </TabsContent>
 
-          <TabsContent value="sensors" className="space-y-4">
-            {isRegistersLoading ? (
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}
-              </div>
-            ) : sensors && sensors.length > 0 ? (
-              <div className="space-y-6">
-                {tempSensors && tempSensors.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Temperaturen</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {tempSensors.map(register => (
-                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {airQualitySensors && airQualitySensors.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Luftqualität</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {airQualitySensors.map(register => (
-                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {statusSensors && statusSensors.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Status</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {statusSensors.map(register => (
-                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {otherSensors && otherSensors.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Sonstige</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {otherSensors.map(register => (
-                        <RegisterCard key={register.id} register={register} deviceId={deviceId} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-20 border border-dashed rounded-xl opacity-60">
-                <p>Keine Sensor-Register definiert.</p>
-                <p className="text-sm">Fügen Sie Register hinzu, um Temperaturen, Feuchtigkeit oder Status zu überwachen.</p>
-              </div>
-            )}
-          </TabsContent>
-
           <TabsContent value="automation">
             <AutomationPanel deviceId={deviceId} />
           </TabsContent>
 
-          <TabsContent value="config" className="space-y-6">
-             <div className="bg-card rounded-xl border p-6">
-                <h3 className="text-lg font-medium mb-4">Geräte-Konfiguration</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                   <div>
-                      <span className="text-muted-foreground">IP-Adresse:</span>
-                      <div className="font-mono mt-1 p-2 bg-muted rounded">{device.ip}</div>
-                   </div>
-                   <div>
-                      <span className="text-muted-foreground">Port:</span>
-                      <div className="font-mono mt-1 p-2 bg-muted rounded">{device.port}</div>
-                   </div>
-                   <div>
-                      <span className="text-muted-foreground">Slave ID:</span>
-                      <div className="font-mono mt-1 p-2 bg-muted rounded">{device.slaveId}</div>
-                   </div>
+          <TabsContent value="einstellungen" className="space-y-8">
+            {/* Sensoren */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold">Sensoren</h3>
+              {isRegistersLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}
                 </div>
-             </div>
-             <ExternalSensorsPanel deviceId={deviceId} />
+              ) : sensors && sensors.length > 0 ? (
+                <div className="space-y-6">
+                  {tempSensors && tempSensors.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Temperaturen</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {tempSensors.map(register => (
+                          <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {airQualitySensors && airQualitySensors.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Luftqualität</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {airQualitySensors.map(register => (
+                          <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {statusSensors && statusSensors.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Status</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {statusSensors.map(register => (
+                          <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {otherSensors && otherSensors.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Sonstige</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {otherSensors.map(register => (
+                          <RegisterCard key={register.id} register={register} deviceId={deviceId} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-10 border border-dashed rounded-xl opacity-60">
+                  <p>Keine Sensor-Register definiert.</p>
+                  <p className="text-sm">Fügen Sie Register hinzu, um Temperaturen, Feuchtigkeit oder Status zu überwachen.</p>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Externe Sensoren */}
+            <ExternalSensorsPanel deviceId={deviceId} />
+
+            <Separator />
+
+            {/* Geräte-Konfiguration */}
+            <div>
+              <h3 className="text-base font-semibold mb-4">Geräte-Konfiguration</h3>
+              <div className="bg-card rounded-xl border p-6">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">IP-Adresse:</span>
+                    <div className="font-mono mt-1 p-2 bg-muted rounded">{device.ip}</div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Port:</span>
+                    <div className="font-mono mt-1 p-2 bg-muted rounded">{device.port}</div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Slave ID:</span>
+                    <div className="font-mono mt-1 p-2 bg-muted rounded">{device.slaveId}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
