@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Save, Trash2, Edit2, X, Gauge, Zap, ToggleLeft, Activity } from "lucide-react";
+import {
+  Loader2, Save, Trash2, Edit2, X, Gauge, Zap, ToggleLeft,
+  Activity, Fan, Timer, Thermometer, Wind, Droplets, Sun, Snowflake, Home,
+  RotateCcw, ChevronUp, ChevronDown,
+} from "lucide-react";
 import { useWriteRegister, useDeleteRegister } from "@/hooks/use-registers";
 import { cn } from "@/lib/utils";
 
@@ -21,36 +26,85 @@ interface RegisterCardProps {
   deviceId: number;
 }
 
+// Register type detection helpers
+const isFanSpeed = (reg: Register) =>
+  reg.name.toLowerCase().includes("fan") && reg.name.toLowerCase().includes("speed");
+const isSystemPower = (reg: Register) =>
+  reg.name.toLowerCase().includes("system") && reg.dataType === "bool";
+const isStandby = (reg: Register) =>
+  reg.name.toLowerCase().includes("standby");
+const isOperationMode = (reg: Register) =>
+  reg.name.toLowerCase().includes("operation") && reg.name.toLowerCase().includes("mode");
+const isBypass = (reg: Register) =>
+  reg.name.toLowerCase().includes("bypass");
+const isBoostTimer = (reg: Register) =>
+  reg.name.toLowerCase().includes("boost") && reg.name.toLowerCase().includes("timer");
+const isTemperature = (reg: Register) =>
+  reg.name.toLowerCase().includes("temperature") && !reg.name.toLowerCase().includes("supply");
+const isHumidity = (reg: Register) =>
+  reg.name.toLowerCase().includes("humidity");
+const isCO2 = (reg: Register) =>
+  reg.name.toLowerCase().includes("co2");
+
 export function RegisterCard({ register, deviceId }: RegisterCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const writeMutation = useWriteRegister();
   const deleteMutation = useDeleteRegister();
 
-  const isCoil = register.type === "coil";
-  const isHolding = register.type === "holding";
-  const isInput = register.type === "input" || register.type === "discrete";
   const isWritable = register.isWritable;
+  const displayValue = register.lastValue !== null ? register.lastValue : "--";
+  const isBool = register.dataType === "bool";
+  const isEnum = register.dataType === "enum";
+  const isNumber = register.dataType === "uint16" || register.dataType === "int16";
+  const boolValue = displayValue === "true" || displayValue === "1" || displayValue === "on";
+  const numValue = parseFloat(displayValue);
 
-  const handleSwitchChange = (checked: boolean) => {
-    writeMutation.mutate({ id: register.id, value: checked, deviceId });
+  const enumOptions = isEnum && register.options && typeof register.options === "object"
+    ? (register.options as Record<string, string>)
+    : null;
+
+  const enumLabel = enumOptions ? (enumOptions[displayValue] ?? displayValue) : displayValue;
+
+  // Handle writes
+  const handleWrite = (value: number | boolean | string) => {
+    if (!isWritable) return;
+    writeMutation.mutate({ id: register.id, value, deviceId });
   };
 
-  const handleValueSave = () => {
-    const numValue = parseFloat(editValue);
-    if (!isNaN(numValue)) {
-      writeMutation.mutate({ id: register.id, value: numValue, deviceId });
-      setIsEditing(false);
-    }
+  const handleSwitchChange = (checked: boolean) => {
+    handleWrite(checked);
+  };
+
+  const handleFanSpeed = (speed: number) => {
+    handleWrite(speed);
+  };
+
+  const handleBoostChange = (minutes: number) => {
+    handleWrite(minutes);
+  };
+
+  const handleSliderChange = (value: number[]) => {
+    handleWrite(value[0]);
   };
 
   const handleDelete = () => {
-    if (confirm("Are you sure you want to stop tracking this register?")) {
+    if (confirm("Dieses Register wirklich entfernen?")) {
       deleteMutation.mutate({ id: register.id, deviceId });
     }
   };
 
+  // Icon selection
   const getIcon = () => {
+    if (isFanSpeed(register)) return <Fan className="w-4 h-4 text-blue-500" />;
+    if (isSystemPower(register)) return <Zap className="w-4 h-4 text-yellow-500" />;
+    if (isStandby(register)) return <RotateCcw className="w-4 h-4 text-orange-500" />;
+    if (isOperationMode(register)) return <Home className="w-4 h-4 text-emerald-500" />;
+    if (isBypass(register)) return <ChevronUp className="w-4 h-4 text-cyan-500" />;
+    if (isBoostTimer(register)) return <Timer className="w-4 h-4 text-purple-500" />;
+    if (isTemperature(register)) return <Thermometer className="w-4 h-4 text-red-500" />;
+    if (isHumidity(register)) return <Droplets className="w-4 h-4 text-sky-500" />;
+    if (isCO2(register)) return <Wind className="w-4 h-4 text-slate-500" />;
     switch (register.type) {
       case "coil": return <Zap className="w-4 h-4 text-yellow-500" />;
       case "discrete": return <ToggleLeft className="w-4 h-4 text-blue-500" />;
@@ -59,108 +113,323 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
     }
   };
 
-  const displayValue = register.lastValue !== null ? register.lastValue : "--";
-  const isBool = register.dataType === "bool";
-  const isEnum = register.dataType === "enum";
-  const boolValue = displayValue === "true" || displayValue === "1";
+  // Get clean register name
+  const getCleanName = () => {
+    return register.name
+      .replace(/\s*\(.*?\)/g, "")
+      .replace(/\s*-\s*/g, " ")
+      .trim();
+  };
 
-  const enumLabel = isEnum && register.options && typeof register.options === "object"
-    ? (register.options as Record<string, string>)[displayValue] ?? displayValue
-    : displayValue;
-
-  return (
-    <Card className="group relative overflow-hidden bg-card/50 hover:bg-card/80 transition-colors border-border/40 hover:border-primary/50">
-      <CardContent className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex items-center gap-2">
-            {getIcon()}
-            <span className="font-medium text-sm text-foreground/90 truncate max-w-[150px]" title={register.name}>
-              {register.name}
+  // Render different control UIs based on register type
+  const renderControl = () => {
+    // System On/Off - Big toggle
+    if (isSystemPower(register) && isBool) {
+      return (
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={boolValue}
+            onCheckedChange={handleSwitchChange}
+            disabled={writeMutation.isPending || !isWritable}
+            className="data-[state=checked]:bg-green-500"
+            data-testid={`switch-system-power-${register.id}`}
+          />
+          <div className="flex flex-col">
+            <span className={cn("text-sm font-bold", boolValue ? "text-green-600" : "text-muted-foreground")}>
+              {boolValue ? "EIN" : "AUS"}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {boolValue ? "System läuft" : "System gestoppt"}
             </span>
           </div>
-          <Badge variant="outline" className="text-[10px] font-mono opacity-50 group-hover:opacity-100 transition-opacity">
-            {register.type.toUpperCase().slice(0, 1)}{register.address}
-          </Badge>
+        </div>
+      );
+    }
+
+    // Standby Mode
+    if (isStandby(register) && isBool) {
+      return (
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={boolValue}
+            onCheckedChange={handleSwitchChange}
+            disabled={writeMutation.isPending || !isWritable}
+            data-testid={`switch-standby-${register.id}`}
+          />
+          <span className={cn("text-sm font-medium", boolValue ? "text-orange-500" : "text-muted-foreground")}>
+            {boolValue ? "Standby" : "Normal"}
+          </span>
+        </div>
+      );
+    }
+
+    // Fan Speed - Segmented control (1=Niedrig, 2=Mittel, 3=Hoch)
+    if (isFanSpeed(register) && isNumber) {
+      const currentSpeed = !isNaN(numValue) ? numValue : 1;
+      const speeds = [
+        { value: 1, label: "Niedrig", fanClass: "opacity-50" },
+        { value: 2, label: "Mittel", fanClass: "opacity-75" },
+        { value: 3, label: "Hoch", fanClass: "" },
+      ];
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Fan className="w-5 h-5 text-blue-400" />
+            <span className="text-2xl font-bold font-mono">{currentSpeed}</span>
+            <span className="text-xs text-muted-foreground">/ 3</span>
+          </div>
+          <div className="flex gap-1">
+            {speeds.map(({ value, label, fanClass }) => (
+              <Button
+                key={value}
+                variant={currentSpeed === value ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "flex-1 h-10 text-xs",
+                  currentSpeed === value && "bg-primary text-primary-foreground"
+                )}
+                onClick={() => handleFanSpeed(value)}
+                disabled={writeMutation.isPending || !isWritable}
+                data-testid={`button-fan-speed-${value}-${register.id}`}
+              >
+                <Fan className={cn("w-3 h-3 mr-1", fanClass)} />
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Operation Mode - Big tiles
+    if (isOperationMode(register) && isEnum && enumOptions) {
+      const modeIcons: Record<string, any> = {
+        "0": <Wind className="w-5 h-5" />,
+        "1": <Sun className="w-5 h-5" />,
+        "2": <Snowflake className="w-5 h-5" />,
+        "3": <Home className="w-5 h-5" />,
+      };
+      const modeColors: Record<string, string> = {
+        "0": "bg-sky-50 border-sky-200 text-sky-700",
+        "1": "bg-amber-50 border-amber-200 text-amber-700",
+        "2": "bg-cyan-50 border-cyan-200 text-cyan-700",
+        "3": "bg-emerald-50 border-emerald-200 text-emerald-700",
+      };
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(enumOptions).map(([key, label]) => {
+            const active = displayValue === key;
+            return (
+              <Button
+                key={key}
+                variant="outline"
+                className={cn(
+                  "h-14 flex flex-col items-center gap-1 text-xs font-medium border-2 transition-all",
+                  active ? modeColors[key] || "bg-primary/10 border-primary text-primary" : "hover:bg-muted/50"
+                )}
+                onClick={() => handleWrite(Number(key))}
+                disabled={writeMutation.isPending || !isWritable}
+                data-testid={`button-mode-${key}-${register.id}`}
+              >
+                {modeIcons[key] || <Activity className="w-5 h-5" />}
+                <span>{label}</span>
+              </Button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Bypass Control - simple on/off toggle
+    if (isBypass(register)) {
+      const bypassOn = isBool ? boolValue : (numValue === 1 || displayValue === "1");
+      const handleBypassToggle = (checked: boolean) => {
+        if (isBool) {
+          handleSwitchChange(checked);
+        } else {
+          handleWrite(checked ? 1 : 0);
+        }
+      };
+      return (
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={bypassOn}
+            onCheckedChange={handleBypassToggle}
+            disabled={writeMutation.isPending || !isWritable}
+            data-testid={`switch-bypass-${register.id}`}
+          />
+          <span className={cn("text-sm font-medium", bypassOn ? "text-cyan-500" : "text-muted-foreground")}>
+            {bypassOn ? "EIN" : "AUS"}
+          </span>
+        </div>
+      );
+    }
+
+    // Boost Timer - Slider + quick buttons
+    if (isBoostTimer(register) && isNumber) {
+      const currentMinutes = !isNaN(numValue) ? numValue : 0;
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-2xl font-bold font-mono">{currentMinutes}</span>
+            <span className="text-xs text-muted-foreground">Minuten</span>
+          </div>
+          <Slider
+            value={[currentMinutes]}
+            min={0}
+            max={60}
+            step={1}
+            onValueChange={handleSliderChange}
+            disabled={writeMutation.isPending || !isWritable}
+            className="w-full"
+            data-testid={`slider-boost-${register.id}`}
+          />
+          <div className="flex gap-1">
+            {[0, 10, 20, 30, 60].map((minutes) => (
+              <Button
+                key={minutes}
+                variant={currentMinutes === minutes ? "default" : "outline"}
+                size="sm"
+                className="flex-1 h-8 text-xs"
+                onClick={() => handleBoostChange(minutes)}
+                disabled={writeMutation.isPending || !isWritable}
+                data-testid={`button-boost-${minutes}-${register.id}`}
+              >
+                {minutes === 0 ? "AUS" : `${minutes}m`}
+              </Button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Generic Boolean
+    if (isBool) {
+      return (
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={boolValue}
+            onCheckedChange={handleSwitchChange}
+            disabled={writeMutation.isPending || !isWritable}
+            data-testid={`switch-bool-${register.id}`}
+          />
+          <span className={cn("text-sm font-medium", boolValue ? "text-primary" : "text-muted-foreground")}>
+            {boolValue ? "EIN" : "AUS"}
+          </span>
+        </div>
+      );
+    }
+
+    // Generic Enum
+    if (isEnum && enumOptions) {
+      return (
+        <Select
+          value={displayValue}
+          onValueChange={(val) => handleWrite(Number(val))}
+          disabled={writeMutation.isPending || !isWritable}
+        >
+          <SelectTrigger className="h-10 text-sm" data-testid={`select-enum-${register.id}`}>
+            <SelectValue>{enumLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(enumOptions).map(([key, label]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // Generic Number - Editable value
+    if (isEditing && isWritable) {
+      return (
+        <div className="flex items-center gap-2">
+          <Input
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            className="h-10 text-sm font-mono"
+            placeholder={displayValue}
+            autoFocus
+            type="number"
+            data-testid={`input-edit-${register.id}`}
+          />
+          <Button size="icon" variant="ghost" className="h-10 w-10 text-green-600" onClick={() => {
+            const num = parseFloat(editValue);
+            if (!isNaN(num)) {
+              handleWrite(num);
+              setIsEditing(false);
+            }
+          }}>
+            <Save className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-10 w-10 text-red-500" onClick={() => setIsEditing(false)}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      );
+    }
+
+    // Read-only or non-editing display
+    return (
+      <div className="flex items-baseline gap-1">
+        <span className="text-2xl font-bold font-mono tabular-nums">
+          {displayValue}
+        </span>
+        {register.unit && <span className="text-xs text-muted-foreground">{register.unit}</span>}
+      </div>
+    );
+  };
+
+  return (
+    <Card className={cn(
+      "group relative overflow-hidden border-border/40 transition-all",
+      isWritable && "hover:border-primary/50 hover:shadow-sm",
+      !isWritable && "bg-muted/30"
+    )}>
+      <CardContent className="p-4">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-1">
+          <div className="flex items-center gap-2">
+            {getIcon()}
+            <span className="font-medium text-sm text-foreground/90 truncate max-w-[160px]" title={register.name}>
+              {getCleanName()}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            {isWritable && (
+              <Badge variant="outline" className="text-[10px] font-mono opacity-50">
+                RW
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-[10px] font-mono opacity-50">
+              {register.type.toUpperCase().slice(0, 1)}{register.address}
+            </Badge>
+          </div>
         </div>
 
-        <div className="mt-4 flex items-end justify-between">
-          <div className="flex-1">
-            {isCoil ? (
-              <div className="flex items-center gap-2">
-                <Switch 
-                  checked={boolValue} 
-                  onCheckedChange={handleSwitchChange} 
-                  disabled={writeMutation.isPending}
-                />
-                <span className={cn("text-xs font-mono uppercase", boolValue ? "text-primary" : "text-muted-foreground")}>
-                  {boolValue ? "ON" : "OFF"}
-                </span>
-              </div>
-            ) : isEditing ? (
-              isEnum && register.options && typeof register.options === "object" ? (
-                <div className="flex items-center gap-2 max-w-[160px]">
-                  <Select
-                    value={editValue}
-                    onValueChange={(val) => {
-                      setEditValue(val);
-                      writeMutation.mutate({ id: register.id, value: Number(val), deviceId });
-                      setIsEditing(false);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder={enumLabel} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(register.options as Record<string, string>).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500" onClick={() => setIsEditing(false)}>
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 max-w-[140px]">
-                  <Input
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    className="h-8 text-xs font-mono"
-                    placeholder={displayValue}
-                    autoFocus
-                  />
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500" onClick={handleValueSave}>
-                    <Save className="w-3 h-3" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500" onClick={() => setIsEditing(false)}>
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              )
-            ) : (
-              <div className="flex items-baseline gap-1">
-                <span className={cn("font-bold tracking-tighter", isEnum ? "text-lg" : "text-2xl font-mono")}>
-                  {isEnum ? enumLabel : displayValue}
-                </span>
-                {register.unit && !isEnum && <span className="text-xs text-muted-foreground">{register.unit}</span>}
-              </div>
-            )}
-          </div>
+        {/* Control UI */}
+        <div className="mt-3">
+          {renderControl()}
+        </div>
 
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {isWritable && !isCoil && !isEditing && (
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditValue(displayValue); setIsEditing(true); }}>
-                <Edit2 className="w-3 h-3 text-muted-foreground" />
-              </Button>
-            )}
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleDelete}>
-              <Trash2 className="w-3 h-3 text-destructive/70 hover:text-destructive" />
+        {/* Action buttons */}
+        <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isWritable && !isBool && !isEnum && !isFanSpeed(register) && !isBoostTimer(register) && !isEditing && (
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+              setEditValue(displayValue !== "--" ? displayValue : "0");
+              setIsEditing(true);
+            }}>
+              <Edit2 className="w-3 h-3 text-muted-foreground" />
             </Button>
-          </div>
+          )}
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleDelete}>
+            <Trash2 className="w-3 h-3 text-destructive/70 hover:text-destructive" />
+          </Button>
         </div>
       </CardContent>
+
       {writeMutation.isPending && (
-        <div className="absolute inset-0 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
+        <div className="absolute inset-0 bg-background/50 flex items-center justify-center backdrop-blur-[1px] z-10">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
         </div>
       )}
