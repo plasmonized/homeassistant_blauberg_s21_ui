@@ -168,10 +168,7 @@ async function executeRuleAction(
         targetReg = registers.find((r) => r.name.includes("Operation Mode"));
         break;
       case "boost":
-        targetReg = registers.find((r) => r.name.includes("Boost Timer"));
-        break;
-      case "standby":
-        targetReg = registers.find((r) => r.name.includes("Standby"));
+        targetReg = registers.find((r) => r.name.includes("Boost Switch"));
         break;
     }
 
@@ -446,9 +443,10 @@ async function executeControlAction(
 
       const fanReg = registers.find((r) => r.name.includes("Fan Speed"));
       if (fanReg) {
-        // Safety clamp: fan speed must stay within the valid 0–3 range, regardless
-        // of how a profile was configured.
-        const fanValue = Math.max(0, Math.min(3, Math.round(result.value)));
+        // Safety clamp: fan speed must stay within the valid 1–5 hardware range.
+        // "Off" is NOT a fan stage on the S21 — the unit is powered down via the
+        // System State coil, which the automation engine must never toggle.
+        const fanValue = Math.max(1, Math.min(5, Math.round(result.value)));
         await client.writeSingleRegister(fanReg.address, fanValue);
         await storage.updateRegisterValue(fanReg.id, fanValue);
         messages.push(`Lüfterstufe: ${fanValue}`);

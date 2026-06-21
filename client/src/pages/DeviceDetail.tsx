@@ -107,15 +107,15 @@ export default function DeviceDetail() {
   const sensors = registers?.filter(r => (r.type === 'input' || r.type === 'discrete' || (!r.isWritable && r.type === 'holding')));
 
   // Group controls by category
-  const systemControls = controls?.filter(r => r.name.includes('System') || r.name.includes('Standby'));
+  const systemControls = controls?.filter(r => r.name.includes('System'));
   const ventilationControls = controls?.filter(r => r.name.includes('Fan') || r.name.includes('Operation') || r.name.includes('Bypass'));
-  const timerControls = controls?.filter(r => r.name.includes('Boost') || r.name.includes('Timer'));
+  const timerControls = controls?.filter(r => r.name.includes('Boost'));
   const otherControls = controls?.filter(r => !systemControls?.includes(r) && !ventilationControls?.includes(r) && !timerControls?.includes(r));
 
   // Group sensors by category
   const tempSensors = sensors?.filter(r => r.name.includes('Temperature'));
   const airQualitySensors = sensors?.filter(r => r.name.includes('Humidity') || r.name.includes('CO2'));
-  const statusSensors = sensors?.filter(r => r.name.includes('Filter') || r.name.includes('Timer'));
+  const statusSensors = sensors?.filter(r => r.name.includes('Filter'));
   const otherSensors = sensors?.filter(r => !tempSensors?.includes(r) && !airQualitySensors?.includes(r) && !statusSensors?.includes(r));
 
   return (
@@ -251,7 +251,7 @@ export default function DeviceDetail() {
                 )}
                 {timerControls && timerControls.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Timer</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Boost</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {timerControls.map(register => (
                         <RegisterCard key={register.id} register={register} deviceId={deviceId} />

@@ -13,13 +13,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Blauberg S21 selects."""
     async_add_entities([
-        BlaubergSelect("Fan Speed", 2, ["Low", "Medium", "High"]),
-        BlaubergSelect("Operation Mode", 3, ["Ventilation", "Heating", "Cooling", "Auto"]),
-        BlaubergSelect("Bypass Mode", 4, ["Auto", "Open", "Closed"]),
+        BlaubergSelect("Operation Mode", 43, ["Lüftung", "Heizung", "Kühlung", "Auto"]),
+        BlaubergSelect("Bypass Control", 74, ["Geschlossen", "Offen", "Auto"]),
     ])
 
 class BlaubergSelect(SelectEntity):
-    """Representation of a Blauberg Select entity."""
+    """Representation of a Blauberg enum holding register."""
 
     def __init__(self, name, address, options):
         self._attr_name = f"Blauberg {name}"

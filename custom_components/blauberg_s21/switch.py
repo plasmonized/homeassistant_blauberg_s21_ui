@@ -13,12 +13,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Blauberg S21 switches."""
     async_add_entities([
-        BlaubergSwitch("System Power", 1, SwitchDeviceClass.SWITCH),
-        BlaubergSwitch("Standby Mode", 5, SwitchDeviceClass.SWITCH),
+        BlaubergSwitch("System State", 0, SwitchDeviceClass.SWITCH),
+        BlaubergSwitch("Boost Switch", 13, SwitchDeviceClass.SWITCH),
     ])
 
 class BlaubergSwitch(SwitchEntity):
-    """Representation of a Blauberg Switch."""
+    """Representation of a Blauberg writable coil."""
 
     def __init__(self, name, address, device_class):
         self._attr_name = f"Blauberg {name}"

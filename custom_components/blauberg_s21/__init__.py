@@ -13,6 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 # Register all platforms we implemented
 PLATFORMS: list[Platform] = [
     Platform.SENSOR, 
+    Platform.BINARY_SENSOR, 
     Platform.SWITCH, 
     Platform.NUMBER, 
     Platform.SELECT

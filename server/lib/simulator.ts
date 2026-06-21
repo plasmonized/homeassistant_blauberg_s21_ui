@@ -13,42 +13,48 @@ const REG_INPUT_END = 100;
 function initHoldingBuffer(): Buffer {
   const buf = Buffer.alloc(REG_HOLDING_END * 2);
   // jsmodbus server uses 0-based addressing: buffer offset = address * 2
-  // System State (addr 1) = 1 (On)
-  buf.writeUInt16BE(1, 2);
-  // Fan Speed (addr 2) = 1 (Medium)
-  buf.writeUInt16BE(1, 4);
-  // Operation Mode (addr 3) = 3 (Auto)
-  buf.writeUInt16BE(3, 6);
-  // Bypass (addr 4) = 0 (Auto)
-  buf.writeUInt16BE(0, 8);
-  // Standby (addr 5) = 0 (Off)
-  buf.writeUInt16BE(0, 10);
-  // Boost Timer (addr 21) = 0
-  buf.writeUInt16BE(0, 42);
+  // Fan Speed HR_SPEED_MODE (addr 2) = 2 (Stufe 2)
+  buf.writeUInt16BE(2, 4);
   // Operation Mode HR_OPERATION_MODE (addr 43) = 3 (Auto)
   buf.writeUInt16BE(3, 86);
   // Temperature Setpoint HR_SetTEMP (addr 44) = 23°C
   buf.writeUInt16BE(23, 88);
+  // Bypass HR_BPS_ROTOR_MODE (addr 74) = 2 (Auto)
+  buf.writeUInt16BE(2, 148);
   return buf;
 }
 
 function initInputBuffer(): Buffer {
   const buf = Buffer.alloc(REG_INPUT_END * 2);
   // jsmodbus server uses 0-based addressing: buffer offset = address * 2
-  // Temperature Outdoor (addr 10) = 22.5°C -> 225 (scale 10)
-  buf.writeUInt16BE(225, 20);
-  // Temperature Supply (addr 11) = 23.0°C -> 230
-  buf.writeUInt16BE(230, 22);
-  // Humidity (addr 12) = 45%
-  buf.writeUInt16BE(45, 24);
-  // CO2 (addr 13) = 420 ppm
-  buf.writeUInt16BE(420, 26);
-  // Temperature Extract (addr 14) = 24.5°C -> 245
-  buf.writeUInt16BE(245, 28);
-  // Temperature Exhaust (addr 15) = 23.5°C -> 235
-  buf.writeUInt16BE(235, 30);
-  // Filter Timer (addr 20) = 8760 hours
-  buf.writeUInt16BE(8760, 40);
+  // Temperature Outdoor IR_CurTEMP_SuAirIn (addr 1) = 22.5°C -> 225 (scale 10)
+  buf.writeUInt16BE(225, 2);
+  // Temperature Supply IR_CurTEMP_SuAirOut (addr 2) = 23.0°C -> 230
+  buf.writeUInt16BE(230, 4);
+  // Temperature Extract IR_CurTEMP_ExAirIn (addr 3) = 24.5°C -> 245
+  buf.writeUInt16BE(245, 6);
+  // Temperature Exhaust IR_CurTEMP_ExAirOut (addr 4) = 23.5°C -> 235
+  buf.writeUInt16BE(235, 8);
+  // Humidity IR_CurRH_Int (addr 10) = 45%
+  buf.writeUInt16BE(45, 20);
+  // CO2 IR_CurCO2_Int (addr 12) = 420 ppm
+  buf.writeUInt16BE(420, 24);
+  // Filter Status IR_StateFILTER (addr 31) = 0 (Sauber)
+  buf.writeUInt16BE(0, 62);
+  return buf;
+}
+
+function initCoilBuffer(): Buffer {
+  // jsmodbus stores coils as a bit-field: coil `address` lives in
+  // byte Math.floor(address / 8), bit (address % 8).
+  const buf = Buffer.alloc(100);
+  const setCoil = (address: number, on: boolean) => {
+    if (!on) return;
+    buf[Math.floor(address / 8)] |= 1 << (address % 8);
+  };
+  setCoil(0, true);   // CL_POWER – system on
+  setCoil(3, false);  // CL_Boost_MODE – boost not active
+  setCoil(13, true);  // CL_BoostSWITCH_CTRL – boost switch enabled (default)
   return buf;
 }
 
@@ -61,7 +67,7 @@ export function startSimulator(port = 5502): Promise<number> {
 
     const holding = initHoldingBuffer();
     const input = initInputBuffer();
-    const coils = Buffer.alloc(100);
+    const coils = initCoilBuffer();
     const discrete = Buffer.alloc(100);
 
     // ModbusTCPServer's constructor attaches its own 'connection' handler to

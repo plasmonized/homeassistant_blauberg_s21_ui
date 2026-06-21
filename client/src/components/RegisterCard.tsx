@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, Save, Trash2, Edit2, X, Gauge, Zap, ToggleLeft,
-  Activity, Fan, Timer, Thermometer, Wind, Droplets, Sun, Snowflake, Home,
+  Activity, Fan, Rocket, Thermometer, Wind, Droplets, Sun, Snowflake, Home,
   RotateCcw, ChevronUp, ChevronDown, Minus, Plus,
 } from "lucide-react";
 import { useWriteRegister, useDeleteRegister } from "@/hooks/use-registers";
@@ -31,14 +31,12 @@ const isFanSpeed = (reg: Register) =>
   reg.name.toLowerCase().includes("fan") && reg.name.toLowerCase().includes("speed");
 const isSystemPower = (reg: Register) =>
   reg.name.toLowerCase().includes("system") && reg.dataType === "bool";
-const isStandby = (reg: Register) =>
-  reg.name.toLowerCase().includes("standby");
 const isOperationMode = (reg: Register) =>
   reg.name.toLowerCase().includes("operation") && reg.name.toLowerCase().includes("mode");
 const isBypass = (reg: Register) =>
   reg.name.toLowerCase().includes("bypass");
-const isBoostTimer = (reg: Register) =>
-  reg.name.toLowerCase().includes("boost") && reg.name.toLowerCase().includes("timer");
+const isBoost = (reg: Register) =>
+  reg.name.toLowerCase().includes("boost");
 const isTemperatureSetpoint = (reg: Register) =>
   reg.name.toLowerCase().includes("temperature") && reg.name.toLowerCase().includes("setpoint");
 const isTemperature = (reg: Register) =>
@@ -82,10 +80,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
     handleWrite(speed);
   };
 
-  const handleBoostChange = (minutes: number) => {
-    handleWrite(minutes);
-  };
-
   const handleSliderChange = (value: number[]) => {
     handleWrite(value[0]);
   };
@@ -100,10 +94,9 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
   const getIcon = () => {
     if (isFanSpeed(register)) return <Fan className="w-4 h-4 text-blue-500" />;
     if (isSystemPower(register)) return <Zap className="w-4 h-4 text-yellow-500" />;
-    if (isStandby(register)) return <RotateCcw className="w-4 h-4 text-orange-500" />;
+    if (isBoost(register)) return <Rocket className="w-4 h-4 text-purple-500" />;
     if (isOperationMode(register)) return <Home className="w-4 h-4 text-emerald-500" />;
     if (isBypass(register)) return <ChevronUp className="w-4 h-4 text-cyan-500" />;
-    if (isBoostTimer(register)) return <Timer className="w-4 h-4 text-purple-500" />;
     if (isTemperature(register)) return <Thermometer className="w-4 h-4 text-red-500" />;
     if (isHumidity(register)) return <Droplets className="w-4 h-4 text-sky-500" />;
     if (isCO2(register)) return <Wind className="w-4 h-4 text-slate-500" />;
@@ -148,55 +141,56 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Standby Mode
-    if (isStandby(register) && isBool) {
+    // Boost Switch (coil) - enables the hardware boost-switch input on the unit.
+    if (isBoost(register) && isBool) {
       return (
-        <div className="flex items-center gap-3">
-          <Switch
-            checked={boolValue}
-            onCheckedChange={handleSwitchChange}
-            disabled={writeMutation.isPending || !isWritable}
-            data-testid={`switch-standby-${register.id}`}
-          />
-          <span className={cn("text-sm font-medium", boolValue ? "text-orange-500" : "text-muted-foreground")}>
-            {boolValue ? "Standby" : "Normal"}
-          </span>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={boolValue}
+              onCheckedChange={handleSwitchChange}
+              disabled={writeMutation.isPending || !isWritable}
+              data-testid={`switch-boost-${register.id}`}
+            />
+            <span className={cn("text-sm font-bold", boolValue ? "text-purple-600" : "text-muted-foreground")}>
+              {boolValue ? "EIN" : "AUS"}
+            </span>
+          </div>
+          {isWritable && (
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Aktiviert den Hardware-Boost-Schalter-Eingang am Gerät.
+            </p>
+          )}
         </div>
       );
     }
 
-    // Fan Speed - Segmented control (1=Niedrig, 2=Mittel, 3=Hoch)
+    // Fan Speed - Segmented control (Stufe 1-5; "Aus" über den System-Schalter)
     if (isFanSpeed(register) && isNumber) {
       const currentSpeed = !isNaN(numValue) ? numValue : 0;
-      const speeds = [
-        { value: 0, label: "Aus", fanClass: "opacity-30" },
-        { value: 1, label: "Niedrig", fanClass: "opacity-50" },
-        { value: 2, label: "Mittel", fanClass: "opacity-75" },
-        { value: 3, label: "Hoch", fanClass: "" },
-      ];
+      const speeds = [1, 2, 3, 4, 5];
       return (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Fan className="w-5 h-5 text-blue-400" />
-            <span className="text-2xl font-bold font-mono">{currentSpeed}</span>
-            <span className="text-xs text-muted-foreground">/ 3</span>
+            <span className="text-2xl font-bold font-mono">{currentSpeed >= 1 ? currentSpeed : "–"}</span>
+            <span className="text-xs text-muted-foreground">/ 5</span>
           </div>
           <div className="flex gap-1">
-            {speeds.map(({ value, label, fanClass }) => (
+            {speeds.map((value) => (
               <Button
                 key={value}
                 variant={currentSpeed === value ? "default" : "outline"}
                 size="sm"
                 className={cn(
-                  "flex-1 h-10 text-xs",
+                  "flex-1 h-10 text-sm font-semibold",
                   currentSpeed === value && "bg-primary text-primary-foreground"
                 )}
                 onClick={() => handleFanSpeed(value)}
                 disabled={writeMutation.isPending || !isWritable}
                 data-testid={`button-fan-speed-${value}-${register.id}`}
               >
-                <Fan className={cn("w-3 h-3 mr-1", fanClass)} />
-                {label}
+                {value}
               </Button>
             ))}
           </div>
@@ -246,9 +240,9 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
     // Bypass Control - 3-state enum (Auto / Offen / Geschlossen)
     if (isBypass(register) && isEnum && enumOptions) {
       const bypassIcons: Record<string, any> = {
-        "0": <RotateCcw className="w-4 h-4" />,
+        "0": <ChevronDown className="w-4 h-4" />,
         "1": <ChevronUp className="w-4 h-4" />,
-        "2": <ChevronDown className="w-4 h-4" />,
+        "2": <RotateCcw className="w-4 h-4" />,
       };
       return (
         <div className="flex gap-1">
@@ -297,44 +291,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
           <span className={cn("text-sm font-medium", bypassOn ? "text-cyan-500" : "text-muted-foreground")}>
             {bypassOn ? "EIN" : "AUS"}
           </span>
-        </div>
-      );
-    }
-
-    // Boost Timer - Slider + quick buttons
-    if (isBoostTimer(register) && isNumber) {
-      const currentMinutes = !isNaN(numValue) ? numValue : 0;
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-2xl font-bold font-mono">{currentMinutes}</span>
-            <span className="text-xs text-muted-foreground">Minuten</span>
-          </div>
-          <Slider
-            value={[currentMinutes]}
-            min={0}
-            max={60}
-            step={1}
-            onValueChange={handleSliderChange}
-            disabled={writeMutation.isPending || !isWritable}
-            className="w-full"
-            data-testid={`slider-boost-${register.id}`}
-          />
-          <div className="flex gap-1">
-            {[0, 10, 20, 30, 60].map((minutes) => (
-              <Button
-                key={minutes}
-                variant={currentMinutes === minutes ? "default" : "outline"}
-                size="sm"
-                className="flex-1 h-8 text-xs"
-                onClick={() => handleBoostChange(minutes)}
-                disabled={writeMutation.isPending || !isWritable}
-                data-testid={`button-boost-${minutes}-${register.id}`}
-              >
-                {minutes === 0 ? "AUS" : `${minutes}m`}
-              </Button>
-            ))}
-          </div>
         </div>
       );
     }
@@ -499,7 +455,7 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
 
         {/* Action buttons */}
         <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isWritable && !isBool && !isEnum && !isFanSpeed(register) && !isBoostTimer(register) && !isTemperatureSetpoint(register) && !isEditing && (
+          {isWritable && !isBool && !isEnum && !isFanSpeed(register) && !isTemperatureSetpoint(register) && !isEditing && (
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
               setEditValue(displayValue !== "--" ? displayValue : "0");
               setIsEditing(true);

@@ -38,19 +38,19 @@ Das Add-on stellt automatisch folgende Entities bereit (via MQTT Discovery):
 - Temperaturen (Outdoor, Supply, Extract, Exhaust)
 - Luftfeuchtigkeit
 - CO2 Level
-- Filter Timer
+- Filter Status
 
 ### Schalter
 - System Ein/Aus
-- Standby Modus
+- Boost Schalter
 
 ### Zahlen (Slider)
-- Fan Speed (0-2)
-- Boost Timer (0-60 Min)
+- Fan Speed (Stufe 1-5)
+- Temperatur-Sollwert
 
 ### Auswahl
-- Operation Mode (Ventilation, Heating, Cooling, Auto)
-- Bypass Control (Auto, Open, Closed)
+- Operation Mode (Lüftung, Heizung, Kühlung, Auto)
+- Bypass Control (Geschlossen, Offen, Auto)
 
 ## Support
 

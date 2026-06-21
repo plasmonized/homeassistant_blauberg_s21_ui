@@ -1,11 +1,11 @@
 /**
  * Home Assistant MQTT Discovery Publisher
  * Publishes S21 registers as native HA entities via MQTT Discovery
- * Sensors: Temperatures, Humidity, CO2, Filter Timer
- * Switches: System On/Off, Standby
- * Numbers: Fan Speed, Boost Timer
- * Select: Operation Mode
- * Button: Bypass Control
+ * Sensors: Temperatures, Humidity, CO2, Filter Status
+ * Switches: System On/Off, Boost Switch
+ * Binary sensors: Boost Active
+ * Numbers: Fan Speed (1-5), Temperature Setpoint
+ * Select: Operation Mode, Bypass Control
  */
 
 import { connectMqtt, publish, subscribe, isMqttConnected, getMqttClient } from "./mqtt-client";
@@ -89,6 +89,17 @@ function discoverSwitch(uniqueId: string, name: string): void {
   });
 }
 
+function discoverBinarySensor(uniqueId: string, name: string): void {
+  publishDiscovery("binary_sensor", uniqueId, {
+    name,
+    state_topic: getStateTopic(uniqueId),
+    availability_topic: getAvailabilityTopic(),
+    payload_on: "ON",
+    payload_off: "OFF",
+    value_template: "{{ value }}",
+  });
+}
+
 function discoverNumber(uniqueId: string, name: string, unit: string | null, min: number, max: number, step: number = 1, deviceClass: string | null = null): void {
   publishDiscovery("number", uniqueId, {
     name,
@@ -149,35 +160,41 @@ export async function discoverDevice(deviceId: number): Promise<void> {
   publishAvailability(true);
 
   for (const reg of registers) {
-    const uniqueId = `reg_${reg.address}`;
+    // Include the register type in the unique id so registers that share an
+    // address across tables (e.g. holding@2 Fan Speed vs input@2 Supply temp)
+    // never collide on the same MQTT topic.
+    const uniqueId = `${reg.type}_${reg.address}`;
 
     if (reg.name.includes("Temperature") && reg.name.includes("Setpoint") && reg.isWritable) {
       // Schreibbarer Raum-Sollwert (Heizregister) → HA-Number, nicht Nur-Lese-Sensor.
       discoverNumber(uniqueId, reg.name, reg.unit || "°C", 15, 30, 1, "temperature");
     } else if (reg.name.includes("Temperature") || reg.name.includes("Outdoor") || reg.name.includes("Supply") || reg.name.includes("Extract") || reg.name.includes("Exhaust")) {
-      const deviceClass = "temperature";
-      const stateClass = "measurement";
-      const unit = reg.unit || "°C";
-      discoverSensor(uniqueId, reg.name, unit, deviceClass, stateClass);
+      discoverSensor(uniqueId, reg.name, reg.unit || "°C", "temperature", "measurement");
     } else if (reg.name.includes("Humidity")) {
       discoverSensor(uniqueId, reg.name, "%", "humidity", "measurement");
     } else if (reg.name.includes("CO2")) {
       discoverSensor(uniqueId, reg.name, "ppm", "carbon_dioxide", "measurement");
-    } else if (reg.name.includes("Filter Timer")) {
-      discoverSensor(uniqueId, reg.name, "h", "duration", "measurement");
+    } else if (reg.name.includes("Filter Status")) {
+      // Read-only enum status → plain sensor publishing the mapped label.
+      discoverSensor(uniqueId, reg.name, null);
     } else if (reg.name.includes("System State") && reg.isWritable) {
-      discoverSwitch(uniqueId, reg.name.replace(" (0:Off, 1:On)", ""));
-    } else if (reg.name.includes("Standby") && reg.isWritable) {
       discoverSwitch(uniqueId, reg.name);
+    } else if (reg.name.includes("Boost Switch")) {
+      // Writable boost-switch enable (coil) → switch; read-only falls back to binary sensor.
+      if (reg.isWritable) {
+        discoverSwitch(uniqueId, reg.name);
+      } else {
+        discoverBinarySensor(uniqueId, reg.name);
+      }
+    } else if (reg.name.includes("Boost Active")) {
+      discoverBinarySensor(uniqueId, reg.name);
     } else if (reg.name.includes("Fan Speed") && reg.isWritable) {
-      discoverNumber(uniqueId, reg.name.replace(" (0:Low, 1:Med, 2:High)", ""), null, 0, 3, 1);
-    } else if (reg.name.includes("Boost Timer") && reg.isWritable) {
-      discoverNumber(uniqueId, reg.name, "min", 0, 60, 1);
+      discoverNumber(uniqueId, reg.name, null, 1, 5, 1);
     } else if (reg.name.includes("Operation Mode") && reg.isWritable) {
       const options = reg.options ? Object.values(reg.options) as string[] : ["Lüftung", "Heizung", "Kühlung", "Auto"];
       discoverSelect(uniqueId, reg.name, options);
     } else if (reg.name.includes("Bypass") && reg.isWritable) {
-      const options = reg.options ? Object.values(reg.options) as string[] : ["Auto", "Offen", "Geschlossen"];
+      const options = reg.options ? Object.values(reg.options) as string[] : ["Geschlossen", "Offen", "Auto"];
       discoverSelect(uniqueId, reg.name, options);
     } else {
       // Generic sensor
@@ -194,11 +211,11 @@ export async function publishRegisterStates(deviceId: number): Promise<void> {
 
   const registers = await storage.getRegisters(deviceId);
   for (const reg of registers) {
-    const uniqueId = `reg_${reg.address}`;
+    const uniqueId = `${reg.type}_${reg.address}`;
     let value = reg.lastValue ?? "unavailable";
 
-    // Format switch values
-    if (reg.name.includes("System State") || reg.name.includes("Standby")) {
+    // Format switch / binary states (System State, Boost Switch, Boost Active)
+    if (reg.name.includes("System State") || reg.name.includes("Boost")) {
       value = value === "1" || value === "true" ? "ON" : "OFF";
     }
 
@@ -231,18 +248,20 @@ export async function setupCommandHandlers(): Promise<void> {
   // Subscribe to all command topics
   subscribe(`blauberg/${DEVICE_ID}/+/set`, async (topic, message) => {
     const payload = message.toString();
-    const regex = new RegExp(`blauberg/${DEVICE_ID}/reg_(\\d+)/set`);
+    const regex = new RegExp(`blauberg/${DEVICE_ID}/([a-z]+)_(\\d+)/set`);
     const match = topic.match(regex);
     if (!match) return;
 
-    const address = parseInt(match[1], 10);
-    console.log(`[MQTT] Received command for register ${address}: ${payload}`);
+    const regType = match[1];
+    const address = parseInt(match[2], 10);
+    const uniqueId = `${regType}_${address}`;
+    console.log(`[MQTT] Received command for ${uniqueId}: ${payload}`);
 
-    // Find device with this register
+    // Find device with this register (matched by type AND address)
     const devices = await storage.getDevices();
     for (const device of devices) {
       const registers = await storage.getRegisters(device.id);
-      const reg = registers.find((r) => r.address === address);
+      const reg = registers.find((r) => r.type === regType && r.address === address);
       if (!reg || !reg.isWritable) continue;
 
       // Parse payload based on register type
@@ -265,12 +284,16 @@ export async function setupCommandHandlers(): Promise<void> {
       try {
         const { getModbusClient } = await import("./modbus");
         const client = await getModbusClient(device.id, device.ip, device.port, device.slaveId);
-        await client.writeSingleRegister(address, value);
+        if (reg.type === "coil") {
+          await client.writeSingleCoil(address, Boolean(value));
+        } else {
+          await client.writeSingleRegister(address, value);
+        }
         await storage.updateRegisterValue(reg.id, payload);
-        publishState(`reg_${address}`, payload);
-        console.log(`[MQTT] Wrote ${value} to register ${address}`);
+        publishState(uniqueId, payload);
+        console.log(`[MQTT] Wrote ${value} to ${reg.type} register ${address}`);
       } catch (err) {
-        console.error(`[MQTT] Failed to write to register ${address}:`, err);
+        console.error(`[MQTT] Failed to write to ${reg.type} register ${address}:`, err);
       }
     }
   });

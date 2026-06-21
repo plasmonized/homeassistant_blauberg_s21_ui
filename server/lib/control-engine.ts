@@ -98,11 +98,11 @@ export async function runTemperatureControl(
     kp = 2.0,
     ki = 0.1,
     kd = 0.5,
-    outputMin = 0,
-    outputMax = 3,
+    outputMin = 1,
+    outputMax = 5,
   } = params;
 
-  // PID control outputs fan speed (0-3)
+  // PID control outputs fan speed (1-5)
   const output = pidControl(profileId, measuredValue, setpoint, kp, ki, kd, outputMin, outputMax, 30_000);
   const fanSpeed = Math.round(output);
 
@@ -124,8 +124,8 @@ export async function runHumidityControl(
     kp = 1.0,
     ki = 0.05,
     kd = 0.2,
-    outputMin = 0,
-    outputMax = 3,
+    outputMin = 1,
+    outputMax = 5,
   } = params;
 
   const output = pidControl(profileId, measuredValue, setpoint, kp, ki, kd, outputMin, outputMax, 30_000);
@@ -149,8 +149,8 @@ export async function runCo2Control(
     kp = 0.005,
     ki = 0.0001,
     kd = 0.001,
-    outputMin = 0,
-    outputMax = 3,
+    outputMin = 1,
+    outputMax = 5,
     emergencyThreshold = 1200,
   } = params;
 
@@ -158,7 +158,7 @@ export async function runCo2Control(
   if (measuredValue > emergencyThreshold) {
     return {
       actionType: "fan_speed",
-      value: 3,
+      value: 5,
       reason: `CO2 NOTFALL: ${measuredValue}ppm > ${emergencyThreshold}ppm, max Lüftung!`,
     };
   }
@@ -217,7 +217,7 @@ export async function runNightSetback(
     nightStart = "22:00",
     nightEnd = "06:00",
     fanSpeedDay = 1,
-    fanSpeedNight = 0,
+    fanSpeedNight = 1,
   } = params;
 
   const [nightStartH, nightStartM] = nightStart.split(":").map(Number);
@@ -241,7 +241,7 @@ export async function runNightSetback(
 
   // If temperature is far from setpoint, increase fan speed
   const deviation = Math.abs(indoorTemp - setpoint);
-  const adjustedFanSpeed = deviation > 2 ? Math.min(3, fanSpeed + 1) : fanSpeed;
+  const adjustedFanSpeed = deviation > 2 ? Math.min(5, fanSpeed + 1) : fanSpeed;
 
   return {
     actionType: "fan_speed",
@@ -265,7 +265,7 @@ export async function runWeatherCompensated(
     boostThreshold = 2.0,   // Abweichung vom Sollwert, ab der auf Maximum gelüftet wird (°C)
     baseFanSpeed = 1,       // Grundlüftung im Sollbereich (Stufe)
     activeFanSpeed = 2,     // Lüftung beim aktiven Regeln (Stufe)
-    maxFanSpeed = 3,        // Maximale Lüftung beim Boost (Stufe)
+    maxFanSpeed = 5,        // Maximale Lüftung beim Boost (Stufe)
     useHeater = false,      // Integriertes Elektro-Heizregister mitregeln
     heaterFanSpeed = 2,     // Lüfterstufe beim aktiven Heizen (Stufe)
   } = params;
@@ -301,11 +301,13 @@ export async function runWeatherCompensated(
         reason: `Kühlen: innen ${indoorStr}°C > Soll ${roomSetpoint}°C, außen ${outdoorStr}°C kühler → Stufe ${fanSpeed}`,
       }, false);
     }
-    // Außen gleich warm oder wärmer → Lüften würde den Raum weiter aufheizen → AUS
+    // Außen gleich warm oder wärmer → Lüften würde den Raum weiter aufheizen.
+    // Das Gerät kann automatisch nicht abgeschaltet werden (Power = manuell),
+    // daher nur Grundlüftung Stufe 1.
     return withMode({
       actionType: "fan_speed",
-      value: 0,
-      reason: `Lüftung AUS: Raum ${indoorStr}°C bereits zu warm und außen ${outdoorStr}°C nicht kühler – Lüften würde aufheizen`,
+      value: 1,
+      reason: `Minimale Lüftung (Stufe 1): Raum ${indoorStr}°C bereits zu warm und außen ${outdoorStr}°C nicht kühler – stärkeres Lüften würde aufheizen`,
     }, false);
   }
 
@@ -331,11 +333,12 @@ export async function runWeatherCompensated(
       reason: `Heizen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C kälter → Heizregister an, Stufe ${fanSpeed}`,
     }, true);
   }
-  // Kein Heizregister aktiviert → Lüftung aus, damit der Raum nicht weiter auskühlt.
+  // Kein Heizregister aktiviert → nur Grundlüftung, damit der Raum nicht weiter
+  // auskühlt. Power = manuell, daher kein automatisches Abschalten.
   return {
     actionType: "fan_speed",
-    value: 0,
-    reason: `Lüftung AUS: Raum ${indoorStr}°C bereits zu kalt und außen ${outdoorStr}°C nicht wärmer – Lüften würde abkühlen (Heizregister nicht aktiviert)`,
+    value: 1,
+    reason: `Minimale Lüftung (Stufe 1): Raum ${indoorStr}°C bereits zu kalt und außen ${outdoorStr}°C nicht wärmer – stärkeres Lüften würde abkühlen (Heizregister nicht aktiviert)`,
   };
 }
 

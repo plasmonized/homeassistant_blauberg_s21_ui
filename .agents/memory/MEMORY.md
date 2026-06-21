@@ -1,2 +1,1 @@
-- [Control engine sensor & ventilation rules](control-engine-rules.md) — register-name matching, external-sensor opt-in, and the "no-harm" weather-compensated principle for the S21 addon.
-- [Modbus connection & simulator rules](modbus-connection-rules.md) — shared socket needs request serialization; sim must build ModbusTCPServer once — both else cause FC-mismatch errors.
+- [S21 register map sync](s21-register-map.md) — register changes must update THREE encodings (canonical map, MQTT discovery, native HA Python component) or stale entities ship.

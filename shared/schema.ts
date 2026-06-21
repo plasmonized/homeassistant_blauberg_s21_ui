@@ -71,7 +71,7 @@ export const automationRules = pgTable("automation_rules", {
   sensorType: text("sensor_type", { enum: ["outdoor_temp", "indoor_temp", "humidity", "co2", "forecast_temp"] }).notNull(),
   operator: text("operator", { enum: ["gt", "lt", "gte", "lte", "eq"] }).notNull(),
   threshold: integer("threshold").notNull(),
-  actionType: text("action_type", { enum: ["fan_speed", "bypass", "mode", "boost", "standby"] }).notNull(),
+  actionType: text("action_type", { enum: ["fan_speed", "bypass", "mode", "boost"] }).notNull(),
   actionValue: integer("action_value").notNull(),
   timeFrom: text("time_from"),
   timeTo: text("time_to"),

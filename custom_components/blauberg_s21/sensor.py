@@ -14,21 +14,23 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Blauberg S21 sensors."""
     sensors = [
-        BlaubergSensor("Intake Temperature", UnitOfTemperature.CELSIUS, 10, SensorDeviceClass.TEMPERATURE),
-        BlaubergSensor("Extract Temperature", UnitOfTemperature.CELSIUS, 11, SensorDeviceClass.TEMPERATURE),
-        BlaubergSensor("Humidity", PERCENTAGE, 12, SensorDeviceClass.HUMIDITY),
-        BlaubergSensor("CO2 Level", CONCENTRATION_PARTS_PER_MILLION, 13, SensorDeviceClass.CO2),
-        BlaubergSensor("Filter Remaining", "h", 20, None),
+        BlaubergSensor("Outdoor Temperature", UnitOfTemperature.CELSIUS, 1, SensorDeviceClass.TEMPERATURE),
+        BlaubergSensor("Supply Temperature", UnitOfTemperature.CELSIUS, 2, SensorDeviceClass.TEMPERATURE),
+        BlaubergSensor("Extract Temperature", UnitOfTemperature.CELSIUS, 3, SensorDeviceClass.TEMPERATURE),
+        BlaubergSensor("Exhaust Temperature", UnitOfTemperature.CELSIUS, 4, SensorDeviceClass.TEMPERATURE),
+        BlaubergSensor("Humidity", PERCENTAGE, 10, SensorDeviceClass.HUMIDITY),
+        BlaubergSensor("CO2 Level", CONCENTRATION_PARTS_PER_MILLION, 12, SensorDeviceClass.CO2),
+        BlaubergSensor("Filter Status", None, 31, None),
     ]
     async_add_entities(sensors)
 
 class BlaubergSensor(SensorEntity):
-    """Representation of a Blauberg Sensor."""
+    """Representation of a Blauberg read-only input register."""
 
     def __init__(self, name, unit, address, device_class):
         self._attr_name = f"Blauberg {name}"
         self._attr_native_unit_of_measurement = unit
         self._address = address
         self._attr_device_class = device_class
-        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_state_class = SensorStateClass.MEASUREMENT if device_class is not None else None
         self._attr_native_value = None

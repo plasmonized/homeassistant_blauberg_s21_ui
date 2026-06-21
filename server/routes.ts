@@ -7,11 +7,16 @@ import { getModbusClient } from "./lib/modbus";
 import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulator";
 import { startAutomationEngine, stopAutomationEngine } from "./lib/automation";
 import { discoverHomeAssistantSensors, getHomeAssistantState, isHomeAssistantAvailable } from "./lib/ha-client";
+import { reconcileS21Registers, reconcileAllS21Devices } from "./lib/s21-register-map";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Bring every device's register map in line with the real S21 hardware
+  // BEFORE the automation engine starts polling/writing.
+  await reconcileAllS21Devices();
 
   // Start automation engine on server start
   startAutomationEngine();
@@ -27,36 +32,8 @@ export async function registerRoutes(
       const input = api.devices.create.input.parse(req.body);
       const device = await storage.createDevice(input);
       
-      const defaultRegisters = [
-        { name: "System State (0:Off, 1:On)", address: 1, type: "holding", dataType: "bool", isWritable: true },
-        { name: "Fan Speed (0:Low, 1:Med, 2:High)", address: 2, type: "holding", dataType: "uint16", isWritable: true },
-        { name: "Operation Mode", address: 43, type: "holding", dataType: "enum", isWritable: true, options: { "0": "Lüftung", "1": "Heizung", "2": "Kühlung", "3": "Auto" } },
-        { name: "Temperature Setpoint", address: 44, type: "holding", dataType: "uint16", isWritable: true, unit: "°C", scale: 1 },
-        { name: "Bypass Control", address: 4, type: "holding", dataType: "enum", isWritable: true, options: { "0": "Auto", "1": "Offen", "2": "Geschlossen" } },
-        { name: "Standby Mode", address: 5, type: "holding", dataType: "bool", isWritable: true },
-        { name: "Temperature - Outdoor", address: 10, type: "input", dataType: "int16", unit: "°C", scale: 10 },
-        { name: "Temperature - Supply", address: 11, type: "input", dataType: "int16", unit: "°C", scale: 10 },
-        { name: "Humidity", address: 12, type: "input", dataType: "uint16", unit: "%" },
-        { name: "CO2 Level", address: 13, type: "input", dataType: "uint16", unit: "ppm" },
-        { name: "Temperature - Extract", address: 14, type: "input", dataType: "int16", unit: "°C", scale: 10 },
-        { name: "Temperature - Exhaust", address: 15, type: "input", dataType: "int16", unit: "°C", scale: 10 },
-        { name: "Filter Timer Remaining", address: 20, type: "input", dataType: "uint16", unit: "h" },
-        { name: "Boost Timer (min)", address: 21, type: "holding", dataType: "uint16", isWritable: true },
-      ];
-
-      for (const reg of defaultRegisters) {
-        await storage.createRegister({
-          deviceId: device.id,
-          name: reg.name,
-          address: reg.address,
-          type: reg.type as any,
-          dataType: reg.dataType as any,
-          isWritable: reg.isWritable ?? false,
-          unit: reg.unit ?? null,
-          scale: reg.scale ?? 1,
-          options: reg.options ?? null,
-        });
-      }
+      // Seed the canonical S21 register map (single source of truth).
+      await reconcileS21Registers(device.id);
 
       res.status(201).json(device);
     } catch (err) {
@@ -182,12 +159,20 @@ export async function registerRoutes(
 
       if (register.type === 'holding') {
         let valToPush = Number(value);
+        if (Number.isNaN(valToPush)) {
+          return res.status(400).json({ message: "Value must be a number" });
+        }
+        if (register.name === 'Fan Speed') {
+          valToPush = Math.max(1, Math.min(5, Math.round(valToPush)));
+          value = valToPush;
+        }
         if (register.scale && register.scale !== 1) {
             valToPush = valToPush * register.scale;
         }
         await client.writeSingleRegister(register.address, valToPush);
       } else if (register.type === 'coil') {
-        const val = Boolean(value);
+        const val = value === true || value === 1 || value === '1' || value === 'true';
+        value = val;
         await client.writeSingleCoil(register.address, val);
       } else {
         return res.status(400).json({ message: "Register type not writable" });
@@ -408,8 +393,8 @@ export async function registerRoutes(
           kp: 2.0,
           ki: 0.1,
           kd: 0.5,
-          outputMin: 0,
-          outputMax: 3,
+          outputMin: 1,
+          outputMax: 5,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -430,8 +415,8 @@ export async function registerRoutes(
           kp: 1.0,
           ki: 0.05,
           kd: 0.2,
-          outputMin: 0,
-          outputMax: 3,
+          outputMin: 1,
+          outputMax: 5,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -452,8 +437,8 @@ export async function registerRoutes(
           kp: 0.005,
           ki: 0.0001,
           kd: 0.001,
-          outputMin: 0,
-          outputMax: 3,
+          outputMin: 1,
+          outputMax: 5,
           emergencyThreshold: 1200,
           useExternalSensors: false,
         },
@@ -495,7 +480,7 @@ export async function registerRoutes(
           nightStart: "22:00",
           nightEnd: "06:00",
           fanSpeedDay: 1,
-          fanSpeedNight: 0,
+          fanSpeedNight: 1,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -518,7 +503,7 @@ export async function registerRoutes(
           boostThreshold: 2.0,
           baseFanSpeed: 1,
           activeFanSpeed: 2,
-          maxFanSpeed: 3,
+          maxFanSpeed: 5,
           useExternalSensors: false,
           useHeater: false,
           heaterFanSpeed: 2,
@@ -528,12 +513,12 @@ export async function registerRoutes(
           comfortBand: "Toleranzband um Sollwert (±°C)",
           minOutdoorDelta: "Min. Differenz Außen/Innen (°C)",
           boostThreshold: "Abweichung für max. Lüftung (°C)",
-          baseFanSpeed: "Grundlüftung (Stufe 0–3)",
-          activeFanSpeed: "Lüftung beim Regeln (Stufe 0–3)",
-          maxFanSpeed: "Max. Lüftung (Stufe 0–3)",
+          baseFanSpeed: "Grundlüftung (Stufe 1–5)",
+          activeFanSpeed: "Lüftung beim Regeln (Stufe 1–5)",
+          maxFanSpeed: "Max. Lüftung (Stufe 1–5)",
           useExternalSensors: "Externe Sensoren nutzen",
           useHeater: "Heizregister nutzen (bei Kälte heizen)",
-          heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 0–3)",
+          heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–5)",
         },
       },
     };
