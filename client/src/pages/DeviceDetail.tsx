@@ -1,13 +1,14 @@
-import { useParams, Link } from "wouter";
-import { useDevice, useConnectDevice, usePollDevice } from "@/hooks/use-devices";
+import { useParams, Link, useLocation } from "wouter";
+import { useDevice, useConnectDevice, usePollDevice, useDevices, useDeleteDevice } from "@/hooks/use-devices";
 import { useRegisters } from "@/hooks/use-registers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot, CheckCircle2, Clock, Thermometer, Droplets, Wind, Sun, Moon } from "lucide-react";
+import { RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot, CheckCircle2, Clock, Thermometer, Droplets, Wind, Sun, Moon, Trash2 } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
+import { AddDeviceDialog } from "@/components/AddDeviceDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 import { AutomationPanel } from "@/components/AutomationPanel";
@@ -95,6 +96,10 @@ export default function DeviceDetail() {
 
   const connectMutation = useConnectDevice();
   const pollMutation = usePollDevice();
+  const { data: allDevices } = useDevices();
+  const deleteDevice = useDeleteDevice();
+  const [, navigate] = useLocation();
+  const otherDevices = (allDevices ?? []).filter(d => d.id !== deviceId);
 
   if (isDeviceLoading) return <div className="p-8"><Skeleton className="h-12 w-64 mb-4" /><Skeleton className="h-64 w-full" /></div>;
   if (!device) return <div className="p-8 text-center text-muted-foreground">Device not found</div>;
@@ -125,11 +130,6 @@ export default function DeviceDetail() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <Link href="/">
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-              </Link>
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold tracking-tight">{device.name}</h1>
@@ -356,6 +356,63 @@ export default function DeviceDetail() {
                   </div>
                 </div>
               </div>
+            </div>
+            <Separator />
+
+            {/* Anlage wechseln (nur bei mehreren Anlagen) */}
+            {otherDevices.length > 0 && (
+              <div>
+                <h3 className="text-base font-semibold mb-3">Anlage wechseln</h3>
+                <div className="space-y-2">
+                  {otherDevices.map(d => (
+                    <Link key={d.id} href={`/devices/${d.id}`}>
+                      <Button variant="outline" className="w-full justify-between" size="sm" data-testid={`button-switch-device-${d.id}`}>
+                        {d.name}
+                        <Badge variant={d.isConnected ? "success" : "secondary"} className="text-xs">
+                          {d.isConnected ? "Online" : "Offline"}
+                        </Badge>
+                      </Button>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Weitere Anlage hinzufügen */}
+            <div>
+              <h3 className="text-base font-semibold mb-3">Weitere Anlage hinzufügen</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Füge eine weitere S21 Lüftungsanlage hinzu. Du kannst jederzeit im Einstellungen-Tab zwischen Anlagen wechseln.
+              </p>
+              <AddDeviceDialog />
+            </div>
+
+            <Separator />
+
+            {/* Gefahrenzone */}
+            <div>
+              <h3 className="text-base font-semibold text-destructive mb-3">Gefahrenzone</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Die Anlage wird aus der App entfernt. Alle gespeicherten Register, Automatisierungen und Profile werden gelöscht.
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={deleteDevice.isPending}
+                data-testid="button-delete-device"
+                onClick={() => {
+                  if (confirm(`"${device.name}" wirklich entfernen?`)) {
+                    deleteDevice.mutate(deviceId, {
+                      onSuccess: () => navigate("/"),
+                    });
+                  }
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {deleteDevice.isPending ? "Wird entfernt..." : "Anlage entfernen"}
+              </Button>
             </div>
           </TabsContent>
         </Tabs>
