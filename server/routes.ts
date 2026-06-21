@@ -408,7 +408,7 @@ export async function registerRoutes(
           ki: 0.1,
           kd: 0.5,
           outputMin: 0,
-          outputMax: 2,
+          outputMax: 3,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -430,7 +430,7 @@ export async function registerRoutes(
           ki: 0.05,
           kd: 0.2,
           outputMin: 0,
-          outputMax: 2,
+          outputMax: 3,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -452,7 +452,7 @@ export async function registerRoutes(
           ki: 0.0001,
           kd: 0.001,
           outputMin: 0,
-          outputMax: 2,
+          outputMax: 3,
           emergencyThreshold: 1200,
           useExternalSensors: false,
         },

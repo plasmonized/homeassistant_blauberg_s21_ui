@@ -111,10 +111,10 @@ export async function runTemperatureControl(
     ki = 0.1,
     kd = 0.5,
     outputMin = 0,
-    outputMax = 2,
+    outputMax = 3,
   } = params;
 
-  // PID control outputs fan speed (0-2)
+  // PID control outputs fan speed (0-3)
   const output = pidControl(profileId, measuredValue, setpoint, kp, ki, kd, outputMin, outputMax, 30_000);
   const fanSpeed = Math.round(output);
 
@@ -137,7 +137,7 @@ export async function runHumidityControl(
     ki = 0.05,
     kd = 0.2,
     outputMin = 0,
-    outputMax = 2,
+    outputMax = 3,
   } = params;
 
   const output = pidControl(profileId, measuredValue, setpoint, kp, ki, kd, outputMin, outputMax, 30_000);
@@ -162,7 +162,7 @@ export async function runCo2Control(
     ki = 0.0001,
     kd = 0.001,
     outputMin = 0,
-    outputMax = 2,
+    outputMax = 3,
     emergencyThreshold = 1200,
   } = params;
 
@@ -170,7 +170,7 @@ export async function runCo2Control(
   if (measuredValue > emergencyThreshold) {
     return {
       actionType: "fan_speed",
-      value: 2,
+      value: 3,
       reason: `CO2 NOTFALL: ${measuredValue}ppm > ${emergencyThreshold}ppm, max Lüftung!`,
     };
   }
@@ -253,7 +253,7 @@ export async function runNightSetback(
 
   // If temperature is far from setpoint, increase fan speed
   const deviation = Math.abs(indoorTemp - setpoint);
-  const adjustedFanSpeed = deviation > 2 ? Math.min(2, fanSpeed + 1) : fanSpeed;
+  const adjustedFanSpeed = deviation > 2 ? Math.min(3, fanSpeed + 1) : fanSpeed;
 
   return {
     actionType: "fan_speed",
@@ -283,9 +283,9 @@ export async function runWeatherCompensated(
 
   // Adjust fan speed based on difference between indoor temp and setpoint
   const deviation = indoorTemp - roomSetpoint;
-  let fanSpeed = 1;
-  if (deviation > 1.5) fanSpeed = 0; // Too warm - reduce
-  else if (deviation < -1.5) fanSpeed = 2; // Too cold - boost
+  let fanSpeed = 2;
+  if (deviation > 1.5) fanSpeed = 1; // Too warm - reduce
+  else if (deviation < -1.5) fanSpeed = 3; // Too cold - boost
 
   return {
     actionType: "fan_speed",
