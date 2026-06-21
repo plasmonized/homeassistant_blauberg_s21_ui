@@ -1,0 +1,85 @@
+2026-06-21 21:18:08.610 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/d5369777 repository from https://github.com/music-assistant/home-assistant-addon
+2026-06-21 21:18:08.611 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/a0d7b954 repository from https://github.com/hassio-addons/repository
+2026-06-21 21:18:08.612 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/5c53de3b repository from https://github.com/esphome/home-assistant-addon
+2026-06-21 21:18:08.612 INFO (MainThread) [supervisor.store.git] Update app /data/apps/core repository from https://github.com/home-assistant/addons
+2026-06-21 21:18:08.612 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/a31385ec repository from https://github.com/muexxl/ha_addons
+2026-06-21 21:18:08.612 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/45df7312 repository from https://github.com/zigbee2mqtt/hassio-zigbee2mqtt
+2026-06-21 21:18:08.613 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/9538bf78 repository from https://github.com/Duetting/ha_eos_addon
+2026-06-21 21:18:08.613 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/d5f40609 repository from https://github.com/snowzach/hassio-addons
+2026-06-21 21:18:08.613 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/106524b7 repository from http://github.com/motion-ai/addons
+2026-06-21 21:18:08.613 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/ccab4aaf repository from https://github.com/blakeblackshear/frigate-hass-addons
+2026-06-21 21:18:08.613 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/9cf1ea8f repository from https://github.com/GollumDom/addon-repository
+2026-06-21 21:18:08.614 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/c7657554 repository from https://github.com/jakowenko/double-take-hassio-addons
+2026-06-21 21:18:08.614 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/855a9a00 repository from https://github.com/ohand/ha_addons
+2026-06-21 21:18:08.614 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/4696b1a1 repository from https://github.com/lindehoff/addon-open-webui
+2026-06-21 21:18:08.614 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/49686a9f repository from https://github.com/evcc-io/hassio-addon
+2026-06-21 21:18:08.614 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/33bc0f7c repository from https://github.com/MaStr/batcontrol_ha_addon
+2026-06-21 21:18:08.615 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/a889bffc repository from https://github.com/AlexxIT/hassio-addons
+2026-06-21 21:18:08.615 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/fe49a976 repository from https://github.com/AndBobsYourUncle/hassio-addons
+2026-06-21 21:18:08.615 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/ec97c697 repository from https://github.com/grinco/HASS-coral-rest-api
+2026-06-21 21:18:08.615 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/883160d1 repository from https://github.com/plasmonized/mioty-homeassistant-addon
+2026-06-21 21:18:08.616 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/de838cd8 repository from https://github.com/jens-maus/RaspberryMatic
+2026-06-21 21:18:08.616 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/0a1cf975 repository from https://github.com/plasmonized/homeassistant_blauberg_s21_ui
+2026-06-21 21:18:08.616 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/68152197 repository from https://github.com/OttPeterR/addon-babybuddy
+2026-06-21 21:18:08.616 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/db21ed7f repository from https://github.com/alexbelgium/hassio-addons
+2026-06-21 21:18:12.821 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7']. Please report this to the maintainer of pnproxy (master)
+2026-06-21 21:18:12.822 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7']. Please report this to the maintainer of go2rtc (dev)
+2026-06-21 21:18:12.823 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7', 'armhf']. Please report this to the maintainer of SSH Tunnel
+2026-06-21 21:18:12.824 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7']. Please report this to the maintainer of go2rtc (master)
+2026-06-21 21:18:12.826 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7', 'armhf']. Please report this to the maintainer of Smart Scale Connect (master)
+2026-06-21 21:18:12.829 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7']. Please report this to the maintainer of go2rtc
+2026-06-21 21:18:12.830 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7', 'armhf']. Please report this to the maintainer of Smart Scale Connect
+2026-06-21 21:18:13.139 WARNING (SyncWorker_1) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of Batcontrol
+2026-06-21 21:18:13.195 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of Log Viewer
+2026-06-21 21:18:13.195 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'Log Viewer' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.
+2026-06-21 21:18:13.197 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'Traccar' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.
+2026-06-21 21:18:13.224 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'SQLite Web' uses deprecated 'advanced' field in config. This field is ignored by the Supervisor. Please report this to the maintainer.
+2026-06-21 21:18:13.240 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of InfluxDB
+2026-06-21 21:18:13.240 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'InfluxDB' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.
+2026-06-21 21:18:13.242 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'Folding@home' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.
+2026-06-21 21:18:13.249 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of Overseerr
+2026-06-21 21:18:13.249 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'Overseerr' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.
+2026-06-21 21:18:13.252 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of MQTT IO
+2026-06-21 21:18:13.252 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'MQTT IO' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.
+2026-06-21 21:18:13.256 WARNING (SyncWorker_6) [supervisor.store.data] Can't read translations from /data/apps/git/a0d7b954/adguard/translations/nl.yaml - expected str for dictionary value @ data['network']['53/udp']
+2026-06-21 21:18:13.257 WARNING (SyncWorker_6) [supervisor.store.data] Can't read translations from /data/apps/git/a0d7b954/adguard/translations/en.yaml - expected str for dictionary value @ data['network']['53/udp']
+2026-06-21 21:18:13.264 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of Nginx Proxy Manager
+2026-06-21 21:18:13.264 WARNING (SyncWorker_6) [supervisor.apps.validate] App 'Nginx Proxy Manager' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.
+2026-06-21 21:18:13.268 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of Ambianic Edge
+2026-06-21 21:18:13.270 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7', 'armhf']. Please report this to the maintainer of Pharos Server
+2026-06-21 21:18:13.271 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['i386', 'armv7']. Please report this to the maintainer of Motion Classic
+2026-06-21 21:18:13.275 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of Label Studio
+2026-06-21 21:18:13.281 WARNING (SyncWorker_5) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of Blauberg S21 Ventilation Controller
+2026-06-21 21:18:13.285 WARNING (SyncWorker_4) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of RTS2P
+2026-06-21 21:18:13.286 WARNING (SyncWorker_4) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of DOODS-cuda
+2026-06-21 21:18:13.288 WARNING (SyncWorker_4) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of DOODS2
+2026-06-21 21:18:13.289 WARNING (SyncWorker_4) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of DOODS-amd64
+2026-06-21 21:18:13.304 WARNING (SyncWorker_1) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of mioty Application Center für Homeassistant
+2026-06-21 21:18:13.336 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of Double Take
+2026-06-21 21:18:13.337 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armv7']. Please report this to the maintainer of DeepStack
+2026-06-21 21:18:13.339 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of Double Take Proxy
+2026-06-21 21:18:13.342 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of USPS Package Tracker
+2026-06-21 21:18:13.343 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'devices' uses a deprecated format instead of a list of paths only. Please report this to the maintainer of Google Assistant Webserver
+2026-06-21 21:18:13.343 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf']. Please report this to the maintainer of Google Assistant Webserver
+2026-06-21 21:18:13.363 WARNING (SyncWorker_5) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of evcc
+2026-06-21 21:18:13.367 ERROR (SyncWorker_5) [supervisor.utils.yaml] Can't read YAML file /data/apps/git/49686a9f/evcc-nightly/translations/en.yaml - while parsing a block mapping
+  in "/data/apps/git/49686a9f/evcc-nightly/translations/en.yaml", line 1, column 1
+did not find expected key
+  in "/data/apps/git/49686a9f/evcc-nightly/translations/en.yaml", line 27, column 2
+2026-06-21 21:18:13.367 WARNING (SyncWorker_5) [supervisor.store.data] Can't read translations from /data/apps/git/49686a9f/evcc-nightly/translations/en.yaml - Can't read YAML file /data/apps/git/49686a9f/evcc-nightly/translations/en.yaml - while parsing a block mapping
+  in "/data/apps/git/49686a9f/evcc-nightly/translations/en.yaml", line 1, column 1
+did not find expected key
+  in "/data/apps/git/49686a9f/evcc-nightly/translations/en.yaml", line 27, column 2
+2026-06-21 21:18:13.383 WARNING (SyncWorker_4) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of Frigate Proxy
+2026-06-21 21:18:13.467 WARNING (SyncWorker_3) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of Batcontrol - dev@ohAnd
+2026-06-21 21:18:13.493 WARNING (SyncWorker_3) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of TRMNL Server
+2026-06-21 21:18:13.531 WARNING (SyncWorker_6) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7', 'i386']. Please report this to the maintainer of CORAL TPU Rest API
+2026-06-21 21:18:13.550 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of Aldes 2 MQTT
+2026-06-21 21:18:13.557 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of LaMeteoAgricole 2 MQTT
+2026-06-21 21:18:13.567 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of Open Media Vault 2 MQTT
+2026-06-21 21:18:13.571 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of Synology Download Station 2 MQTT
+2026-06-21 21:18:13.574 WARNING (SyncWorker_0) [supervisor.apps.validate] App config 'arch' uses deprecated values ['armhf', 'armv7']. Please report this to the maintainer of MQTT Explorer
+2026-06-21 21:18:13.710 INFO (MainThread) [supervisor.store] Loading apps from store: 274 all - 0 new - 0 remove
+2026-06-21 21:18:16.739 WARNING (MainThread) [supervisor.apps.build] App 0a1cf975_blauberg_s21_ventilation uses build.yaml which is deprecated. Move build parameters into the Dockerfile directly.
+2026-06-21 21:18:16.740 INFO (MainThread) [supervisor.docker.app] Starting build for 0a1cf975/amd64-addon-blauberg_s21_ventilation:0.1.1
+2026-06-21 21:18:16.742 INFO (MainThread) [supervisor.docker.manager] Running command '['docker', 'buildx', 'build', '.', '--tag', '0a1cf975/amd64-addon-blauberg_s21_ventilation:0.1.1', '--file', 'Dockerfile', '--platform', 'linux/amd64', '--pull', '--label', 'io.hass.version=0.1.1', '--label', 'io.hass.arch=amd64', '--label', 'io.hass.type=app', '--label', 'org.opencontainers.image.title=Blauberg S21 Ventilation Controller', '--label', 'org.opencontainers.image.description=Modbus TCP Steuerung für Blauberg S21 Lüftungsgeräte', '--label', 'org.opencontainers.image.source=https://github.com/plasmonized/homeassistant_blauberg_s21_ui', '--label', 'org.opencontainers.image.licenses=MIT', '--label', 'io.hass.name=Blauberg S21 Ventilation Controller', '--label', 'io.hass.description=Modbus TCP Steuerung und Automation für Blauberg S21 Lüftungsgeräte mit Home Assistant Integration', '--build-arg', 'BUILD_VERSION=0.1.1', '--build-arg', 'BUILD_ARCH=amd64', '--build-arg', 'BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.21']' on docker:29.3.1-cli
