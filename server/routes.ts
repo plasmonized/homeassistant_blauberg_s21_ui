@@ -30,8 +30,9 @@ export async function registerRoutes(
       const defaultRegisters = [
         { name: "System State (0:Off, 1:On)", address: 1, type: "holding", dataType: "bool", isWritable: true },
         { name: "Fan Speed (0:Low, 1:Med, 2:High)", address: 2, type: "holding", dataType: "uint16", isWritable: true },
-        { name: "Operation Mode", address: 3, type: "holding", dataType: "enum", isWritable: true, options: { "0": "Ventilation", "1": "Heating", "2": "Cooling", "3": "Auto" } },
-        { name: "Bypass Control (0:Auto, 1:Open, 2:Closed)", address: 4, type: "holding", dataType: "uint16", isWritable: true },
+        { name: "Operation Mode", address: 43, type: "holding", dataType: "enum", isWritable: true, options: { "0": "Lüftung", "1": "Heizung", "2": "Kühlung", "3": "Auto" } },
+        { name: "Temperature Setpoint", address: 44, type: "holding", dataType: "uint16", isWritable: true, unit: "°C", scale: 1 },
+        { name: "Bypass Control", address: 4, type: "holding", dataType: "enum", isWritable: true, options: { "0": "Auto", "1": "Offen", "2": "Geschlossen" } },
         { name: "Standby Mode", address: 5, type: "holding", dataType: "bool", isWritable: true },
         { name: "Temperature - Outdoor", address: 10, type: "input", dataType: "int16", unit: "°C", scale: 10 },
         { name: "Temperature - Supply", address: 11, type: "input", dataType: "int16", unit: "°C", scale: 10 },
@@ -519,6 +520,8 @@ export async function registerRoutes(
           activeFanSpeed: 2,
           maxFanSpeed: 3,
           useExternalSensors: false,
+          useHeater: false,
+          heaterFanSpeed: 2,
         },
         paramLabels: {
           roomSetpoint: "Raum-Sollwert (°C)",
@@ -529,6 +532,8 @@ export async function registerRoutes(
           activeFanSpeed: "Lüftung beim Regeln (Stufe 0–3)",
           maxFanSpeed: "Max. Lüftung (Stufe 0–3)",
           useExternalSensors: "Externe Sensoren nutzen",
+          useHeater: "Heizregister nutzen (bei Kälte heizen)",
+          heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 0–3)",
         },
       },
     };

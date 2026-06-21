@@ -25,6 +25,10 @@ function initHoldingBuffer(): Buffer {
   buf.writeUInt16BE(0, 10);
   // Boost Timer (addr 21) = 0
   buf.writeUInt16BE(0, 42);
+  // Operation Mode HR_OPERATION_MODE (addr 43) = 3 (Auto)
+  buf.writeUInt16BE(3, 86);
+  // Temperature Setpoint HR_SetTEMP (addr 44) = 23°C
+  buf.writeUInt16BE(23, 88);
   return buf;
 }
 
@@ -60,15 +64,20 @@ export function startSimulator(port = 5502): Promise<number> {
     const coils = Buffer.alloc(100);
     const discrete = Buffer.alloc(100);
 
-    const netServer = new NetServer((socket) => {
-      const modbusServer = new ModbusTCPServer(netServer, {
-        coils,
-        discrete,
-        holding,
-        input,
-      });
-      modbusServer._onConnection(socket);
+    // ModbusTCPServer's constructor attaches its own 'connection' handler to
+    // the net server and manages each client socket itself. Do NOT pass a
+    // connectionListener to NetServer or call _onConnection manually: doing so
+    // per connection registers duplicate Modbus handlers, so every socket ends
+    // up answered by multiple server instances. The extra responses desync the
+    // client, which then reports "request fc and response fc does not match".
+    const netServer = new NetServer();
+    const modbusServer = new ModbusTCPServer(netServer, {
+      coils,
+      discrete,
+      holding,
+      input,
     });
+    void modbusServer;
 
     netServer.on("error", (err) => {
       if ((err as any).code === "EADDRINUSE") {

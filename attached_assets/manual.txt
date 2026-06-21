@@ -1,0 +1,838 @@
+Modbus-Tabelle zum
+Anschluss der Steuerung S21
+an das BMS
+                 UM ÜBER MODBUS RTU-PROTOKOLL ÜBER DIE RS-485-SCHNITTSTELLE ARBEITEN ZU
+                KÖNNEN, MÜSSEN ALLE DRAHTBEDIENFELDER, DIE ÜBER DIESE SCHNITTSTELLE AN DIE
+                  LÜFTUNGSANLAGE ANGESCHLOSSEN SIND, VOM STROMNETZ GETRENNT WERDEN
+
+
+                   GLEICHZEITIGER BETRIEB ÜBER DIE RS-485-, WI-FI-, ETHERNET-SCHNITTSTELLEN IST
+                                                    ZULÄSSIG
+
+                UM DRAHTBEDIENFELDER ZU VERWENDEN, MUSS DAS BMS ÜBER DIE WI-FI- UND/ODER
+               ETHERNET-SCHNITTSTELLEN ÜBER MODBUS TCP-PROTOKOLL ANGESCHLOSSEN WERDEN
+
+
+MODBUS-PARAMETER
+                                                          Modbus RTU
+    Übertragungsrate         Anzahl der Datenbits          Stoppbits                      Parität                 Adresse
+                                                                                         None
+            9600                                                1                                                   1-16
+                                                                                 (Standardeinstellung)
+           14400                                               1,5                         even          1 (Standardeinstellung)
+           19200                                     2 (Standardeinstellung)               odd
+                                        8
+           38400
+           57600
+           115200
+    (Standardeinstellung)
+                                                          Modbus TCP
+         IP-Adresse*          Schnittstelle   Max. Anzahl gleichzeitiger TCP-Verbindungen                Timeout der TCP-
+                                                                                                           Verbindung
+           Statisch               502                   Für Ethernet = 1, für Wi-Fi = 1                       30 Sekunden
+            DHCP
+     (Standardeinstellung)
+
+*WLAN-IP-Adresse im Zugangspunktmodus - 192.168.4.1
+
+Die Netzwerkparameter RS-485, Wi-Fi, Ethernet für die Lüftungsanlage werden mithilfe einer App eingestellt.
+Maximale Anzahl von Registern in einem Paket: 125 (für 16-Bit-Register) und 2000 (für 1-Bit-Register).
+Unterstützte Modbus-Funktionen: 1, 2, 3, 4, 5, 6, 15, 16.
+
+
+
+
+2
+                                                                                                                                                                 Maßeinheiten
+                                                                                  Beschreibung
+
+
+
+
+                                                                                                                                        Maximalwert
+                                                                                                                          Minimalwert
+
+
+
+
+                                                                                                                                                                                       Abmessung
+                                                                                                                                                      Sollwert
+                             Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                                                Typ
+                                                     Coils (1-Bit-Register) - Modbus-Funktionen: 1, 5, 15
+ 0        R/W   CL_POWER                      Ein-/Ausschaltung der Anlage                                                   0             1          0           —             Bool     1
+ 1        R/W   CL_TIMER                      Timer                                                                          0             1          0           —             Bool     1
+ 2        R/W   СL_WEEK                       Zeitplan                                                                       0             1          0           —             Bool     1
+ 3         R    CL_Boost_MODE                 Boost-Modus                                                                    0             1          —           —             Bool     1
+4          R    СL_FPLC_MODE                  Kaminmodus                                                                     0             1          —           —             Bool     1
+5         R/W   CL_IntRH_CTRL                 Aktivierung des Haupt-Feuchtigkeitssensors                                     0             1          0           —             Bool     1
+6         R/W   CL_ExtRH_CTRL                 Aktivierung des externen Feuchtigkeitssensors                                  0             1          0           —             Bool     1
+7         R/W   CL_IntCO2_CTRL                Aktivierung des Haupt-CO2-Sensors                                              0             1          0           —             Bool     1
+ 8        R/W   CL_ExtCO2_CTRL                Aktivierung des externen CO2-Sensors                                           0             1          0           —             Bool     1
+ 9        R/W   CL_IntPM2_5_CTRL              Aktivierung des Haupt-PM2.5-Sensors                                            0             1          0           —             Bool     1
+10        R/W   СL_ExtPM2_5_CTRL              Aktivierung des externen PM2.5-Sensors                                         0             1          0           —             Bool     1
+11        R/W   CL_IntVOC_CTRL                Aktivierung des Haupt-VOC-Sensors                                              0             1          0           —             Bool     1
+12        R/W   СL_ExtVOC_CTRL                Aktivierung des externen VOC-Sensors                                           0             1          0           —             Bool     1
+13        R/W   CL_BoostSWITCH_CTRL           Eingangsaktivierung für den Boost-Schalter                                     0             1          1           —             Bool     1
+14        R/W   CL_FplcSWITCH_CTRL            Eingangsaktivierung für den Kaminschalter                                      0             1          1           —             Bool     1
+15        R/W   CL_FireALARM_CTRL             Aktivierung des Brandmelders                                                   0             1          0           —             Bool     1
+16        R/W   CL_10V_SENSOR_CTRL            Eingangsaktivierung für externe Steuereinheit 0-10 V                           0             1          0           —             Bool     1
+17         W    CL_RESET_FILTER_TIMER         Zeit der Timer-Countdown zurücksetzen, um den Filter zu ersetzen               1             1          —           —             Bool     1
+18         W    CL_RESET_ALARM                Alle Alarme zurücksetzen                                                       1             1          —           —             Bool     1
+19         W    CL_RESTORE_FACTORY            Werkseinstellungen zurücksetzen                                                1             1          —           —             Bool     1
+20        R/W   CL_CLOUD_CTRL                 Aktivierung der Steuerung über Cloud-Server                                    0             1          0           —             Bool     1
+21        R/W   CL_MinSuAirOutTEMP_CTRL       Überwachung der minimalen Zulufttemperatur in Innenräumen                      0             1          1           —             Bool     1
+22        R/W   CL_WaterPRESS_CTRL            Aktivierung des Wasserdrucksensors des Wärmeträgers                            0             1          1           —             Bool     1
+23        R/W   CL_WaterFLOW_CTRL             Aktivierung des Wasserdurchflusssensors des Wärmeträgers                       0             1          0           —             Bool     1
+24        R/W   СL_WaterHeaterAutoRestart     Aktivierung der automatischen Neustart-Funktion der Lüftungsanlage, wenn       0             1          1           —             Bool     1
+                                              die Rücklauftemperatur unter die Nottemperatur fällt
+25        R/W СL_AutoReductionAirFlow         Automatische Reduzierung des Luftstroms bei Ausfall des Hauptheizregister      0             1            1           --          Bool     1
+                                                  Discrete Inputs (1-Bit-Register) - Modbus-Funktionen: 2
+ 0         R    DI_CurBoostSWITCH          Aktueller Eingangsstatus für den Boost-Schalter                                   0             1          —           —             Bool     1
+ 1         R    DI_CurFplcSWITCH           Aktueller Eingangsstatus für den Kamin-Schalter                                   0             1          —           —             Bool     1
+ 2         R    DI_CurFireALARM            Aktueller Status des Brandmelders                                                 0             1          —           —             Bool     1
+ 3         R    DI_StatusRH                Anzeige der Überschreiten des Feuchtesollwertes                                   0             1          —           —             Bool     1
+ 4         R    DI_StatusCO2               Anzeige der Überschreiten des CO2-Sollwertes                                      0             1          —           —             Bool     1
+ 5         R    DI_StatusPM2_5             Anzeige der Überschreiten des PM2.5-Sollwertes                                    0             1          —           —             Bool     1
+ 6         R    DI_StatusVOC               Anzeige der Überschreiten des VOC-Sollwertes                                      0             1          —           —             Bool     1
+ 7         R    DI_StatusHEATER            Betriebsanzeige des Heizregisters                                                 0             1          —           —             Bool     1
+ 8         R    DI_StatusCOOLER            Betriebsanzeige der Kühlanlage                                                    0             1          —           —             Bool     1
+ 9         R    DI_StatusFanBLOWING        Anzeige des Blasens der Elektro-Heizregistern                                     0             1          —           —             Bool     1
+10         R    DI_CurPreHeaterThermostat Aktueller Eingangsstatus für den Vorheizregister-Thermostat                        0             1          —           —             Bool     1
+11         R    DI_CurMainHeaterThermostat Aktueller Eingangsstatus für den Nachheizregister-Thermostat                      0             1          —           —             Bool     1
+12         R    DI_CurSuFilterPRESS        Aktueller Eingangsstatus für das Differenzdruckrelais des Zuluftfilters           0             1          —           —             Bool     1
+13         R    DI_CurExFilterPRESS        Aktueller Eingangsstatus für das Differenzdruckrelais des Abluftfilters           0             1          —           —             Bool     1
+14         R    DI_CurWaterPRESS           Aktueller Zustand des Wasserdrucksensors des Wärmeträgers                         0             1          —           —             Bool     1
+15         R    DI_CurWaterFLOW            Aktueller Zustand des Wasserdurchflusssensors des Wärmeträgers                    0             1          —           —             Bool     1
+16         R    DI_CurSuFanPRESS           Aktueller Eingangsstatus für das Differenzdruckrelais des Zuluftventilators       0             1          —           —             Bool     1
+17         R    DI_CurExFanPRESS           Aktueller Eingangsstatus für das Differenzdruckrelais des Abluftventilators       0             1          —           —             Bool     1
+18         R    DI_WaterPreheatingStatus   Anzeige der Erwärmung des Rücklauf-Wärmeträgers vor dem Starten der               0             1          —           —             Bool     1
+                                           Lüftungsanlage
+19         R    DI_AlarmCODE0              Alarmanzeige mit Code Nr. 0                                                       0             1          —          —              Bool     1
+20         R    DI_AlarmCODE1              Alarmanzeige mit Code Nr. 1                                                       0             1          —          —              Bool     1
+21         R    DI_AlarmCODE2              Alarmanzeige mit Code Nr. 2                                                       0             1          —          —              Bool     1
+22         R    DI_AlarmCODE3              Alarmanzeige mit Code Nr. 3                                                       0             1          —          —              Bool     1
+23         R    DI_AlarmCODE4              Alarmanzeige mit Code Nr. 4                                                       0             1          —          —              Bool     1
+24         R    DI_AlarmCODE5              Alarmanzeige mit Code Nr. 5                                                       0             1          —          —              Bool     1
+25         R    DI_AlarmCODE6              Alarmanzeige mit Code Nr. 6                                                       0             1          —          —              Bool     1
+26         R    DI_AlarmCODE7              Alarmanzeige mit Code Nr. 7                                                       0             1          —          —              Bool     1
+27         R    DI_AlarmCODE8              Alarmanzeige mit Code Nr. 8                                                       0             1          —          —              Bool     1
+28         R    DI_AlarmCODE9              Alarmanzeige mit Code Nr. 9                                                       0             1          —          —              Bool     1
+29         R    DI_AlarmCODE10             Alarmanzeige mit Code Nr. 10                                                      0             1          —          —              Bool     1
+30         R    DI_AlarmCODE11             Alarmanzeige mit Code Nr. 11                                                      0             1          —          —              Bool     1
+31         R    DI_AlarmCODE12             Alarmanzeige mit Code Nr. 12                                                      0             1          —          —              Bool     1
+32         R    DI_AlarmCODE13             Alarmanzeige mit Code Nr. 13                                                      0             1          —          —              Bool     1
+33         R    DI_AlarmCODE14             Alarmanzeige mit Code Nr. 14                                                      0             1          —          —              Bool     1
+34         R    DI_AlarmCODE15             Alarmanzeige mit Code Nr. 15                                                      0             1          —          —              Bool     1
+35         R    DI_AlarmCODE16             Alarmanzeige mit Code Nr. 16                                                      0             1          —          —              Bool     1
+36         R    DI_AlarmCODE17             Alarmanzeige mit Code Nr. 17                                                      0             1          —          —              Bool     1
+37         R    DI_AlarmCODE18             Alarmanzeige mit Code Nr. 18                                                      0             1          —          —              Bool     1
+38         R    DI_AlarmCODE19             Alarmanzeige mit Code Nr. 19                                                      0             1          —          —              Bool     1
+39         R    DI_AlarmCODE20             Alarmanzeige mit Code Nr. 20                                                      0             1          —          —              Bool     1
+40         R    DI_AlarmCODE21             Alarmanzeige mit Code Nr. 21                                                      0             1          —          —              Bool     1
+
+
+                                                                                                                                                                                       3
+                                                                                                                                                                 Maßeinheiten
+                                                                                  Beschreibung
+
+
+
+
+                                                                                                                                       Maximalwert
+                                                                                                                        Minimalwert
+
+
+
+
+                                                                                                                                                                                            Abmessung
+                                                                                                                                                     Sollwert
+                             Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                                                  Typ
+41        R     DI_AlarmCODE22              Alarmanzeige mit Code Nr. 22                                                   0              1          —           —                Bool        1
+42        R     DI_AlarmCODE23              Alarmanzeige mit Code Nr. 23                                                   0              1          —           —                Bool        1
+43        R     DI_AlarmCODE24              Alarmanzeige mit Code Nr. 24                                                   0              1          —           —                Bool        1
+44        R     DI_AlarmCODE25              Alarmanzeige mit Code Nr. 25                                                   0              1          —           —                Bool        1
+45        R     DI_AlarmCODE26              Alarmanzeige mit Code Nr. 26                                                   0              1          —           —                Bool        1
+46        R     DI_AlarmCODE27              Alarmanzeige mit Code Nr. 27                                                   0              1          —           —                Bool        1
+47        R     DI_AlarmCODE28              Alarmanzeige mit Code Nr. 28                                                   0              1          —           —                Bool        1
+48        R     DI_AlarmCODE29              Alarmanzeige mit Code Nr. 29                                                   0              1          —           —                Bool        1
+49        R     DI_AlarmCODE30              Alarmanzeige mit Code Nr. 30                                                   0              1          —           —                Bool        1
+50        R     DI_AlarmCODE31              Alarmanzeige mit Code Nr. 31                                                   0              1          —           —                Bool        1
+51        R     DI_AlarmCODE32              Alarmanzeige mit Code Nr. 32                                                   0              1          —           —                Bool        1
+52        R     DI_AlarmCODE33              Alarmanzeige mit Code Nr. 33                                                   0              1          —           —                Bool        1
+53        R     DI_AlarmCODE34              Alarmanzeige mit Code Nr. 34                                                   0              1          —           —                Bool        1
+54        R     DI_AlarmCODE35              Alarmanzeige mit Code Nr. 35                                                   0              1          —           —                Bool        1
+55        R     DI_AlarmCODE36              Alarmanzeige mit Code Nr. 36                                                   0              1          —           —                Bool        1
+56        R     DI_AlarmCODE37              Alarmanzeige mit Code Nr. 37                                                   0              1          —           —                Bool        1
+57        R     DI_AlarmCODE38              Alarmanzeige mit Code Nr. 38                                                   0              1          —           —                Bool        1
+58        R     DI_AlarmCODE39              Alarmanzeige mit Code Nr. 39                                                   0              1          —           —                Bool        1
+59        R     DI_AlarmCODE40              Alarmanzeige mit Code Nr. 40                                                   0              1          —           —                Bool        1
+60        R     DI_AlarmCODE41              Alarmanzeige mit Code Nr. 41                                                   0              1          —           —                Bool        1
+61        R     DI_AlarmCODE42              Alarmanzeige mit Code Nr. 42                                                   0              1          —           —                Bool        1
+62        R     DI_AlarmCODE43              Alarmanzeige mit Code Nr. 43                                                   0              1          —           —                Bool        1
+63        R     DI_AlarmCODE44              Alarmanzeige mit Code Nr. 44                                                   0              1          —           —                Bool        1
+64        R     DI_AlarmCODE45              Alarmanzeige mit Code Nr. 45                                                   0              1          —           —                Bool        1
+65        R     DI_AlarmCODE46              Alarmanzeige mit Code Nr. 46                                                   0              1          —           —                Bool        1
+66        R     DI_AlarmCODE47              Alarmanzeige mit Code Nr. 47                                                   0              1          —           —                Bool        1
+67        R     DI_AlarmCODE48              Alarmanzeige mit Code Nr. 48                                                   0              1          —           —                Bool        1
+68        R     DI_AlarmCODE49              Alarmanzeige mit Code Nr. 49                                                   0              1          —           —                Bool        1
+69        R     DI_AlarmCODE50              Alarmanzeige mit Code Nr. 50                                                   0              1          —           —                Bool        1
+70        R     DI_AlarmCODE51              Alarmanzeige mit Code Nr. 51                                                   0              1          —           —                Bool        1
+71        R     DI_AlarmCODE52              Alarmanzeige mit Code Nr. 52                                                   0              1          —           —                Bool        1
+                                               Input Registers (16-Bit-Register) - Modbus-Funktionen: 4
+  0       R     IR_CurSelTEMP               Aktuelle Temperatur des ausgewählten Sensors zur Temperaturregelung        -32768 +32767                 —            °С            Short Int     1
+                                            (siehe HR53).
+                                            Wert 250 = 25,0 °C -32768 - Der Sensor fehlt, +32767 - Kurzschluss
+  1       R     IR_CurTEMP_SuAirIn          Aktuelle Temperatur des Hauptaußenluftsensors vor dem Vorheizen.           -32768 +32767                 —            °С            Short Int     1
+                                            Wert 250 = 25,0 °C -32768 - Der Sensor fehlt, +32767 - Kurzschluss
+  2       R     IR_CurTEMP_SuAirOut         Aktuelle Temperatur des Hauptzuluftsensors am Ausgang der Anlage nach      -32768 +32767                 —            °С            Short Int     1
+                                            dem Nachheizregister.
+                                            Wert 250 = 25,0 ° C -32768 - Der Sensor fehlt, +32767 - Kurzschluss
+  3       R     IR_CurTEMP_ExAirIn          Aktuelle Ablufttemperatur am Eingang der Anlage.                           -32768 +32767                 —            °С            Short Int     1
+                                            Wert 250 = 25,0 °C -32768 - Der Sensor fehlt, +32767 - Kurzschluss
+  4       R     IR_CurTEMP_ExAirOut         Aktuelle Ablufttemperatur am Ausgang der Anlage.                           -32768 +32767                 —            °С            Short Int     1
+                                             Wert 250 = 25,0 °C -32768 - Der Sensor fehlt, +32767 - Kurzschluss
+  5       R     IR_CurTEMP_Ext              Aktuelle Temperatur des externen Temperatursensors (im Bedienfeld).        -32768 +32767                 —            °С            Short Int     1
+                                            Wert 250 = 25,0 °C -32768 - Der Sensor fehlt, +32767 - Kurzschluss
+  6       R     IR_CurTEMP_AfterPreHeater   Aktuelle Temperatur des zusätzlichen Zuluftsensors am Eingang der Anlage   -32768 +32767                   --         °С            Short Int     1
+                                            nach der Vorheizung.
+                                            Wert 250 = 25,0 °C
+                                             -32768 - Der Sensor fehlt,
+                                             +32767 - Kurzschluss
+  7       R     IR_CurTEMP_                 Aktuelle Temperatur des zusätzlichen Zuluftsensors am Ausgang der Anlage   -32768 +32767                   --         °С            Short Int     1
+                BeforeMainHeater            nach dem Nachheizregister.
+                                            Wert 250 = 25,0 °C
+                                             -32768 - Der Sensor fehlt,
+                                             +32767 - Kurzschluss
+  8       R     IR_CurTEMP_Water            Rücklauftemperatur.                                                        -32768 +32767                 —            °С            Short Int     1
+                                            Wert 250 = 25,0 °C -32768 - Der Sensor fehlt, +32767 - Kurzschluss
+  9       R     IR_CurVBAT                  Aktuelle Batteriespannung für RTC.                                             0          5000           —           mV   Unsigned                1
+                                                                                                                                                                      Short Int
+10        R     IR_CurRH_Int                Aktuelle Luftfeuchtigkeit des Hauptsensors. 0 - Der Sensor fehlt               0           100           —            %     Byte                  1
+11        R     IR_CurRH_Ext                Aktuelle Luftfeuchtigkeit des externen Sensors. 0 - Der Sensor fehlt           0           100           —            %     Byte                  1
+12        R     IR_CurCO2_Int               Der aktuelle CO2-Wert des Hauptsensors. 0 - Der Sensor fehlt                   0          10000          —           ppm Unsigned                 1
+                                                                                                                                                                      Short Int
+13        R     IR_CurCO2_Ext               Der aktuelle CO2-Wert des externen Sensors. 0 - Der Sensor fehlt               0          10000          —           ppm Unsigned                 1
+                                                                                                                                                                      Short Int
+14        R     IR_CurPM2_5_Int             Der aktuelle PM2,5-Wert des Hauptsensors. 0 - Der Sensor fehlt                 0          1000           —          µg/m³ Unsigned                1
+                                                                                                                                                                      Short Int
+
+
+  4
+                                                                                                                                                                          Maßeinheiten
+                                                                                 Beschreibung
+
+
+
+
+                                                                                                                                                Maximalwert
+                                                                                                                                 Minimalwert
+
+
+
+
+                                                                                                                                                                                                Abmessung
+                                                                                                                                                              Sollwert
+                             Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                                                         Typ
+15        R     IR_CurPM2_5_Ext         Der aktuelle PM2,5-Wert des externen Sensors. 0 - Der Sensor fehlt                          0          1000           —          µg/m³ Unsigned           1
+                                                                                                                                                                               Short Int
+16        R     IR_CurVOC_Int           Der aktuelle VOC-Wert des Hauptsensors. 0 - Der Sensor fehlt                                0           100           —            %     Byte             1
+17        R     IR_CurVOC_Ext           Der aktuelle VOC-Wert des externen Sensors. 0 - Der Sensor fehlt                            0           100           —            %     Byte             1
+18        R     IR_Cur10V_SENSOR        Aktueller Wert des Sensors 0-10 V                                                           0           100           —            % Unsigned             1
+                                                                                                                                                                               Short Int
+19        R     IR_CurSuAirFLOW         Aktueller Zuluftstromverbrauch                                                              0          10000          —           m³/h Unsigned           1
+                                                                                                                                                                               Short Int
+20        R     IR_CurExAirFLOW         Aktueller Abluftstromverbrauch                                                              0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+21        R     IR_CurSuPRESS           Aktueller Druck im Zuluftkanal                                                              0          10000          —            Pa Unsigned            1
+                                                                                                                                                                               Short Int
+22        R     IR_CurExPRESS           Aktueller Druck im Abluftkanal                                                              0          10000          —            Pa Unsigned            1
+                                                                                                                                                                               Short Int
+23        R     IR_SuRPM                Umdrehungen des Zuluftventilators                                                           0          5000           —           rpm Unsigned            1
+                                                                                                                                                                               Short Int
+24        R     IR_ExRPM                Umdrehungen des Abluftventilators                                                           0          5000           —           rpm Unsigned            1
+                                                                                                                                                                               Short Int
+25        R     IR_CurTIMER_TIME        Aktuelle Countdown-Zeit des Haupttimers                                                     0            59           —           Min.   Byte             2
+                                                                                                                                    0            59           —           Sec.   Byte
+                                                                                                                                                    —                            Byte
+                                                                                                                                    0            23           —          Hours   Byte
+27        R     IR_CurFILTER_TIMER      Countdown-Zeit des Timers vor dem Filterwechsel                                             0            23           —          Hours   Byte             2
+                                                                                                                                    0            59           —           Min.   Byte
+                                                                                                                                    0           365           —           Days Unsigned
+                                                                                                                                                                               Short Int
+29        R     IR_TotalWorkingTime     Motorstunden                                                                                0            23           —          Hours   Byte             2
+                                                                                                                                    0            59           —           Min.   Byte
+                                                                                                                                    0          65535          —           Days Unsigned
+                                                                                                                                                                               Short Int
+31        R     IR_StateFILTER          Filterstatus: 0 - sauber, 1 - der Zuluftfilter ist verstopft, 2 - der Abluftfilter ist      0              3          —            —     Byte             1
+                                        verstopft, 3 - beide Filter sind verstopft oder Auslösen des Filterwechsel-Timers
+                                        (hat eine höhere Priorität)
+32        R     IR_CurWeekSpeed         Aktuelle Lüftungsstufe im zeitgesteuerten Betrieb: 0 - Standby, 1 - erste                   0              5          —           —              Byte     1
+                                        Lüftungsstufe, 2 - zweite Lüftungsstufe, 3 - dritte Lüftungsstufe, 4 - vierte
+                                        Lüftungsstufe, 5 - fünfte Lüftungsstufe
+33        R     IR_CurWeekSetTemp       Aktuelle Temperatureinstellung im zeitgesteuerten Betrieb: 0 - nur Lüftung,                 0           30            —            °С            Byte     1
+                                        +15 ... + 30 °C
+34        R     IR_VerMAIN_FMW          Firmware-Version                                                                            0           255           —          Major   Byte             3
+                                                                                                                                    0           255           —          Minor   Byte
+                                        Datum der Firmware-Version                                                                  1            31           —           Day    Byte
+                                                                                                                                    1            12           —          Month   Byte
+                                                                                                                                    0          65535          —           Year Unsigned
+                                                                                                                                                                               Short Int
+37        R     IR_DeviceTYPE           Typ des Geräts (der Steuereinheit): 1 - S21                                                 0          65535          —            — Unsigned             1
+                                                                                                                                                                               Short Int
+38        R     IR_ALARM                Alarm-/Warnanzeige: 0 - fehlt 1 - Alarm (hat eine höhere Priorität) 2 -                     0              2          —            —     Byte             1
+                                        Warnung
+39        R     IR_RH_U                 Feuchtigkeitssteuersignal des PID-Reglers                                                   0          100            —             %            Byte     1
+40        R     IR_CO2_U                CO2-Steuersignal des PID-Reglers                                                            0          100            —             %            Byte     1
+41        R     IR_PM2_5_U              PM2.5-Steuersignal des PID-Reglers                                                          0          100            —             %            Byte     1
+42        R     IR_VOC_U                VOC-Steuersignal des PID-Reglers                                                            0          100            —             %            Byte     1
+
+
+
+
+                                                                                                                                                                                                5
+                                                                                                                                                                              Maßeinheiten
+                                                                                    Beschreibung
+
+
+
+
+                                                                                                                                                     Maximalwert
+                                                                                                                                      Minimalwert
+
+
+
+
+                                                                                                                                                                                                         Abmessung
+                                                                                                                                                                   Sollwert
+                            Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                                                               Typ
+43         R    IR_PreHeater_U            Vorheizung-Steuersignal des PID-Reglers                                                        0           200           —            %              Byte        1
+                                          Werte von 101-200 % bedeuten die zweite Stufe des Frostschutzes des
+                                          Wärmetauschers mit Hilfe von Ventilatoren, wenn die Vorheizung ausfällt.
+44         R    IR_MainHeater_U           Nachheizung-Steuersignal des PID-Reglers                                                       0           200           —            %              Byte        1
+                                          Werte von 101-200 % bedeuten die zweite Stufe der Temperaturregelung mit
+                                          Hilfe von Ventilatoren bei Ausfall des Hauptheizregisters.
+45         R    IR_BPS_ROTOR_U            Bypass-Steuersignal/Steuersignal des Rotationswärmetauschers des PID-                          0           200           —            %              Byte        1
+                                          Reglers
+                                          Werte 101-200 % bedeuten die zweite Stufe des Frostschutzes des
+                                          Wärmetauschers mit Hilfe von Ventilatoren, wenn der Bypass ausfällt.
+46         R    IR_KKB_U                  Steuersignal der Kälteanlage des PID-Reglers                                                 0            100            —           %               Byte        1
+47         R    IR_ReturnWater_U          Steuersignal des Rücklaufwärmeträgers des PID-Reglers                                        0            100            —           %               Byte        1
+48         R    IR_SuAirOutSetTemp        Temperatursollwert im Zuluftkanal. Dies wird automatisch berechnet, wenn                    100           400            —           °С            Short Int     1
+                                          ein Raumsensor oder Sensor im Abluftkanal ausgewählt wird.
+                                          Wert 250 = 25,0 °C
+49         R    IR_WaterStandbySetTemp    Temperatursollwert des Rücklaufwärmeträgers im Winter im Standby-Betrieb.                   100           400            —           °С            Short Int     1
+                                          Wird abhängig von der Außentemperatur automatisch berechnet. Wert 250 =
+                                          25,0 °C
+50         R    IR_WaterStartSetTemp      Temperatursollwert des Rücklaufwärmeträgers im Winter vor dem Start der                     300           600            —           °С            Short Int     1
+                                          Lüftungsanlage. Wird abhängig von der Außentemperatur automatisch
+                                          berechnet. Wert 350 = 35,0 °C
+51         R    IR_StatusBpsRotor         Der aktuelle Zustand des Bypasses/Rotors. Ein Wert von 100 bedeutet                            0          100             --          %              Byte        1
+                                          100 % Bypass (der Bypass ist zu 100% geöffnet oder der Rotor ist vollständig
+                                          angehalten)
+52         R    IR_CurSuFanSpeed          Aktuelle Leistung des Zuluftventilators                                                        0          100             --          %              Byte        1
+53         R    IR_CurExFanSpeed          Aktuelle Leistung des Abluftventilators                                                        0          100             --          %              Byte        1
+                                         Holding Registers (16-Bit-Register) - Modbus-Funktionen: 3, 6, 16
+  0        R HR_VENTILATION_MODE          Lüftungsbetrieb: 0 - Betrieb 0 ... 100 %, 1 - konstanter Durchfluss, 2 - konstanter Druck      0            2              1         —               Byte        1
+  1        R HR_MaxSPEED_MODE             Maximal verfügbare Lüftungsstufe                                                               3            5              3         —               Byte        1
+  2       R/W HR_SPEED_MODE               Lüftungsstufe: 1 - erste Lüftungsstufe, 2 - zweite Lüftungsstufe, 3 - dritte                   1           255             1         —               Byte        1
+                                          Lüftungsstufe, 4 - vierte Lüftungsstufe, 5 - fünfte Lüftungsstufe, 255 - Betrieb
+                                          der manuellen Einstellung der Lüftungsstufe (siehe HR17)
+ 3         R    HR_MinSPEED               Minimal mögliche Lüftungsstufe des Ventilators                                                 0           100            30          %              Byte        1
+ 4         R    HR_MaxSPEED               Maximal mögliche Lüftungsstufe des Ventilators                                                 0           100           100          %              Byte        1
+ 5        R/W   HR_SuSPEED0               Lüftungsstufe des Zuluftventilators im Standby-Betrieb                                         0           100             0          %              Byte        1
+ 6        R/W   HR_ExSPEED0               Lüftungsstufe des Abluftventilators im Standby-Betrieb                                         0           100             0          %              Byte        1
+ 7        R/W   HR_SuSPEED1               Lüftungsstufe des Zuluftventilators bei der ersten Lüftungsstufe                               0           100            40          %              Byte        1
+ 8        R/W   HR_ExSPEED1               Lüftungsstufe des Abluftventilators bei der ersten Lüftungsstufe                               0           100            40          %              Byte        1
+ 9        R/W   HR_SuSPEED2               Lüftungsstufe des Zuluftventilators bei der zweiten Lüftungsstufe                              0           100            70          %              Byte        1
+10        R/W   HR_ExSPEED2               Lüftungsstufe des Abluftventilators bei der zweiten Lüftungsstufe                              0           100            70          %              Byte        1
+11        R/W   HR_SuSPEED3               Lüftungsstufe des Zuluftventilators bei der dritten Lüftungsstufe                              0           100           100          %              Byte        1
+12        R/W   HR_ExSPEED3               Lüftungsstufe des Abluftventilators bei der dritten Lüftungsstufe                              0           100           100          %              Byte        1
+13        R/W   HR_SuSPEED4               Lüftungsstufe des Zuluftventilators bei der vierten Lüftungsstufe                              0           100           100          %              Byte        1
+14        R/W   HR_ExSPEED4               Lüftungsstufe des Abluftventilators bei der vierten Lüftungsstufe                              0           100           100          %              Byte        1
+15        R/W   HR_SuSPEED5               Lüftungsstufe des Zuluftventilators bei der fünften Lüftungsstufe                              0           100           100          %              Byte        1
+16        R/W   HR_ExSPEED5               Lüftungsstufe des Abluftventilators bei der fünften Lüftungsstufe                              0           100           100          %              Byte        1
+17        R/W   HR_ManualSPEED            Lüftungsstufe der Ventilatoren bei der manuellen Einstellung der                               0           100            50          %              Byte        1
+                                          Lüftungsstufe. Das Gleichgewicht zwischen Zu- und Abluft entspricht den
+                                          aktuell voreingestellten Lüftungsstufen 1-5.
+18        R/W   HR_BlowingSPEED           Lüftungsstufe der Ventilatoren während des Blasens der Elektro-Heizregistern                   0           100            50         %     Byte                  1
+19        R/W   HR_Boost_SuSPEED          Lüftungsstufe des Zuluftventilators im Boost-Betrieb                                           0           100           100         %     Byte                  1
+20        R/W   HR_Boost_ExSPEED          Lüftungsstufe des Abluftventilators im Boost-Betrieb                                           0           100           100         %     Byte                  1
+21        R/W   HR_FPLC_SuSPEED           Lüftungsstufe des Zuluftventilators im Kamin-Betrieb                                           0           100            60         %     Byte                  1
+22        R/W   HR_FPLC_ExSPEED           Lüftungsstufe des Abluftventilators im Kamin-Betrieb                                           0           100            40         %     Byte                  1
+23         R    HR_MinAirFLOW             Minimal mögliche Förderleistung der Lüftungsanlage                                             0          10000          —          m³/h Unsigned                1
+                                                                                                                                                                                   Short Int
+24         R    HR_MaxAirFLOW             Maximal mögliche Förderleistung der Lüftungsanlage                                             0          10000          —          m³/h Unsigned                1
+                                                                                                                                                                                   Short Int
+25        R/W HR_SuSPEED0_FLOW            Zuluftförderleistung im Standby-Betrieb                                                        0          10000          —          m³/h Unsigned                1
+                                                                                                                                                                                   Short Int
+26        R/W HR_ExSPEED0_FLOW            Abluftförderleistung im Standby-Betrieb                                                        0          10000          —          m³/h Unsigned                1
+                                                                                                                                                                                   Short Int
+27        R/W HR_SuSPEED1_FLOW            Zuluftförderleistung bei der ersten Lüftungsstufe                                              0          10000          —          m³/h Unsigned                1
+                                                                                                                                                                                   Short Int
+28        R/W HR_ExSPEED1_FLOW            Abluftförderleistung bei der ersten Lüftungsstufe                                              0          10000          —          m³/h Unsigned                1
+                                                                                                                                                                                   Short Int
+
+
+
+
+    6
+                                                                                                                                                                           Maßeinheiten
+                                                                                    Beschreibung
+
+
+
+
+                                                                                                                                                 Maximalwert
+                                                                                                                                  Minimalwert
+
+
+
+
+                                                                                                                                                                                                 Abmessung
+                                                                                                                                                               Sollwert
+                            Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                                                          Typ
+29        R/W HR_SuSPEED2_FLOW               Zuluftförderleistung bei der zweiten Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+30        R/W HR_ExSPEED2_FLOW               Abluftförderleistung bei der zweiten Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+31        R/W HR_SuSPEED3_FLOW               Zuluftförderleistung bei der dritten Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+32        R/W HR_ExSPEED3_FLOW               Abluftförderleistung bei der dritten Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+33        R/W HR_SuSPEED4_FLOW               Zuluftförderleistung bei der vierten Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+34        R/W HR_ExSPEED4_FLOW               Abluftförderleistung bei der vierten Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+35        R/W HR_SuSPEED5_FLOW               Zuluftförderleistung bei der fünften Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+36        R/W HR_ExSPEED5_FLOW               Abluftförderleistung bei der fünften Lüftungsstufe                                      0          10000          —          m³/h Unsigned            1
+                                                                                                                                                                               Short Int
+37         R    HR_MinAirPRESS               Minimal möglicher Kanaldruck                                                            0          10000          —           Pa Unsigned             1
+                                                                                                                                                                               Short Int
+38         R    HR_MaxAirPRESS               Maximal möglicher Kanaldruck                                                            0          10000          —           Pa Unsigned             1
+                                                                                                                                                                               Short Int
+39        R/W HR_SuSPEED0_PRESS              Druck im Zuluftkanal im Standby-Betrieb                                                 0          10000          —           Pa Unsigned             1
+                                                                                                                                                                               Short Int
+40        R/W HR_ExSPEED0_PRESS              Druck im Abluftkanal im Standby-Betrieb                                                 0          10000          —           Pa Unsigned             1
+                                                                                                                                                                               Short Int
+41        R/W HR_SuSPEED1_PRESS              Druck im Zuluftkanal bei der ersten Lüftungsstufe                                       0          10000          —           Pa Unsigned             1
+                                                                                                                                                                               Short Int
+42        R/W HR_ExSPEED1_PRESS              Druck im Abluftkanal bei der ersten Lüftungsstufe                                       0          10000          —           Pa Unsigned             1
+                                                                                                                                                                               Short Int
+43        R/W HR_OPERATION_MODE              Betriebsart der Lüftungsanlage: 0 - nur Lüftung 1 - Heizung, 2 - Kühlung, 3 -           0              3            3         —     Byte              1
+                                             Auto
+44        R/W   HR_SetTEMP                   Raumtemperatursollwert im Normalbetrieb                                              15             30             23   °С                   Byte     1
+45        R/W   HR_SetRH                     Feuchtesollwert                                                                      40             80             60 %RH                    Byte     1
+46        R/W   HR_SetCO2                    CO2-Sollwert                                                                         400           2000           1200 ppm                   Byte     1
+47        R/W   HR_SetPM2_5                  PM2.5-Sollwert                                                                       100           1000           400 µg/m³                  Byte     1
+48        R/W   HR_SetVOC                    VOC-Sollwert                                                                         20            100             40   %                    Byte     1
+49        R/W   HR_TIMER_MODE                Timer-Betrieb: 0 - Standby, 1 - erste Lüftungsstufe, 2 - zweite Lüftungsstufe, 3 -    0              5              1   —                    Byte     1
+                                             dritte Lüftungsstufe, 4 - vierte Lüftungsstufe, 5 - fünfte Lüftungsstufe
+50        R/W HR_SetTIMER_TEMP               Raumtemperatursollwert für den Haupttimer: 0 - nur Lüftung, +15...+ 30 °C               0            30           23           °С            Byte     1
+51        R/W HR_SetTIMER_TIME               Zeitsollwert des Haupttimers                                                            0            23            0         Hours           Byte     1
+                                                                                                                                     0            59           30          Min.           Byte
+52        R/W HR_SetTEMP_WinterSummer Übergangstemperatur Winter/Sommer                                                              5            15           7            °С            Byte     1
+53        R/W HR_SelTEMP_SENSOR       Wahl des Temperatursensors, der zur Steuerung der Raumtemperatur                               0            2            2           —              Byte     1
+                                      verwendet wird: 0 - im Abluftkanal, 1 - externer Sensor im Bedienfeld, 2 - im
+                                      Zuluftkanal
+54        R/W HR_MainHEATER_TYPE      Typ des Hauptheizregisters: 0 - deaktivieren, 1 - Elektro-, 2 - Warmwasser-                    0              2          —            —             Byte     1
+55        R/W HR_COOLER_TYPE          Typ der Steuerung des Kühlregisters: 0 - deaktivieren, 1 - Relais-, 2 - Analog-                0              2          —            —             Byte     1
+                                      0-10 V (eingebaut)
+56        R/W HR_DEF_MODE             Frostschutzbetreib des Wärmetauschers: 0 - deaktivieren, 1 - Vorheizung,                       0              3          —            —             Byte     1
+                                      2 - Bypass/Rotor, 3 - Unwucht der Ventilatoren
+57         R HR_BPS_ROTOR_TYPE        Typ des Bypasses/Rotationswärmetauschers: 0 - Nicht verfügbar, 1                               0              4          —            —             Byte     1
+                                      - Bypass mit 2-Punkt-Steuerung, 2 - Bypass mit Analog-Steuerung, 3 -
+                                      Rotationswärmetauscher mit Relais-Steuerung, 4 - Rotationswärmetauscher
+                                      mit Analog-Steuerung,
+                                      5 - Bypass mit 3-Punkt-Steuerung
+58        R/W HR_SetFILTER_TIMER      Zeitsollwert des Filterwechsel-Timers: 0 - Timer deaktivieren, 70...365 Tage                   0           365           90
+                                                                                                                                                           Days Unsigned                           1
+                                                                                                                                                                Short Int
+59        R/W HR_BoostDelaySwitchingOff      Ausschaltverzögerung-Sollwert des Boost-Betriebs                                      0             60    0   Min.   Byte                             1
+60        R/W HR_BoostDelaySwitchingOn       Einschaltverzögerung-Sollwert des Boost-Betriebs                                      0             15    0   Min.   Byte                             1
+61        R/W HR_RTC_TIME                    RTC-Zeit                                                                              0             59    —   Min.   Byte                             2
+                                                                                                                                   0             59    —   Sec.   Byte
+                                                                                                                                   —                              Byte
+                                                                                                                                   0             23    — Hours    Byte
+63        R/W HR_RTC_CALENDAR                RTC-Kalender                                                                          1             31    —   Day    Byte                             2
+                                                                                                                                   1              7    — Week     Byte
+                                                                                                                                                           day
+                                                                                                                                   1             12    — Month    Byte
+                                                                                                                                   0             99    —   Year   Byte
+65        R/W HR_MaxCO2_Int                  Maximalwert des Haupt-CO2-Sensors                                                    500           10000 2000 ppm Unsigned                            1
+                                                                                                                                                                Short Int
+
+
+                                                                                                                                                                                                 7
+                                                                                                                                                                 Maßeinheiten
+                                                                               Beschreibung
+
+
+
+
+                                                                                                                                        Maximalwert
+                                                                                                                         Minimalwert
+
+
+
+
+                                                                                                                                                                                            Abmessung
+                                                                                                                                                      Sollwert
+                          Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                                                   Typ
+66        R/W HR_MaxPM2_5_Int            Maximalwert des Haupt-PM2.5-Sensors                                             500           10000 1000 µg/m³ Unsigned                              1
+                                                                                                                                                        Short Int
+67        R/W   HR_SetMinSuAirOutTEMP    Sollwert zur Steuerung der minimalen Raum-Zulufttemperatur                         5            12   10    °С    Byte                                1
+68        R/W   HR_MainHeaterMODE        Betriebsart des Haupt-Heizregisters: 1 - Steuerung 0-100 %, 2 - AUTO               1             2    2   —      Byte                                1
+69        R/W   HR_SetMainHeaterMANUAL   Manuelle Steuerung des Haupt-Heizregisters                                         0           100   50    %     Byte                                1
+70        R/W   HR_CoolerMODE            Betriebsart der Kälteanlage: 1 - Kälteanlage mit Relais-Konfiguration              1            2     2   —      Byte                                1
+                                         einschalten, 0-100 %-Steuerung mit analoger Konfiguration, 2 - AUTO
+71        R/W   HR_SetCoolerMANUAL       Manuelle Steuerung der Kälteanlage mit analoger Konfiguration                      0          100             0          %               Byte        1
+72        R/W   HR_PreHeaterMODE         Betriebsart der Vorheizung: 1 - Steuerung 0-100 %, 2 - AUTO                        1           2              2          —               Byte        1
+73        R/W   HR_SetPreHeaterMANUAL    Manuelle Steuerung der Vorheizung                                                  0          100            50          %               Byte        1
+74        R/W   HR_BPS_ROTOR_MODE        Betriebsart des Bypasses/Rotationswärmetauschers: 0 - Bypass schließen/            0           2              2          —               Byte        1
+                                         Rotor starten, 1 - Bypass öffnen/Rotor mit Relais-Konfiguration stoppen,
+                                         0-100 %-Steuerung mit analoger Konfiguration, 2 - AUTO
+75        R/W HR_SetBpsRotorMANUAL       Bypass-/Rotorsteuerung im manuellen Betrieb mit analoger Konfiguration:            0          100            100          %              Byte        1
+                                         0 % - Bypass ist geschlossen/Rotor dreht auf maximaler Lüftungsstufe, 100 % -
+                                         Bypass ist geöffnet/Rotor ist gestoppt
+76        R/W HR_RH_Kp                   Kp-Koeffizient des PID-Reglers des Feuchteniveaus                                  0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+77        R/W HR_RH_Ki                   Ki-Koeffizient des PID-Reglers des Feuchteniveaus                                  0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+78        R/W HR_RH_Kd                   Kd-Koeffizient des PID-Reglers des Feuchteniveaus                                  0          1000             0         —             Unsigned      1
+                                                                                                                                                                                Short Int
+79        R/W HR_CO2_Kp                  Kp-Koeffizient des PID-Reglers des CO2-Niveaus                                     0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+80        R/W HR_CO2_Ki                  Ki-Koeffizient des PID-Reglers des CO2-Niveaus                                     0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+81        R/W HR_CO2_Kd                  Kd-Koeffizient des PID-Reglers des CO2-Niveaus                                     0          1000             0         —             Unsigned      1
+                                                                                                                                                                                Short Int
+82        R/W HR_PM2_5_Kp                Kp-Koeffizient des PID-Reglers des PM2.5-Niveaus                                   0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+83        R/W HR_PM2_5_Ki                Ki-Koeffizient des PID-Reglers des PM2.5-Niveaus                                   0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+84        R/W HR_PM2_5_Kd                Kd-Koeffizient des PID-Reglers des PM2.5-Niveaus                                   0          1000             0         —             Unsigned      1
+                                                                                                                                                                                Short Int
+85        R/W HR_VOC_Kp                  Kp-Koeffizient des PID-Reglers des VOC-Niveaus                                     0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+86        R/W HR_VOC_Ki                  Ki-Koeffizient des PID-Reglers des VOC-Niveaus                                     0          1000           150         —             Unsigned      1
+                                                                                                                                                                                Short Int
+87        R/W HR_VOC_Kd                  Kd-Koeffizient des PID-Reglers des VOC-Niveaus                                     0          1000             0         —             Unsigned      1
+                                                                                                                                                                                Short Int
+88        R/W HR_PreHeater_Kp            Kp-Koeffizient des PID-Reglers des Vorheizregisters                                0          1000           200         —             Unsigned      1
+                                                                                                                                                                                Short Int
+89        R/W HR_PreHeater_Ki            Ki-Koeffizient des PID-Reglers des Vorheizregisters                                0          1000           200         —             Unsigned      1
+                                                                                                                                                                                Short Int
+90        R/W HR_PreHeater_Kd            Kd-Koeffizient des PID-Reglers des Vorheizregisters                                0          1000           500         —             Unsigned      1
+                                                                                                                                                                                Short Int
+91        R/W HR_MainHeater_Kp           Kp-Koeffizient des PID-Reglers des Nachheizregisters                               0          1000           400         —             Unsigned      1
+                                                                                                                                                                                Short Int
+92        R/W HR_MainHeater_Ki           Ki-Koeffizient des PID-Reglers des Nachheizregisters                               0          1000           400         —             Unsigned      1
+                                                                                                                                                                                Short Int
+93        R/W HR_MainHeater_Kd           Kd-Koeffizient des PID-Reglers des Nachheizregisters                               0          1000           600         —             Unsigned      1
+                                                                                                                                                                                Short Int
+94        R/W HR_BPS_ROTOR_Kp            Kp-Koeffizient des PID-Reglers des Bypasses/Rotationswärmetauschers                0          1000           200         —             Unsigned      1
+                                                                                                                                                                                Short Int
+95        R/W HR_BPS_ROTOR_Ki            Ki-Koeffizient des PID-Reglers des Bypasses/Rotationswärmetauschers                0          1000           200         —             Unsigned      1
+                                                                                                                                                                                Short Int
+96        R/W HR_BPS_ROTOR_Kd            Kp-Koeffizient des PID-Reglers des Bypasses/Rotationswärmetauschers                0          1000           500         —             Unsigned      1
+                                                                                                                                                                                Short Int
+97        R/W HR_KKB_Kp                  Kp-Koeffizient des PID-Reglers der Kälteanlage                                     0          1000           200         —             Unsigned      1
+                                                                                                                                                                                Short Int
+98        R/W HR_KKB_Ki                  Ki-Koeffizient des PID-Reglers der Kälteanlage                                     0          1000           200         —             Unsigned      1
+                                                                                                                                                                                Short Int
+99        R/W HR_KKB_Kd                  Kd-Koeffizient des PID-Reglers der Kälteanlage                                     0          1000           500         —             Unsigned      1
+                                                                                                                                                                                Short Int
+100       R/W HR_ReturnWater_Kp          Kp-Koeffizient des PID-Reglers des Rücklaufwärmeträgers                            0          1000           120         —             Unsigned      1
+                                                                                                                                                                                Short Int
+
+
+
+
+  8
+                                                                                                                                                                Maßeinheiten
+                                                                                  Beschreibung
+
+
+
+
+                                                                                                                                      Maximalwert
+                                                                                                                        Minimalwert
+
+
+
+
+                                                                                                                                                                                           Abmessung
+                                                                                                                                                    Sollwert
+                            Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                                                  Typ
+101       R/W HR_ReturnWater_Ki             Ki-Koeffizient des PID-Reglers des Rücklaufwärmeträgers                        0          1000          120          —             Unsigned      1
+                                                                                                                                                                               Short Int
+102       R/W HR_ReturnWater_Kd             Kd-Koeffizient des PID-Reglers des Rücklaufwärmeträgers                        0          1000          350          —             Unsigned      1
+                                                                                                                                                                               Short Int
+103        R    HR_FanAlarmCTRL          Typ der Alarmsteuerung der Ventilatoren: 0 - ohne Alarmsteuerung, 1...254 -       0          255             2          —               Byte        1
+                                         Anzahl der Tachoimpulse pro Ventilatorumdrehung, 255 - Alarmsteuerung der
+                                         Ventilatoren mit dem Differenzdruckrelais
+104        R    HR_SetTimeDetectFanALARM Zeit für Alarmerkennung der Ventilatoren                                         5            120           30        Sec.              Byte        1
+105       R/W   HR_SetTimeOpenVALVE      Öffnungszeit der Klappen (Einschaltverzögerung der Ventilatoren)                 0            240           0         Sec.              Byte        1
+106       R/W   HR_SetTimeFanBLOWING     Zeit des Blasens der Elektro-Heizregistern                                      20            240          120        Sec.              Byte        1
+107       R/W   HR_KKB_MinTimeOFF        Minimale Stillstandzeit der Kälteanlage vor dem Neustart                         0             20           3         Min.              Byte        1
+108       R/W   HR_KKB_MinTimeON         Mindestbetriebszeit der Kälteanlage vor dem Ausschalten                          0             20           1         Min.              Byte        1
+109       R/W   HR_KKB_HYSTERESIS        Hysterese zum Ein-/Ausschalten der Kälteanlage mit Relais-Steuerung              1             10           2          °С               Byte        1
+110        R    HR_BPS_Position          Standort des Bypasses: 1 - an der Innenwand, 0 - auf der Außenseite              0             1           —           —                Byte        1
+111        R    HR_TimeOpenBPS           Öffnungszeit des 3-Punkt-Bypasses                                                2            300          —          Sec.              Byte        1
+112       R/W   HR_CorrTEMP_SuAirIn      Korrektur eines Zulufttemperatursensors am Anlageeingang. Wert 250 = 25,0 °C   -500          +500           0          °С             Short Int     1
+113       R/W   HR_CorrTEMP_SuAirOut     Korrektur eines Zulufttemperatursensors am Anlageausgang (nach dem             -500          +500           0          °С             Short Int     1
+                                         Wärmetauscher/nach dem Nachheizregister). Wert 250 = 25,0 °C
+114       R/W   HR_CorrTEMP_ExAirIn      Korrektur eines Ablufttemperatursensors am Anlageeingang.                      -500          +500            0          °С            Short Int     1
+                                         Wert 250 = 25,0 °C
+115       R/W   HR_CorrTEMP_ExAirOut     Korrektur eines Ablufttemperatursensors am Anlageausgang.                      -500          +500            0          °С            Short Int     1
+                                         Wert 250 = 25,0 °C
+116       R/W   HR_CorrTEMP_Water        Korrektur eines Rücklauftemperatursensors. Wert 250 = 25,0 °C                  -500          +500            0         °С             Short Int     1
+117       R/W   HR_CorrTEMP_Ext          Korrektur eines externen Temperatursensors. Wert 250 = 25,0 °C                 -500          +500            0         °С             Short Int     1
+118       R/W   HR_WaterValveMinPos      Mindeststellung der Klappe des Warmwasser-Heizregisters im Winter                0            100            0         %                Byte        1
+119       R/W   HR_WaterMaxStartTime     Zeit für Alarmerkennung des Rücklaufwärmeträgers vor dem Start der               2             30            5        Min.              Byte        1
+                                         Lüftungsanlage
+120       R/W   HR_WaterMinStartTemp     Anfangswert der Rücklauftemperatur, die für den Start der Lüftungsanlage im     30            60           30           °С            Short Int     1
+                                         Winter bei einer Außentemperatur von > = +10 °C erforderlich ist.
+121       R/W   HR_WaterMaxStartTemp     Endwert der Rücklauftemperatur, die für den Start der Lüftungsanlage im         30            60           50           °С            Short Int     1
+                                         Winter bei einer Außentemperatur von <= -30 °C erforderlich ist.
+122       R/W   HR_WaterMinAlarmTemp     Anfangswert der Rücklauftemperatur für die Abschaltung der Lüftungsanlage       10            30           12           °С            Short Int     1
+                                         infolge eines Frostalarms im Winter bei Außenlufttemperatur <= +10 °C.
+123       R/W   HR_WaterMaxAlarmTemp     Endwert der Rücklauftemperatur für die Abschaltung der Lüftungsanlage           10            30           20           °С            Short Int     1
+                                         durch einen Frostalarm im Winter bei Außenlufttemperatur <= -30 °C.
+124       R/W   HR_ENGINEER_PWD          Passwort für das Engineeringmenü. Die Zeichenfolge beträgt 1 bis 4 Zeichen.    48             57           49         Char             String       2
+                                         Das Ende der Zeichenfolge wird durch das Nullzeichen bestimmt.                 48             57           49         Char
+                                                                                                                        48             57           49         Char
+                                                                                                                        48             57           49         Char
+126       R/W HR_SetWEEK_Mo                 Nummer der Lüftungsstufe für Mo. im 1. Zeitbereich                           0              5            1          —                Byte        1
+                                            Temperatursollwert für Mo. im 1. Zeitbereich                                15             30           23           °С              Byte
+127       R/W                               Stunden bis zum Ende des 1. Zeitbereiches im Mo.                             0             23            6         Hours             Byte        1
+                                            Minuten bis zum Ende des 1. Zeitbereiches im Mo.                             0             59            0          Min.             Byte
+128       R/W                               Nummer der Lüftungsstufe für Mo. im 2. Zeitbereich                           0              5            1          —                Byte        1
+                                            Temperatursollwert für Mo. im 2. Zeitbereich                                15             30           23           °С              Byte
+129       R/W                               Stunden bis zum Ende des 2. Zeitbereiches im Mo.                             0             23            9         Hours             Byte        1
+                                            Minuten bis zum Ende des 2. Zeitbereiches im Mo.                             0             59            0          Min.             Byte
+130       R/W                               Nummer der Lüftungsstufe für Mo. im 3. Zeitbereich                           0              5            1          —                Byte        1
+                                            Temperatursollwert für Mo. im 3. Zeitbereich                                15             30           23           °С              Byte
+131       R/W                               Stunden bis zum Ende des 3. Zeitbereiches im Mo.                             0             23           19         Hours             Byte        1
+                                            Minuten bis zum Ende des 3. Zeitbereiches im Mo.                             0             59            0          Min.             Byte
+132       R/W                               Nummer der Lüftungsstufe für Mo. im 4. Zeitbereich                           0              5            1          —                Byte        1
+                                            Temperatursollwert für Mo. im 4. Zeitbereich                                15             30           23           °С              Byte
+133        R                                Reserviert. Das Ende des 4. Zeitbereiches ist immer 23:59                   0              23           23         Hours             Byte        1
+                                                                                                                        0              59           59          Min.             Byte
+
+
+
+
+                                                                                                                                                                                           9
+                                                                                                                                        Maßeinheiten
+                                                                          Beschreibung
+
+
+
+
+                                                                                                              Maximalwert
+                                                                                                Minimalwert
+
+
+
+
+                                                                                                                                                              Abmessung
+                                                                                                                            Sollwert
+                         Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                       Typ
+134       R/W HR_SetWEEK_Tu         Nummer der Lüftungsstufe für Di. im 1. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Di. im 1. Zeitbereich                15            30            23           °С            Byte
+135       R/W                       Stunden bis zum Ende des 1. Zeitbereiches im Di.             0            23             6         Hours           Byte     1
+                                    Minuten bis zum Ende des 1. Zeitbereiches im Di.             0            59             0          Min.           Byte
+136       R/W                       Nummer der Lüftungsstufe für Di. im 2. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Di. im 2. Zeitbereich                15            30            23           °С            Byte
+137       R/W                       Stunden bis zum Ende des 2. Zeitbereiches im Di.             0            23             9         Hours           Byte     1
+                                    Minuten bis zum Ende des 2. Zeitbereiches im Di.             0            59             0          Min.           Byte
+138       R/W                       Nummer der Lüftungsstufe für Di. im 3. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Di. im 3. Zeitbereich                15            30            23           °С            Byte
+139       R/W                       Stunden bis zum Ende des 3. Zeitbereiches im Di.             0            23            19         Hours           Byte     1
+                                    Minuten bis zum Ende des 3. Zeitbereiches im Di.             0            59             0          Min.           Byte
+140       R/W                       Nummer der Lüftungsstufe für Di. im 4. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Di. im 4. Zeitbereich                15            30            23           °С            Byte
+141        R                        Reserviert. Das Ende des 4. Zeitbereiches ist immer 23:59    0            23            23         Hours           Byte     1
+                                                                                                 0            59            59          Min.           Byte
+142       R/W HR_SetWEEK_We         Nummer der Lüftungsstufe für Mi. im 1. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Mi. im 1. Zeitbereich                15            30            23           °С            Byte
+143       R/W                       Stunden bis zum Ende des 1. Zeitbereiches im Mi.             0            23             6         Hours           Byte     1
+                                    Minuten bis zum Ende des 1. Zeitbereiches im Mi.             0            59             0          Min.           Byte
+144       R/W                       Nummer der Lüftungsstufe für Mi. im 2. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Mi. im 2. Zeitbereich                15            30            23           °С            Byte
+145       R/W                       Stunden bis zum Ende des 2. Zeitbereiches im Mi.             0            23             9         Hours           Byte     1
+                                    Minuten bis zum Ende des 2. Zeitbereiches im Mi.             0            59             0          Min.           Byte
+146       R/W                       Nummer der Lüftungsstufe für Mi. im 3. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Mi. im 3. Zeitbereich                15            30            23           °С            Byte
+147       R/W                       Stunden bis zum Ende des 3. Zeitbereiches im Mi.             0            23            19         Hours           Byte     1
+                                    Minuten bis zum Ende des 3. Zeitbereiches im Mi.             0            59             0          Min.           Byte
+148       R/W                       Nummer der Lüftungsstufe für Mi. im 4. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Mi. im 4. Zeitbereich                15            30            23           °С            Byte
+149        R                        Reserviert. Das Ende des 4. Zeitbereiches ist immer 23:59   0             23            23         Hours           Byte     1
+                                                                                                0             59            59          Min.           Byte
+150       R/W HR_SetWEEK_Th         Nummer der Lüftungsstufe für Do. im 1. Zeitbereich          0              5             1          —              Byte     1
+                                    Temperatursollwert für Do. im 1. Zeitbereich                0             30            23           °С            Byte
+151       R/W                       Stunden bis zum Ende des 1. Zeitbereiches im Do.            0             23             6         Hours           Byte     1
+                                    Minuten bis zum Ende des 1. Zeitbereiches im Do.            0             59             0          Min.           Byte
+152       R/W                       Nummer der Lüftungsstufe für Do. im 2. Zeitbereich          0              5             1          —              Byte     1
+                                    Temperatursollwert für Do. im 2. Zeitbereich                0             30            23           °С            Byte
+153       R/W                       Stunden bis zum Ende des 2. Zeitbereiches im Do.            0             23             9         Hours           Byte     1
+                                    Minuten bis zum Ende des 2. Zeitbereiches im Do.            0             59             0          Min.           Byte
+154       R/W                       Nummer der Lüftungsstufe für Do. im 3. Zeitbereich          0              5             1          —              Byte     1
+                                    Temperatursollwert für Do. im 3. Zeitbereich                0             30            23           °С            Byte
+155       R/W                       Stunden bis zum Ende des 3. Zeitbereiches im Do.            0             23            19         Hours           Byte     1
+                                    Minuten bis zum Ende des 3. Zeitbereiches im Do.            0             59             0          Min.           Byte
+156       R/W                       Nummer der Lüftungsstufe für Do. im 4. Zeitbereich          0              5             1          —              Byte     1
+                                    Temperatursollwert für Do. im 4. Zeitbereich                0             30            23           °С            Byte
+157        R                        Reserviert. Das Ende des 4. Zeitbereiches ist immer 23:59   0             23            23         Hours           Byte     1
+                                                                                                0             59            59          Min.           Byte
+158       R/W HR_SetWEEK_Fr         Nummer der Lüftungsstufe für Fr. im 1. Zeitbereich          0              5             1          —              Byte     1
+                                    Temperatursollwert für Fr. im 1. Zeitbereich                0             30            23           °С            Byte
+159       R/W                       Stunden bis zum Ende des 1. Zeitbereiches im Fr.            0             23             6         Hours           Byte     1
+                                    Minuten bis zum Ende des 1. Zeitbereiches im Fr.            0             59            0           Min.           Byte
+160       R/W                       Nummer der Lüftungsstufe für Fr. im 2. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Fr. im 2. Zeitbereich                 0            30            23           °С            Byte
+161       R/W                       Stunden bis zum Ende des 2. Zeitbereiches im Fr.             0            23             9         Hours           Byte     1
+                                    Minuten bis zum Ende des 2. Zeitbereiches im Fr.             0            59             0          Min.           Byte
+162       R/W                       Nummer der Lüftungsstufe für Fr. im 3. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Fr. im 3. Zeitbereich                 0            30            23           °С            Byte
+163       R/W                       Stunden bis zum Ende des 3. Zeitbereiches im Fr.             0            23            19         Hours           Byte     1
+                                    Minuten bis zum Ende des 3. Zeitbereiches im Fr.             0            59             0          Min.           Byte
+164       R/W                       Nummer der Lüftungsstufe für Fr. im 4. Zeitbereich           0             5             1          —              Byte     1
+                                    Temperatursollwert für Fr. im 4. Zeitbereich                 0            30            23           °С            Byte
+165        R                        Reserviert. Das Ende des 4. Zeitbereiches ist immer 23:59    0            23            23         Hours           Byte     1
+                                                                                                 0            59            59          Min.           Byte
+
+
+
+
+  10
+                                                                                                                                               Maßeinheiten
+                                                                           Beschreibung
+
+
+
+
+                                                                                                                     Maximalwert
+                                                                                                       Minimalwert
+
+
+
+
+                                                                                                                                                                      Abmessung
+                                                                                                                                   Sollwert
+                          Variable
+Adresse
+
+          R/W
+
+
+
+
+                                                                                                                                                              Typ
+166       R/W HR_SetWEEK_Sa          Nummer der Lüftungsstufe für Sa. im 1. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für Sa. im 1. Zeitbereich                         0          30            23           °С            Byte
+167       R/W                        Stunden bis zum Ende des 1. Zeitbereiches im Sa.                     0          23             6         Hours           Byte      1
+                                     Minuten bis zum Ende des 1. Zeitbereiches im Sa.                     0          59             0          Min.           Byte
+168       R/W                        Nummer der Lüftungsstufe für Sa. im 2. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für Sa. im 2. Zeitbereich                         0          30            23           °С            Byte
+169       R/W                        Stunden bis zum Ende des 2. Zeitbereiches im Sa.                     0          23             9         Hours           Byte      1
+                                     Minuten bis zum Ende des 2. Zeitbereiches im Sa.                     0          59             0          Min.           Byte
+170       R/W                        Nummer der Lüftungsstufe für Sa. im 3. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für Sa. im 3. Zeitbereich                         0          30            23           °С            Byte
+171       R/W                        Stunden bis zum Ende des 3. Zeitbereiches im Sa.                     0          23            19         Hours           Byte      1
+                                     Minuten bis zum Ende des 3. Zeitbereiches im Sa.                     0          59             0          Min.           Byte
+172       R/W                        Nummer der Lüftungsstufe für Sa. im 4. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für Sa. im 4. Zeitbereich                         0          30            23           °С            Byte
+173        R                         Reserviert. Das Ende des 4. Zeitbereiches ist immer 23:59            0          23            23         Hours           Byte      1
+                                                                                                          0          59            59          Min.           Byte
+174       R/W HR_SetWEEK_Su          Nummer der Lüftungsstufe für So. im 1. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für So. im 1. Zeitbereich                         0          30            23           °С            Byte
+175       R/W                        Stunden bis zum Ende des 1. Zeitbereiches im So.                     0          23             6         Hours           Byte      1
+                                     Minuten bis zum Ende des 1. Zeitbereiches im So.                     0          59             0          Min.           Byte
+176       R/W                        Nummer der Lüftungsstufe für So. im 2. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für So. im 2. Zeitbereich                         0          30            23           °С            Byte
+177       R/W                        Stunden bis zum Ende des 2. Zeitbereiches im So.                     0          23             9         Hours           Byte      1
+                                     Minuten bis zum Ende des 2. Zeitbereiches im So.                     0          59             0          Min.           Byte
+178       R/W                        Nummer der Lüftungsstufe für So. im 3. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für So. im 3. Zeitbereich                         0          30            23           °С            Byte
+179       R/W                        Stunden bis zum Ende des 3. Zeitbereiches im So.                     0          23            19         Hours           Byte      1
+                                     Minuten bis zum Ende des 3. Zeitbereiches im So.                     0          59             0          Min.           Byte
+180       R/W                        Nummer der Lüftungsstufe für So. im 4. Zeitbereich                   0           5             1          —              Byte      1
+                                     Temperatursollwert für So. im 4. Zeitbereich                         0          30            23           °С            Byte
+181        R                         Reserviert. Das Ende des 4. Zeitbereiches ist immer 23:59            0          23            23         Hours           Byte      1
+                                                                                                          0          59            59          Min.           Byte
+182        R    HR_DEF_SetTemp       Ablufttemperatursollwert nach dem Wärmetauscher für Frostschutz      4          10             5           °С            Byte      1
+
+
+
+
+                                                                                                                                                                     11
+BV_GmbH55-8-1DE-02
+

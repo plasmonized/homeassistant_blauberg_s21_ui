@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -123,14 +123,14 @@ export const controlLogs = pgTable("control_logs", {
     "night_setback",
     "weather_compensated"
   ] }),
-  // Measured value
-  measuredValue: integer("measured_value"),
+  // Measured value (temperatures are fractional → real)
+  measuredValue: real("measured_value"),
   // Setpoint
-  setpointValue: integer("setpoint_value"),
+  setpointValue: real("setpoint_value"),
   // Control deviation (measured - setpoint)
-  deviation: integer("deviation"),
+  deviation: real("deviation"),
   // Control output (0-100% or raw value)
-  controlOutput: integer("control_output"),
+  controlOutput: real("control_output"),
   // Action taken
   actionTaken: text("action_taken"),
   // Message (reason + result)

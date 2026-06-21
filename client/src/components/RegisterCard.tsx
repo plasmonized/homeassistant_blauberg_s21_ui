@@ -16,7 +16,7 @@ import {
 import {
   Loader2, Save, Trash2, Edit2, X, Gauge, Zap, ToggleLeft,
   Activity, Fan, Timer, Thermometer, Wind, Droplets, Sun, Snowflake, Home,
-  RotateCcw, ChevronUp, ChevronDown,
+  RotateCcw, ChevronUp, ChevronDown, Minus, Plus,
 } from "lucide-react";
 import { useWriteRegister, useDeleteRegister } from "@/hooks/use-registers";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,8 @@ const isBypass = (reg: Register) =>
   reg.name.toLowerCase().includes("bypass");
 const isBoostTimer = (reg: Register) =>
   reg.name.toLowerCase().includes("boost") && reg.name.toLowerCase().includes("timer");
+const isTemperatureSetpoint = (reg: Register) =>
+  reg.name.toLowerCase().includes("temperature") && reg.name.toLowerCase().includes("setpoint");
 const isTemperature = (reg: Register) =>
   reg.name.toLowerCase().includes("temperature") && !reg.name.toLowerCase().includes("supply");
 const isHumidity = (reg: Register) =>
@@ -165,8 +167,9 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
 
     // Fan Speed - Segmented control (1=Niedrig, 2=Mittel, 3=Hoch)
     if (isFanSpeed(register) && isNumber) {
-      const currentSpeed = !isNaN(numValue) ? numValue : 1;
+      const currentSpeed = !isNaN(numValue) ? numValue : 0;
       const speeds = [
+        { value: 0, label: "Aus", fanClass: "opacity-30" },
         { value: 1, label: "Niedrig", fanClass: "opacity-50" },
         { value: 2, label: "Mittel", fanClass: "opacity-75" },
         { value: 3, label: "Hoch", fanClass: "" },
@@ -240,7 +243,40 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Bypass Control - simple on/off toggle
+    // Bypass Control - 3-state enum (Auto / Offen / Geschlossen)
+    if (isBypass(register) && isEnum && enumOptions) {
+      const bypassIcons: Record<string, any> = {
+        "0": <RotateCcw className="w-4 h-4" />,
+        "1": <ChevronUp className="w-4 h-4" />,
+        "2": <ChevronDown className="w-4 h-4" />,
+      };
+      return (
+        <div className="flex gap-1">
+          {Object.entries(enumOptions).map(([key, label]) => {
+            const active = displayValue === key;
+            return (
+              <Button
+                key={key}
+                variant={active ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "flex-1 h-10 text-xs",
+                  active && "bg-primary text-primary-foreground"
+                )}
+                onClick={() => handleWrite(Number(key))}
+                disabled={writeMutation.isPending || !isWritable}
+                data-testid={`button-bypass-${key}-${register.id}`}
+              >
+                {bypassIcons[key] || <ChevronUp className="w-4 h-4" />}
+                <span className="ml-1">{label}</span>
+              </Button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Bypass Control - legacy binary fallback (non-enum devices)
     if (isBypass(register)) {
       const bypassOn = isBool ? boolValue : (numValue === 1 || displayValue === "1");
       const handleBypassToggle = (checked: boolean) => {
@@ -298,6 +334,55 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
                 {minutes === 0 ? "AUS" : `${minutes}m`}
               </Button>
             ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Temperature Setpoint - stepper + slider (15-30°C)
+    if (isTemperatureSetpoint(register) && isNumber) {
+      const minTemp = 15;
+      const maxTemp = 30;
+      const rawCurrent = !isNaN(numValue) ? numValue : 21;
+      const current = Math.min(maxTemp, Math.max(minTemp, rawCurrent));
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Thermometer className="w-5 h-5 text-red-400" />
+            <span className="text-2xl font-bold font-mono tabular-nums">{current}</span>
+            <span className="text-xs text-muted-foreground">°C</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 shrink-0"
+              onClick={() => handleWrite(Math.max(minTemp, current - 1))}
+              disabled={writeMutation.isPending || !isWritable || current <= minTemp}
+              data-testid={`button-setpoint-dec-${register.id}`}
+            >
+              <Minus className="w-4 h-4" />
+            </Button>
+            <Slider
+              value={[current]}
+              min={minTemp}
+              max={maxTemp}
+              step={1}
+              onValueChange={handleSliderChange}
+              disabled={writeMutation.isPending || !isWritable}
+              className="flex-1"
+              data-testid={`slider-setpoint-${register.id}`}
+            />
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 shrink-0"
+              onClick={() => handleWrite(Math.min(maxTemp, current + 1))}
+              disabled={writeMutation.isPending || !isWritable || current >= maxTemp}
+              data-testid={`button-setpoint-inc-${register.id}`}
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       );
@@ -414,7 +499,7 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
 
         {/* Action buttons */}
         <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isWritable && !isBool && !isEnum && !isFanSpeed(register) && !isBoostTimer(register) && !isEditing && (
+          {isWritable && !isBool && !isEnum && !isFanSpeed(register) && !isBoostTimer(register) && !isTemperatureSetpoint(register) && !isEditing && (
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
               setEditValue(displayValue !== "--" ? displayValue : "0");
               setIsEditing(true);

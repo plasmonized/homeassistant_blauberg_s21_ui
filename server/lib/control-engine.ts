@@ -83,6 +83,8 @@ export interface ControlResult {
   actionType: string;
   value: number;
   reason: string;
+  mode?: number;          // optionaler Betriebsmodus (0=Lüftung, 1=Heizung, 2=Kühlung, 3=Auto)
+  setpointTemp?: number;  // optionaler Raum-Sollwert (°C) für das Heizregister
 }
 
 export async function runTemperatureControl(
@@ -264,53 +266,76 @@ export async function runWeatherCompensated(
     baseFanSpeed = 1,       // Grundlüftung im Sollbereich (Stufe)
     activeFanSpeed = 2,     // Lüftung beim aktiven Regeln (Stufe)
     maxFanSpeed = 3,        // Maximale Lüftung beim Boost (Stufe)
+    useHeater = false,      // Integriertes Elektro-Heizregister mitregeln
+    heaterFanSpeed = 2,     // Lüfterstufe beim aktiven Heizen (Stufe)
   } = params;
 
   const dev = indoorTemp - roomSetpoint; // > 0 = Raum zu warm, < 0 = Raum zu kalt
   const indoorStr = indoorTemp.toFixed(1);
   const outdoorStr = outdoorTemp.toFixed(1);
 
+  // Wenn das Heizregister mitgeregelt wird, hängen wir an jede Aktion den passenden
+  // Betriebsmodus (0=Lüftung / 1=Heizung) und den Raum-Sollwert an. So schaltet die
+  // Anlage das Heizregister automatisch wieder ab, sobald nicht mehr geheizt werden muss.
+  const withMode = (r: ControlResult, heating: boolean): ControlResult =>
+    useHeater
+      ? { ...r, mode: heating ? 1 : 0, setpointTemp: roomSetpoint }
+      : r;
+
   // Im Komfortband → nur Grundlüftung, kein aktives Heizen/Kühlen nötig
   if (Math.abs(dev) <= comfortBand) {
-    return {
+    return withMode({
       actionType: "fan_speed",
       value: baseFanSpeed,
       reason: `Im Sollbereich (innen ${indoorStr}°C ≈ Soll ${roomSetpoint}°C) → Grundlüftung Stufe ${baseFanSpeed}`,
-    };
+    }, false);
   }
 
   if (dev > 0) {
     // Raum ist ZU WARM → Kühlung gewünscht. Lüften hilft nur, wenn die Außenluft kühler ist.
     if (outdoorTemp <= indoorTemp - minOutdoorDelta) {
       const fanSpeed = dev >= boostThreshold ? maxFanSpeed : activeFanSpeed;
-      return {
+      return withMode({
         actionType: "fan_speed",
         value: fanSpeed,
         reason: `Kühlen: innen ${indoorStr}°C > Soll ${roomSetpoint}°C, außen ${outdoorStr}°C kühler → Stufe ${fanSpeed}`,
-      };
+      }, false);
     }
     // Außen gleich warm oder wärmer → Lüften würde den Raum weiter aufheizen → AUS
-    return {
+    return withMode({
       actionType: "fan_speed",
       value: 0,
       reason: `Lüftung AUS: Raum ${indoorStr}°C bereits zu warm und außen ${outdoorStr}°C nicht kühler – Lüften würde aufheizen`,
-    };
+    }, false);
   }
 
   // Raum ist ZU KALT → Erwärmung gewünscht. Lüften hilft nur, wenn die Außenluft wärmer ist.
   if (outdoorTemp >= indoorTemp + minOutdoorDelta) {
     const fanSpeed = Math.abs(dev) >= boostThreshold ? maxFanSpeed : activeFanSpeed;
-    return {
+    return withMode({
       actionType: "fan_speed",
       value: fanSpeed,
-      reason: `Erwärmen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C wärmer → Stufe ${fanSpeed}`,
-    };
+      reason: `Erwärmen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C wärmer → kostenlose Wärme von außen, Stufe ${fanSpeed}`,
+    }, false);
   }
-  // Außen gleich kalt oder kälter → Lüften würde den Raum weiter abkühlen → AUS
+
+  // Außen gleich kalt oder kälter → Lüften allein würde den Raum weiter abkühlen.
+  if (useHeater) {
+    // Integriertes Heizregister übernimmt: Anlage auf Heizung stellen und mit Luftstrom
+    // betreiben, damit die Zuluft erwärmt wird. Die Firmware moduliert das Heizregister
+    // selbstständig auf den Raum-Sollwert (HR_SetTEMP).
+    const fanSpeed = Math.abs(dev) >= boostThreshold ? maxFanSpeed : heaterFanSpeed;
+    return withMode({
+      actionType: "fan_speed",
+      value: fanSpeed,
+      reason: `Heizen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C kälter → Heizregister an, Stufe ${fanSpeed}`,
+    }, true);
+  }
+  // Kein Heizregister aktiviert → Lüftung aus, damit der Raum nicht weiter auskühlt.
   return {
     actionType: "fan_speed",
     value: 0,
-    reason: `Lüftung AUS: Raum ${indoorStr}°C bereits zu kalt und außen ${outdoorStr}°C nicht wärmer – Lüften würde abkühlen`,
+    reason: `Lüftung AUS: Raum ${indoorStr}°C bereits zu kalt und außen ${outdoorStr}°C nicht wärmer – Lüften würde abkühlen (Heizregister nicht aktiviert)`,
   };
 }
 

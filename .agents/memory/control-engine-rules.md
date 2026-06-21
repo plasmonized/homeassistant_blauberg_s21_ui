@@ -36,3 +36,29 @@ further past an already-met setpoint.
 **Why:** comparing only indoor-vs-setpoint (the old logic) ignored whether outside air
 actually helps; the user repeatedly stressed this is the entire point of using weather data.
 Fan speed range is 0–3; clamp at the Modbus write point (`executeControlAction`).
+
+# Integrated electric heater (Heizregister)
+Heating is delivered by the unit's own firmware, not our PID: switch the unit to Heizung mode,
+write the room setpoint, and keep the fan running — the post-heater modulates itself to the
+setpoint. So weather_compensated's "room too cold + outdoor not warmer" branch switches to
+heating (opt-in via `useHeater`) instead of turning off. Free outdoor warmth is still used
+first; the heater only tops up once ventilation can no longer reach the setpoint.
+**Why:** electric heat is expensive — it must be opt-in and must never run when free air (or
+no action) would do. When the heater is on, the profile OWNS the operation mode: it forces
+Lüftung whenever not actively heating, which intentionally overrides a manually chosen mode.
+**How to apply:** always write the setpoint BEFORE switching to heating mode, so the heater
+never engages against a stale setpoint. Known limitation: several enabled profiles/rules can
+fight over the operation-mode register each cycle (no arbitration yet) — keep one mode-owning
+profile.
+
+# Real S21 (RENEO-D) addresses vs. the app's placeholder register map
+**Gotcha:** the default device register map is mostly PLACEHOLDER addresses that do NOT match
+the real RENEO-D manual (`attached_assets/manual.txt`) — the code looks authoritative but is
+not. Confirmed-real and currently used: operation-mode = addr 43 (0 Lüftung/1 Heizung/
+2 Kühlung/3 Auto, raw), room-setpoint = addr 44 (15–30 °C raw). Real temperatures are input
+registers scaled ×10 (250 = 25.0 °C): outdoor = addr 1, supply = addr 2, extract(≈room) = addr 3.
+The in-app temp sensors still use placeholder addresses — full alignment to the manual is an
+open follow-up.
+**Why:** automation resolves registers by NAME substring, never by address, so the feature
+works on both the simulator and fresh devices regardless of address — but real hardware I/O
+needs the manual's true addresses.

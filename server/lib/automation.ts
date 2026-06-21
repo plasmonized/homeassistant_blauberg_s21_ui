@@ -442,6 +442,8 @@ async function executeControlAction(
     const registers = await storage.getRegisters(deviceId);
 
     if (result.actionType === "fan_speed") {
+      const messages: string[] = [];
+
       const fanReg = registers.find((r) => r.name.includes("Fan Speed"));
       if (fanReg) {
         // Safety clamp: fan speed must stay within the valid 0–3 range, regardless
@@ -449,7 +451,36 @@ async function executeControlAction(
         const fanValue = Math.max(0, Math.min(3, Math.round(result.value)));
         await client.writeSingleRegister(fanReg.address, fanValue);
         await storage.updateRegisterValue(fanReg.id, fanValue);
-        return { success: true, message: `Lüfterstufe: ${fanValue}` };
+        messages.push(`Lüfterstufe: ${fanValue}`);
+      }
+
+      // Optionaler Raum-Sollwert für das Heizregister (HR_SetTEMP, 15–30 °C).
+      // WICHTIG: vor dem Betriebsmodus schreiben, damit das Heizregister niemals mit
+      // einem veralteten Sollwert anläuft.
+      if (typeof result.setpointTemp === "number") {
+        const setReg = registers.find((r) => r.name.includes("Temperature Setpoint"));
+        if (setReg) {
+          const setValue = Math.max(15, Math.min(30, Math.round(result.setpointTemp)));
+          await client.writeSingleRegister(setReg.address, setValue);
+          await storage.updateRegisterValue(setReg.id, setValue);
+          messages.push(`Sollwert: ${setValue}°C`);
+        }
+      }
+
+      // Optionaler Betriebsmodus (z. B. Heizung) – nur wenn die Regelung ihn vorgibt.
+      if (typeof result.mode === "number") {
+        const modeReg = registers.find((r) => r.name.includes("Operation Mode"));
+        if (modeReg) {
+          const modeValue = Math.max(0, Math.min(3, Math.round(result.mode)));
+          await client.writeSingleRegister(modeReg.address, modeValue);
+          await storage.updateRegisterValue(modeReg.id, modeValue);
+          const modeLabels = ["Lüftung", "Heizung", "Kühlung", "Auto"];
+          messages.push(`Modus: ${modeLabels[modeValue] ?? modeValue}`);
+        }
+      }
+
+      if (messages.length > 0) {
+        return { success: true, message: messages.join(", ") };
       }
     } else if (result.actionType === "mode") {
       const modeReg = registers.find((r) => r.name.includes("Operation Mode"));

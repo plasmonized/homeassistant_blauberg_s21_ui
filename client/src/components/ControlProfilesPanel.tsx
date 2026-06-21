@@ -276,8 +276,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const dialogParamEntries = currentTemplate
     ? Object.entries(currentTemplate.paramLabels || {})
     : [];
-  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key) && key !== "useExternalSensors");
-  const expertEntries = dialogParamEntries.filter(([key]) => isExpertParam(key) && key !== "useExternalSensors");
+  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key) && key !== "useExternalSensors" && key !== "useHeater");
+  const expertEntries = dialogParamEntries.filter(([key]) => isExpertParam(key) && key !== "useExternalSensors" && key !== "useHeater");
 
   return (
     <div className="space-y-6">
@@ -382,6 +382,23 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Konfigurieren Sie externe Sensoren im Reiter „Konfiguration“.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Heater toggle */}
+                  {dialogParamEntries.some(([key]) => key === "useHeater") && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold">Heizung</h4>
+                      <div className="grid grid-cols-1 gap-4">
+                        {dialogParamEntries
+                          .filter(([key]) => key === "useHeater")
+                          .map(([key, label]) =>
+                            renderParamInput(key, params[key], label as string)
+                          )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Nutzt das integrierte Elektro-Heizregister, wenn die Außenluft zu kalt ist, um den Sollwert allein durch Lüften zu erreichen.
                       </p>
                     </div>
                   )}

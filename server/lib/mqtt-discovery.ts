@@ -89,17 +89,18 @@ function discoverSwitch(uniqueId: string, name: string): void {
   });
 }
 
-function discoverNumber(uniqueId: string, name: string, unit: string | null, min: number, max: number, step: number = 1): void {
+function discoverNumber(uniqueId: string, name: string, unit: string | null, min: number, max: number, step: number = 1, deviceClass: string | null = null): void {
   publishDiscovery("number", uniqueId, {
     name,
     state_topic: getStateTopic(uniqueId),
     command_topic: getCommandTopic(uniqueId),
     availability_topic: getAvailabilityTopic(),
     unit_of_measurement: unit,
+    device_class: deviceClass,
     min,
     max,
     step,
-    mode: "slider",
+    mode: "box",
     value_template: "{{ value }}",
   });
 }
@@ -150,7 +151,10 @@ export async function discoverDevice(deviceId: number): Promise<void> {
   for (const reg of registers) {
     const uniqueId = `reg_${reg.address}`;
 
-    if (reg.name.includes("Temperature") || reg.name.includes("Outdoor") || reg.name.includes("Supply") || reg.name.includes("Extract") || reg.name.includes("Exhaust")) {
+    if (reg.name.includes("Temperature") && reg.name.includes("Setpoint") && reg.isWritable) {
+      // Schreibbarer Raum-Sollwert (Heizregister) → HA-Number, nicht Nur-Lese-Sensor.
+      discoverNumber(uniqueId, reg.name, reg.unit || "°C", 15, 30, 1, "temperature");
+    } else if (reg.name.includes("Temperature") || reg.name.includes("Outdoor") || reg.name.includes("Supply") || reg.name.includes("Extract") || reg.name.includes("Exhaust")) {
       const deviceClass = "temperature";
       const stateClass = "measurement";
       const unit = reg.unit || "°C";
@@ -166,14 +170,14 @@ export async function discoverDevice(deviceId: number): Promise<void> {
     } else if (reg.name.includes("Standby") && reg.isWritable) {
       discoverSwitch(uniqueId, reg.name);
     } else if (reg.name.includes("Fan Speed") && reg.isWritable) {
-      discoverNumber(uniqueId, reg.name.replace(" (0:Low, 1:Med, 2:High)", ""), null, 0, 2, 1);
+      discoverNumber(uniqueId, reg.name.replace(" (0:Low, 1:Med, 2:High)", ""), null, 0, 3, 1);
     } else if (reg.name.includes("Boost Timer") && reg.isWritable) {
       discoverNumber(uniqueId, reg.name, "min", 0, 60, 1);
     } else if (reg.name.includes("Operation Mode") && reg.isWritable) {
-      const options = reg.options ? Object.values(reg.options) as string[] : ["Ventilation", "Heating", "Cooling", "Auto"];
+      const options = reg.options ? Object.values(reg.options) as string[] : ["Lüftung", "Heizung", "Kühlung", "Auto"];
       discoverSelect(uniqueId, reg.name, options);
     } else if (reg.name.includes("Bypass") && reg.isWritable) {
-      const options = reg.options ? Object.values(reg.options) as string[] : ["Auto", "Open", "Closed"];
+      const options = reg.options ? Object.values(reg.options) as string[] : ["Auto", "Offen", "Geschlossen"];
       discoverSelect(uniqueId, reg.name, options);
     } else {
       // Generic sensor
@@ -207,10 +211,8 @@ export async function publishRegisterStates(deviceId: number): Promise<void> {
       }
     }
 
-    // Scale temperature values
-    if (reg.scale && reg.scale !== 1 && reg.lastValue !== null) {
-      value = String(parseFloat(reg.lastValue) / reg.scale);
-    }
+    // NOTE: lastValue is already stored de-scaled (display units) by the poll
+    // and write paths, so it must NOT be divided by scale again here.
 
     publishState(uniqueId, value);
   }
