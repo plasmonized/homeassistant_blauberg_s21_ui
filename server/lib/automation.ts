@@ -15,7 +15,7 @@ import {
 } from "./control-engine";
 
 let automationInterval: NodeJS.Timeout | null = null;
-const POLL_INTERVAL_MS = 30_000; // Check every 30 seconds
+const POLL_INTERVAL_MS = 10_000; // Check every 10 seconds
 let mqttInitialized = false;
 
 // Track last execution time per rule to prevent immediate re-trigger
