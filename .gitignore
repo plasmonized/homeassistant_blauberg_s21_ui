@@ -4,3 +4,11 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Replit-specific (not needed in HA addon repo)
+.local/
+.cache/
+.upm/
+.config/
+.replit
+.agents/
