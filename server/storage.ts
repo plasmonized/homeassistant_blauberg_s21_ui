@@ -185,6 +185,17 @@ export class DatabaseStorage implements IStorage {
     return sensor;
   }
 
+  async getExternalSensorByType(deviceId: number, sensorType: string): Promise<ExternalSensor | undefined> {
+    const [sensor] = await db.select()
+      .from(externalSensors)
+      .where(and(
+        eq(externalSensors.deviceId, deviceId),
+        eq(externalSensors.sensorType, sensorType)
+      ))
+      .limit(1);
+    return sensor;
+  }
+
   async createExternalSensor(sensor: InsertExternalSensor): Promise<ExternalSensor> {
     const [newSensor] = await db.insert(externalSensors).values(sensor).returning();
     return newSensor;

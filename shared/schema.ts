@@ -144,7 +144,7 @@ export const externalSensors = pgTable("external_sensors", {
   name: text("name").notNull(),
   sourceType: text("source_type", { enum: ["homeassistant", "openweather", "manual"] }).default("homeassistant").notNull(),
   entityId: text("entity_id"), // e.g. "sensor.outdoor_temp" for HA
-  sensorType: text("sensor_type", { enum: ["temperature", "humidity", "co2", "forecast_temp", "pressure", "wind_speed"] }).notNull(),
+  sensorType: text("sensor_type", { enum: ["temperature", "indoor_temp", "outdoor_temp", "humidity", "co2", "forecast_temp", "pressure", "wind_speed"] }).notNull(),
   lastValue: text("last_value"),
   unit: text("unit"),
   updatedAt: timestamp("updated_at"),

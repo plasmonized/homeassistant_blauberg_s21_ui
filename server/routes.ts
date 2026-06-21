@@ -409,7 +409,7 @@ export async function registerRoutes(
           kd: 0.5,
           outputMin: 0,
           outputMax: 2,
-          externalIndoorTempEntity: null,
+          useExternalSensors: false,
         },
         paramLabels: {
           setpoint: "Sollwert (°C)",
@@ -418,7 +418,7 @@ export async function registerRoutes(
           kd: "Kd (Differential)",
           outputMin: "Min. Lüfterstufe",
           outputMax: "Max. Lüfterstufe",
-          externalIndoorTempEntity: "Externer Innen-Temperatursensor (Entity ID)",
+          useExternalSensors: "Externe Sensoren nutzen",
         },
       },
       humidity_control: {
@@ -431,7 +431,7 @@ export async function registerRoutes(
           kd: 0.2,
           outputMin: 0,
           outputMax: 2,
-          externalHumidityEntity: null,
+          useExternalSensors: false,
         },
         paramLabels: {
           setpoint: "Sollwert (%)",
@@ -440,7 +440,7 @@ export async function registerRoutes(
           kd: "Kd (Differential)",
           outputMin: "Min. Lüfterstufe",
           outputMax: "Max. Lüfterstufe",
-          externalHumidityEntity: "Externer Feuchtigkeitssensor (Entity ID)",
+          useExternalSensors: "Externe Sensoren nutzen",
         },
       },
       co2_control: {
@@ -454,7 +454,7 @@ export async function registerRoutes(
           outputMin: 0,
           outputMax: 2,
           emergencyThreshold: 1200,
-          externalCo2Entity: null,
+          useExternalSensors: false,
         },
         paramLabels: {
           setpoint: "CO2-Sollwert (ppm)",
@@ -464,7 +464,7 @@ export async function registerRoutes(
           outputMin: "Min. Lüfterstufe",
           outputMax: "Max. Lüfterstufe",
           emergencyThreshold: "Notfalldrehwert (ppm)",
-          externalCo2Entity: "Externer CO2-Sensor (Entity ID)",
+          useExternalSensors: "Externe Sensoren nutzen",
         },
       },
       summer_winter: {
@@ -475,14 +475,14 @@ export async function registerRoutes(
           winterSetpoint: 20,
           switchTemp: 18,
           summerHysteresis: 1,
-          externalOutdoorTempEntity: null,
+          useExternalSensors: false,
         },
         paramLabels: {
           summerSetpoint: "Sommer-Sollwert (°C)",
           winterSetpoint: "Winter-Sollwert (°C)",
           switchTemp: "Umschalttemperatur (°C)",
           summerHysteresis: "Hysterese (°C)",
-          externalOutdoorTempEntity: "Externer Außentemperatursensor (Entity ID)",
+          useExternalSensors: "Externe Sensoren nutzen",
         },
       },
       night_setback: {
@@ -495,7 +495,7 @@ export async function registerRoutes(
           nightEnd: "06:00",
           fanSpeedDay: 1,
           fanSpeedNight: 0,
-          externalIndoorTempEntity: null,
+          useExternalSensors: false,
         },
         paramLabels: {
           daySetpoint: "Tages-Sollwert (°C)",
@@ -504,7 +504,7 @@ export async function registerRoutes(
           nightEnd: "Nachtende",
           fanSpeedDay: "Lüfterstufe Tag",
           fanSpeedNight: "Lüfterstufe Nacht",
-          externalIndoorTempEntity: "Externer Innen-Temperatursensor (Entity ID)",
+          useExternalSensors: "Externe Sensoren nutzen",
         },
       },
       weather_compensated: {
@@ -516,8 +516,7 @@ export async function registerRoutes(
           heatingCurveOffset: 20,
           minSupply: 16,
           maxSupply: 50,
-          externalOutdoorTempEntity: null,
-          externalIndoorTempEntity: null,
+          useExternalSensors: false,
         },
         paramLabels: {
           roomSetpoint: "Raum-Sollwert (°C)",
@@ -525,8 +524,7 @@ export async function registerRoutes(
           heatingCurveOffset: "Heizkurve-Offset (°C)",
           minSupply: "Min. Zulauftemperatur (°C)",
           maxSupply: "Max. Zulauftemperatur (°C)",
-          externalOutdoorTempEntity: "Externer Außentemperatursensor (Entity ID)",
-          externalIndoorTempEntity: "Externer Innen-Temperatursensor (Entity ID)",
+          useExternalSensors: "Externe Sensoren nutzen",
         },
       },
     };

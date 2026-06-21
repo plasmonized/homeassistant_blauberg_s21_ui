@@ -27,7 +27,9 @@ const sourceOptions = [
 ];
 
 const sensorTypeOptions = [
-  { value: "temperature", label: "Temperatur", icon: Thermometer },
+  { value: "temperature", label: "Temperatur (allgemein)", icon: Thermometer },
+  { value: "indoor_temp", label: "Innen-Temperatur", icon: Thermometer },
+  { value: "outdoor_temp", label: "Außen-Temperatur", icon: Thermometer },
   { value: "humidity", label: "Luftfeuchtigkeit", icon: Droplets },
   { value: "co2", label: "CO₂", icon: Wind },
   { value: "forecast_temp", label: "Vorhersage-Temperatur", icon: CloudRain },

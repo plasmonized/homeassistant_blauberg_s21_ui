@@ -325,60 +325,35 @@ async function evaluateControlProfile(
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-    // Get sensor values
-    const getSensor = (name: string) => {
-      const reg = registers.find((r) => r.name === name);
-      if (reg && reg.lastValue !== null && reg.lastValue !== undefined) {
-        return parseFloat(reg.lastValue);
-      }
-      return null;
-    };
+    // Get sensor values using the central helper
+    // If useExternalSensors is true, try to find a matching sensor by type from DB
+    const useExt = params?.useExternalSensors === true;
 
-    const getExternalSensor = (entityId: string) => {
-      const sensor = externalSensors.find((s) => s.entityId === entityId);
-      if (sensor && sensor.lastValue !== null && sensor.lastValue !== undefined) {
-        return parseFloat(sensor.lastValue);
-      }
-      return null;
-    };
-
-    // Get indoor temperature (use external HA sensor if configured, else supply temp)
     let indoorTemp: number | null = null;
-    if (params?.externalIndoorTempEntity) {
-      indoorTemp = getExternalSensor(params.externalIndoorTempEntity);
-    } else if (params?.externalTempEntity) {
-      // Legacy fallback for old profiles
-      indoorTemp = getExternalSensor(params.externalTempEntity);
-    }
-    if (indoorTemp === null) {
-      indoorTemp = getSensor("Supply Temperature") || getSensor("Temperature") || getSensor("Indoor Temperature") || 20;
-    }
-
-    // Get outdoor temperature
     let outdoorTemp: number | null = null;
-    if (params?.externalOutdoorTempEntity) {
-      outdoorTemp = getExternalSensor(params.externalOutdoorTempEntity);
-    }
-    if (outdoorTemp === null) {
-      outdoorTemp = getSensor("Outdoor Temperature") || getSensor("Außentemperatur") || 10;
-    }
-
-    // Get humidity
     let humidity: number | null = null;
-    if (params?.externalHumidityEntity) {
-      humidity = getExternalSensor(params.externalHumidityEntity);
-    }
-    if (humidity === null) {
-      humidity = getSensor("Humidity") || getSensor("Humidity") || getSensor("Feuchtigkeit") || 50;
+    let co2: number | null = null;
+
+    if (useExt) {
+      indoorTemp = await getSensorValue(registers, "indoor_temp", externalSensors);
+      outdoorTemp = await getSensorValue(registers, "outdoor_temp", externalSensors);
+      humidity = await getSensorValue(registers, "humidity", externalSensors);
+      co2 = await getSensorValue(registers, "co2", externalSensors);
     }
 
-    // Get CO2
-    let co2: number | null = null;
-    if (params?.externalCo2Entity) {
-      co2 = getExternalSensor(params.externalCo2Entity);
-    }
-    if (co2 === null) {
-      co2 = getSensor("CO2") || getSensor("CO2") || getSensor("Kohlendioxid") || 400;
+    // Fallback to device registers if external sensors not configured or not found
+    if (indoorTemp === null) {
+      const getSensor = (name: string) => {
+        const reg = registers.find((r) => r.name === name);
+        if (reg && reg.lastValue !== null && reg.lastValue !== undefined) {
+          return parseFloat(reg.lastValue);
+        }
+        return null;
+      };
+      indoorTemp = getSensor("Supply Temperature") || getSensor("Temperature") || getSensor("Indoor Temperature") || 20;
+      if (outdoorTemp === null) outdoorTemp = getSensor("Outdoor Temperature") || getSensor("Außentemperatur") || 10;
+      if (humidity === null) humidity = getSensor("Humidity") || getSensor("Feuchtigkeit") || 50;
+      if (co2 === null) co2 = getSensor("CO2") || getSensor("Kohlendioxid") || 400;
     }
 
     // Evaluate based on control type

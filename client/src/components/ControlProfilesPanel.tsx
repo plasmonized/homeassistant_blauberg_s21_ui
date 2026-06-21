@@ -8,6 +8,7 @@ import {
   useDeleteControlProfile,
 } from "@/hooks/use-control-profiles";
 import { useRegisters } from "@/hooks/use-registers";
+import { useExternalSensors } from "@/hooks/use-external-sensors";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,6 +118,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const { data: logs, isLoading: logsLoading } = useControlLogs(deviceId);
   const { data: templates } = useControlProfileTemplates();
   const { data: registers } = useRegisters(deviceId);
+  const { data: externalSensors } = useExternalSensors(deviceId);
   const createProfile = useCreateControlProfile(deviceId);
   const updateProfile = useUpdateControlProfile(deviceId);
   const deleteProfile = useDeleteControlProfile(deviceId);
@@ -127,6 +129,26 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const [params, setParams] = useState<Record<string, any>>({});
   const [name, setName] = useState("");
   const [showExpert, setShowExpert] = useState(false);
+
+  const hasExternalSensor = (type: string) => {
+    return externalSensors?.some((s: any) => s.sensorType === type) ?? false;
+  };
+
+  const needsExternalSensor = (controlType: string) => {
+    return ["temperature_control", "humidity_control", "co2_control", "summer_winter", "night_setback", "weather_compensated"].includes(controlType);
+  };
+
+  const getRequiredSensorType = (controlType: string): string | null => {
+    switch (controlType) {
+      case "temperature_control": return "indoor_temp";
+      case "humidity_control": return "humidity";
+      case "co2_control": return "co2";
+      case "summer_winter": return "outdoor_temp";
+      case "night_setback": return "indoor_temp";
+      case "weather_compensated": return "outdoor_temp";
+      default: return null;
+    }
+  };
 
   const handleTemplateChange = (templateKey: string) => {
     setSelectedTemplate(templateKey);
@@ -198,16 +220,15 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   };
 
   const renderParamInput = (key: string, value: any, label: string) => {
-    if (key.toLowerCase().includes("entity") || key.toLowerCase().includes("sensor")) {
+    if (key === "useExternalSensors") {
       return (
-        <div key={key} className="space-y-2">
-          <Label className="text-sm">{label}</Label>
-          <Input
-            value={value || ""}
-            onChange={(e) => handleParamChange(key, e.target.value || null)}
-            placeholder="z.B. sensor.wohnzimmer_temperatur"
-            data-testid={`input-param-${key}`}
+        <div key={key} className="flex items-center gap-2">
+          <Switch
+            checked={!!value}
+            onCheckedChange={(v) => handleParamChange(key, v)}
+            data-testid={`switch-param-${key}`}
           />
+          <Label className="text-sm">{label}</Label>
         </div>
       );
     }
@@ -349,17 +370,20 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                     </div>
                   )}
 
-                  {/* External sensor */}
-                  {dialogParamEntries.some(([key]) => key.toLowerCase().includes("entity")) && (
+                  {/* External sensor toggle */}
+                  {dialogParamEntries.some(([key]) => key === "useExternalSensors") && (
                     <div className="space-y-3">
-                      <h4 className="text-sm font-semibold">Externer Sensor</h4>
+                      <h4 className="text-sm font-semibold">Externe Sensoren</h4>
                       <div className="grid grid-cols-1 gap-4">
                         {dialogParamEntries
-                          .filter(([key]) => key.toLowerCase().includes("entity"))
+                          .filter(([key]) => key === "useExternalSensors")
                           .map(([key, label]) =>
                             renderParamInput(key, params[key], label as string)
                           )}
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Konfigurieren Sie externe Sensoren im Reiter „Konfiguration“.
+                      </p>
                     </div>
                   )}
 
