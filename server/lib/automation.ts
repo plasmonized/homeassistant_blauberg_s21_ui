@@ -57,17 +57,20 @@ async function getSensorValue(
 
   switch (sensorType) {
     case "outdoor_temp": {
-      const ext = findExt("temperature");
+      // Prefer a dedicated outdoor sensor, fall back to a generic temperature sensor
+      const ext = findExt("outdoor_temp") || findExt("temperature");
       if (ext) return parseFloat(ext.lastValue);
       const reg = findReg("Outdoor");
-      return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
+      return reg?.lastValue != null ? parseFloat(reg.lastValue) : null;
     }
     case "indoor_temp": {
-      // Use average of supply and extract as indoor temperature
+      const ext = findExt("indoor_temp");
+      if (ext) return parseFloat(ext.lastValue);
+      // Otherwise use average of supply and extract as indoor temperature
       const supply = findReg("Supply");
       const extract = findReg("Extract");
-      const sVal = supply?.lastValue !== null ? parseFloat(supply.lastValue) : null;
-      const eVal = extract?.lastValue !== null ? parseFloat(extract.lastValue) : null;
+      const sVal = supply?.lastValue != null ? parseFloat(supply.lastValue) : null;
+      const eVal = extract?.lastValue != null ? parseFloat(extract.lastValue) : null;
       if (sVal !== null && eVal !== null) return (sVal + eVal) / 2;
       return sVal ?? eVal ?? null;
     }
@@ -325,36 +328,18 @@ async function evaluateControlProfile(
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-    // Get sensor values using the central helper
-    // If useExternalSensors is true, try to find a matching sensor by type from DB
+    // Resolve sensor values via the central helper, which uses substring matching
+    // against the device registers (e.g. "Temperature - Outdoor"). External sensors
+    // only override when the profile explicitly opted in; otherwise device registers
+    // are used. If no real value is available we keep null and the profile does NOT
+    // act – never fabricate temperatures, which would defeat the smart safeguards.
     const useExt = params?.useExternalSensors === true;
+    const extSensors = useExt ? externalSensors : undefined;
 
-    let indoorTemp: number | null = null;
-    let outdoorTemp: number | null = null;
-    let humidity: number | null = null;
-    let co2: number | null = null;
-
-    if (useExt) {
-      indoorTemp = await getSensorValue(registers, "indoor_temp", externalSensors);
-      outdoorTemp = await getSensorValue(registers, "outdoor_temp", externalSensors);
-      humidity = await getSensorValue(registers, "humidity", externalSensors);
-      co2 = await getSensorValue(registers, "co2", externalSensors);
-    }
-
-    // Fallback to device registers if external sensors not configured or not found
-    if (indoorTemp === null) {
-      const getSensor = (name: string) => {
-        const reg = registers.find((r) => r.name === name);
-        if (reg && reg.lastValue !== null && reg.lastValue !== undefined) {
-          return parseFloat(reg.lastValue);
-        }
-        return null;
-      };
-      indoorTemp = getSensor("Supply Temperature") || getSensor("Temperature") || getSensor("Indoor Temperature") || 20;
-      if (outdoorTemp === null) outdoorTemp = getSensor("Outdoor Temperature") || getSensor("Außentemperatur") || 10;
-      if (humidity === null) humidity = getSensor("Humidity") || getSensor("Feuchtigkeit") || 50;
-      if (co2 === null) co2 = getSensor("CO2") || getSensor("Kohlendioxid") || 400;
-    }
+    const indoorTemp = await getSensorValue(registers, "indoor_temp", extSensors);
+    const outdoorTemp = await getSensorValue(registers, "outdoor_temp", extSensors);
+    const humidity = await getSensorValue(registers, "humidity", extSensors);
+    const co2 = await getSensorValue(registers, "co2", extSensors);
 
     // Evaluate based on control type
     const controlType = profile.schemaType || profile.controlType;
@@ -459,9 +444,12 @@ async function executeControlAction(
     if (result.actionType === "fan_speed") {
       const fanReg = registers.find((r) => r.name.includes("Fan Speed"));
       if (fanReg) {
-        await client.writeSingleRegister(fanReg.address, result.value);
-        await storage.updateRegisterValue(fanReg.id, result.value);
-        return { success: true, message: `Lüfterstufe: ${result.value}` };
+        // Safety clamp: fan speed must stay within the valid 0–3 range, regardless
+        // of how a profile was configured.
+        const fanValue = Math.max(0, Math.min(3, Math.round(result.value)));
+        await client.writeSingleRegister(fanReg.address, fanValue);
+        await storage.updateRegisterValue(fanReg.id, fanValue);
+        return { success: true, message: `Lüfterstufe: ${fanValue}` };
       }
     } else if (result.actionType === "mode") {
       const modeReg = registers.find((r) => r.name.includes("Operation Mode"));

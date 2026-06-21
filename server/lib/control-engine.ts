@@ -77,20 +77,6 @@ function twoPointControl(
   return state;
 }
 
-// === HEATING CURVE (weather compensated) ===
-function heatingCurve(
-  outdoorTemp: number,
-  setpoint: number,
-  slope: number,
-  offset: number,
-  minSupply: number,
-  maxSupply: number
-): number {
-  // Calculate supply temperature based on outdoor temperature
-  const supplyTemp = setpoint + slope * (setpoint - outdoorTemp) / 20 + offset;
-  return Math.max(minSupply, Math.min(maxSupply, supplyTemp));
-}
-
 // === CONTROL SCHEMA IMPLEMENTATIONS ===
 
 export interface ControlResult {
@@ -271,27 +257,60 @@ export async function runWeatherCompensated(
   indoorTemp: number
 ): Promise<ControlResult> {
   const {
-    roomSetpoint = 21,
-    heatingCurveSlope = 1.5,
-    heatingCurveOffset = 20,
-    minSupply = 16,
-    maxSupply = 50,
+    roomSetpoint = 21,      // Raum-Sollwert (°C)
+    comfortBand = 0.5,      // Toleranzband um den Sollwert (±°C) → nur Grundlüftung
+    minOutdoorDelta = 1.0,  // Mindestdifferenz Außen/Innen, damit Lüften überhaupt hilft (°C)
+    boostThreshold = 2.0,   // Abweichung vom Sollwert, ab der auf Maximum gelüftet wird (°C)
+    baseFanSpeed = 1,       // Grundlüftung im Sollbereich (Stufe)
+    activeFanSpeed = 2,     // Lüftung beim aktiven Regeln (Stufe)
+    maxFanSpeed = 3,        // Maximale Lüftung beim Boost (Stufe)
   } = params;
 
-  // Calculate supply temperature from heating curve
-  const supplyTemp = heatingCurve(outdoorTemp, roomSetpoint, heatingCurveSlope, heatingCurveOffset, minSupply, maxSupply);
+  const dev = indoorTemp - roomSetpoint; // > 0 = Raum zu warm, < 0 = Raum zu kalt
+  const indoorStr = indoorTemp.toFixed(1);
+  const outdoorStr = outdoorTemp.toFixed(1);
 
-  // Adjust fan speed based on difference between indoor temp and setpoint
-  const deviation = indoorTemp - roomSetpoint;
-  let fanSpeed = 2;
-  if (deviation > 3.0) fanSpeed = 0;      // Viel zu warm – Lüftung aus
-  else if (deviation > 1.5) fanSpeed = 1; // Zu warm – reduzieren
-  else if (deviation < -1.5) fanSpeed = 3; // Zu kalt – boost
+  // Im Komfortband → nur Grundlüftung, kein aktives Heizen/Kühlen nötig
+  if (Math.abs(dev) <= comfortBand) {
+    return {
+      actionType: "fan_speed",
+      value: baseFanSpeed,
+      reason: `Im Sollbereich (innen ${indoorStr}°C ≈ Soll ${roomSetpoint}°C) → Grundlüftung Stufe ${baseFanSpeed}`,
+    };
+  }
 
+  if (dev > 0) {
+    // Raum ist ZU WARM → Kühlung gewünscht. Lüften hilft nur, wenn die Außenluft kühler ist.
+    if (outdoorTemp <= indoorTemp - minOutdoorDelta) {
+      const fanSpeed = dev >= boostThreshold ? maxFanSpeed : activeFanSpeed;
+      return {
+        actionType: "fan_speed",
+        value: fanSpeed,
+        reason: `Kühlen: innen ${indoorStr}°C > Soll ${roomSetpoint}°C, außen ${outdoorStr}°C kühler → Stufe ${fanSpeed}`,
+      };
+    }
+    // Außen gleich warm oder wärmer → Lüften würde den Raum weiter aufheizen → AUS
+    return {
+      actionType: "fan_speed",
+      value: 0,
+      reason: `Lüftung AUS: Raum ${indoorStr}°C bereits zu warm und außen ${outdoorStr}°C nicht kühler – Lüften würde aufheizen`,
+    };
+  }
+
+  // Raum ist ZU KALT → Erwärmung gewünscht. Lüften hilft nur, wenn die Außenluft wärmer ist.
+  if (outdoorTemp >= indoorTemp + minOutdoorDelta) {
+    const fanSpeed = Math.abs(dev) >= boostThreshold ? maxFanSpeed : activeFanSpeed;
+    return {
+      actionType: "fan_speed",
+      value: fanSpeed,
+      reason: `Erwärmen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C wärmer → Stufe ${fanSpeed}`,
+    };
+  }
+  // Außen gleich kalt oder kälter → Lüften würde den Raum weiter abkühlen → AUS
   return {
     actionType: "fan_speed",
-    value: fanSpeed,
-    reason: `Außen: ${outdoorTemp}°C, Heizkurve: ${supplyTemp.toFixed(1)}°C, Innen: ${indoorTemp}°C`,
+    value: 0,
+    reason: `Lüftung AUS: Raum ${indoorStr}°C bereits zu kalt und außen ${outdoorStr}°C nicht wärmer – Lüften würde abkühlen`,
   };
 }
 

@@ -1,0 +1,1 @@
+- [Control engine sensor & ventilation rules](control-engine-rules.md) — register-name matching, external-sensor opt-in, and the "no-harm" weather-compensated principle for the S21 addon.

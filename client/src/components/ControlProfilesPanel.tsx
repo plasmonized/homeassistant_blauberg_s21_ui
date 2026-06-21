@@ -76,8 +76,7 @@ const controlTypeSetpointKeys: Record<string, string[]> = {
 
 const expertParamKeys = [
   "kp","ki","kd","outputMin","outputMax","hysteresis","summerHysteresis",
-  "switchTemp","nightStart","nightEnd","fanSpeedDay","fanSpeedNight",
-  "heatingCurveSlope","heatingCurveOffset","minSupply","maxSupply","emergencyThreshold",
+  "switchTemp","nightStart","nightEnd","fanspeed","emergencyThreshold",
 ];
 
 function isExpertParam(key: string) {
@@ -397,7 +396,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                       >
                         <div className="flex items-center gap-2">
                           <Settings2 className="h-4 w-4 text-muted-foreground" />
-                          <span>Erweitert (PID-Parameter)</span>
+                          <span>Erweitert</span>
                         </div>
                         {showExpert ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </button>
