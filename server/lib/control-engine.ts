@@ -284,8 +284,9 @@ export async function runWeatherCompensated(
   // Adjust fan speed based on difference between indoor temp and setpoint
   const deviation = indoorTemp - roomSetpoint;
   let fanSpeed = 2;
-  if (deviation > 1.5) fanSpeed = 1; // Too warm - reduce
-  else if (deviation < -1.5) fanSpeed = 3; // Too cold - boost
+  if (deviation > 3.0) fanSpeed = 0;      // Viel zu warm – Lüftung aus
+  else if (deviation > 1.5) fanSpeed = 1; // Zu warm – reduzieren
+  else if (deviation < -1.5) fanSpeed = 3; // Zu kalt – boost
 
   return {
     actionType: "fan_speed",

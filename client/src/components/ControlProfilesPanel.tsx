@@ -277,8 +277,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const dialogParamEntries = currentTemplate
     ? Object.entries(currentTemplate.paramLabels || {})
     : [];
-  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key));
-  const expertEntries = dialogParamEntries.filter(([key]) => isExpertParam(key));
+  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key) && key !== "useExternalSensors");
+  const expertEntries = dialogParamEntries.filter(([key]) => isExpertParam(key) && key !== "useExternalSensors");
 
   return (
     <div className="space-y-6">
