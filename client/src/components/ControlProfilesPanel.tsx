@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/accordion";
 import {
   Plus, Trash2, Pencil, Bot, Thermometer, Droplets, Wind, Moon, Sun, Gauge,
-  History, Power, Settings2, ChevronDown, ChevronUp,
+  History, Power, Settings2, ChevronDown, ChevronUp, Flame,
 } from "lucide-react";
 
 interface ControlProfilesPanelProps {
@@ -228,6 +228,38 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             data-testid={`switch-param-${key}`}
           />
           <Label className="text-sm">{label}</Label>
+        </div>
+      );
+    }
+    if (key === "useHeater") {
+      const on = !!value;
+      return (
+        <div key={key} className="col-span-full">
+          <button
+            type="button"
+            onClick={() => handleParamChange(key, !on)}
+            data-testid="switch-param-useHeater"
+            className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+              on
+                ? "border-orange-500 bg-orange-500/10 text-orange-400"
+                : "border-border bg-muted/30 text-muted-foreground hover:border-border/80"
+            }`}
+          >
+            <div className={`p-2 rounded-lg ${on ? "bg-orange-500/20" : "bg-muted"}`}>
+              <Flame className={`w-5 h-5 ${on ? "text-orange-400" : "text-muted-foreground"}`} />
+            </div>
+            <div className="flex-1 text-left">
+              <div className="font-medium text-sm text-foreground">Heizregister nutzen</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {on
+                  ? "Elektro-Heizregister wird bei Kältebedarf zugeschaltet"
+                  : "Nur Lüftung – kein Heizen"}
+              </div>
+            </div>
+            <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${on ? "bg-orange-500" : "bg-muted"}`}>
+              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${on ? "translate-x-4" : "translate-x-0"}`} />
+            </div>
+          </button>
         </div>
       );
     }
@@ -547,6 +579,12 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                     <Power className="h-3 w-3 text-green-500" />
                     <span>Regelung aktiv</span>
+                    {profile.parameters?.useHeater && (
+                      <Badge variant="outline" className="ml-1 gap-1 text-[10px] px-1.5 py-0 border-orange-500/50 text-orange-400">
+                        <Flame className="h-2.5 w-2.5" />
+                        Heizung
+                      </Badge>
+                    )}
                     {profile.parameters?.outputMin !== undefined && (
                       <span className="ml-auto">
                         Lüfter {profile.parameters.outputMin}–{profile.parameters.outputMax}
