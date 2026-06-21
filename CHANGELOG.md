@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Fix: PostgreSQL Log-Pfad auf `/var/lib/postgresql/postgresql.log` (kein Permission-Fehler mehr)
+- Fix: initdb läuft nur beim ersten Start (Check auf `PG_VERSION` statt Ordner)
+- Fix: pg_hba.conf Eintrag idempotent (kein Duplikat bei Restart)
+- Fix: Supervisor-Token via `$SUPERVISOR_TOKEN` Env-Var (korrekte HA-Methode)
+
 ## 0.1.2
 
 - armv7 entfernt (deprecated), nur noch aarch64 + amd64
