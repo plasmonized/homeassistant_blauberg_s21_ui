@@ -26,7 +26,7 @@ COPY postcss.config.js ./
 COPY vite.config.ts ./
 COPY components.json ./
 
-RUN npm ci --production=false
+RUN npm install --production=false
 
 COPY server/ ./server/
 COPY client/ ./client/
