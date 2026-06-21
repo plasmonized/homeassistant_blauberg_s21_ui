@@ -245,7 +245,7 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
         "2": <RotateCcw className="w-4 h-4" />,
       };
       return (
-        <div className="flex gap-1">
+        <div className="grid grid-cols-3 gap-1 w-full">
           {Object.entries(enumOptions).map(([key, label]) => {
             const active = displayValue === key;
             return (
@@ -254,7 +254,7 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
                 variant={active ? "default" : "outline"}
                 size="sm"
                 className={cn(
-                  "flex-1 h-10 text-xs",
+                  "flex flex-col items-center gap-1 h-auto py-2 px-1",
                   active && "bg-primary text-primary-foreground"
                 )}
                 onClick={() => handleWrite(Number(key))}
@@ -262,7 +262,7 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
                 data-testid={`button-bypass-${key}-${register.id}`}
               >
                 {bypassIcons[key] || <ChevronUp className="w-4 h-4" />}
-                <span className="ml-1">{label}</span>
+                <span className="text-[10px] leading-tight text-center">{label as string}</span>
               </Button>
             );
           })}
