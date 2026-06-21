@@ -344,7 +344,10 @@ async function evaluateControlProfile(
 
     // Get indoor temperature (use external HA sensor if configured, else supply temp)
     let indoorTemp: number | null = null;
-    if (params?.externalTempEntity) {
+    if (params?.externalIndoorTempEntity) {
+      indoorTemp = getExternalSensor(params.externalIndoorTempEntity);
+    } else if (params?.externalTempEntity) {
+      // Legacy fallback for old profiles
       indoorTemp = getExternalSensor(params.externalTempEntity);
     }
     if (indoorTemp === null) {

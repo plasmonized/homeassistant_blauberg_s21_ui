@@ -409,7 +409,7 @@ export async function registerRoutes(
           kd: 0.5,
           outputMin: 0,
           outputMax: 2,
-          externalTempEntity: null,
+          externalIndoorTempEntity: null,
         },
         paramLabels: {
           setpoint: "Sollwert (°C)",
@@ -418,7 +418,7 @@ export async function registerRoutes(
           kd: "Kd (Differential)",
           outputMin: "Min. Lüfterstufe",
           outputMax: "Max. Lüfterstufe",
-          externalTempEntity: "Externer Temperatursensor (Entity ID)",
+          externalIndoorTempEntity: "Externer Innen-Temperatursensor (Entity ID)",
         },
       },
       humidity_control: {
@@ -495,7 +495,7 @@ export async function registerRoutes(
           nightEnd: "06:00",
           fanSpeedDay: 1,
           fanSpeedNight: 0,
-          externalTempEntity: null,
+          externalIndoorTempEntity: null,
         },
         paramLabels: {
           daySetpoint: "Tages-Sollwert (°C)",
@@ -504,7 +504,7 @@ export async function registerRoutes(
           nightEnd: "Nachtende",
           fanSpeedDay: "Lüfterstufe Tag",
           fanSpeedNight: "Lüfterstufe Nacht",
-          externalTempEntity: "Externer Temperatursensor (Entity ID)",
+          externalIndoorTempEntity: "Externer Innen-Temperatursensor (Entity ID)",
         },
       },
       weather_compensated: {
@@ -517,7 +517,7 @@ export async function registerRoutes(
           minSupply: 16,
           maxSupply: 50,
           externalOutdoorTempEntity: null,
-          externalTempEntity: null,
+          externalIndoorTempEntity: null,
         },
         paramLabels: {
           roomSetpoint: "Raum-Sollwert (°C)",
@@ -526,7 +526,7 @@ export async function registerRoutes(
           minSupply: "Min. Zulauftemperatur (°C)",
           maxSupply: "Max. Zulauftemperatur (°C)",
           externalOutdoorTempEntity: "Externer Außentemperatursensor (Entity ID)",
-          externalTempEntity: "Externer Raumtemperatursensor (Entity ID)",
+          externalIndoorTempEntity: "Externer Innen-Temperatursensor (Entity ID)",
         },
       },
     };
