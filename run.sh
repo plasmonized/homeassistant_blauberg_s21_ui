@@ -50,11 +50,12 @@ bashio::log.info "Web-Port: $WEB_PORT"
 # === PostgreSQL ===
 bashio::log.info "Initialisiere PostgreSQL Datenbank..."
 
-PG_DATA="/var/lib/postgresql/data"
-PG_LOG="/var/lib/postgresql/postgresql.log"
+PG_BASE="/var/lib/postgresql"
+PG_DATA="$PG_BASE/data"
+PG_LOG="$PG_DATA/server.log"
 
 mkdir -p "$PG_DATA"
-chown postgres:postgres "$PG_DATA"
+chown -R postgres:postgres "$PG_BASE"
 
 # Only run initdb if database was never initialized
 if [ ! -f "$PG_DATA/PG_VERSION" ]; then
@@ -67,7 +68,7 @@ if ! grep -q "127.0.0.1/32 trust" "$PG_DATA/pg_hba.conf" 2>/dev/null; then
     su - postgres -c "echo 'host all all 127.0.0.1/32 trust' >> $PG_DATA/pg_hba.conf"
 fi
 
-# Start PostgreSQL with writable log path
+# Start PostgreSQL — log inside data dir (postgres-owned)
 su - postgres -c "pg_ctl -D $PG_DATA -l $PG_LOG start"
 
 sleep 2
