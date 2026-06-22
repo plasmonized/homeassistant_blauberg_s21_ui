@@ -1,23 +1,8 @@
 /**
  * Canonical Modbus register map for the REAL Blauberg S21 hardware.
  *
- * This is the single source of truth for which registers the add-on manages.
- * Addresses, types and ranges follow the official S21 Modbus table:
- *   - CL_POWER ............ coil   @0   System on/off
- *   - CL_Boost_MODE ....... coil   @3   Boost active (read-only status)
- *   - CL_BoostSWITCH_CTRL . coil   @13  Boost switch enable
- *   - HR_SPEED_MODE ....... holding@2   Fan stage 1..5
- *   - HR_OPERATION_MODE ... holding@43  Operating mode
- *   - HR_SetTEMP .......... holding@44  Temperature setpoint (°C)
- *   - HR_BPS_ROTOR_MODE ... holding@74  Bypass {0 closed, 1 open, 2 auto}
- *   - IR_CurTEMP_* ........ input  @1..4 Outdoor/Supply/Extract/Exhaust (×10 °C)
- *   - IR_CurRH_Int ........ input  @10  Humidity (%)
- *   - IR_CurCO2_Int ....... input  @12  CO2 (ppm)
- *   - IR_StateFILTER ...... input  @31  Filter status enum
- *
- * The automation engine resolves registers by NAME substring (e.g. "Fan Speed",
- * "System", "Bypass", "Operation Mode", "Boost", "Temperature Setpoint"), so the
- * canonical names below deliberately keep those tokens.
+ * Single source of truth for addresses, types, and default tags.
+ * Tags are seeded on new registers only – user edits are preserved during reconciliation.
  */
 
 import type { InsertRegister, RegisterType, RegisterDataType } from "@shared/schema";
@@ -32,12 +17,7 @@ export interface CanonicalRegister {
   unit?: string | null;
   scale?: number;
   options?: Record<string, string> | null;
-  /**
-   * Older register names (from previous seed versions) that this canonical
-   * entry should adopt during reconciliation. Matched by exact equality so a
-   * pre-existing row is updated in place (preserving its id) instead of being
-   * duplicated.
-   */
+  tags?: string[];
   legacyNames?: string[];
 }
 
@@ -49,6 +29,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     type: "coil",
     dataType: "bool",
     isWritable: true,
+    tags: ["control", "power"],
     legacyNames: ["System State (0:Off, 1:On)"],
   },
   {
@@ -57,6 +38,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     type: "holding",
     dataType: "uint16",
     isWritable: true,
+    tags: ["control", "fan"],
     legacyNames: ["Fan Speed (0:Low, 1:Med, 2:High)"],
   },
   {
@@ -66,6 +48,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     dataType: "enum",
     isWritable: true,
     options: { "0": "Lüftung", "1": "Heizung", "2": "Kühlung", "3": "Auto" },
+    tags: ["control", "mode"],
   },
   {
     name: "Temperature Setpoint",
@@ -75,6 +58,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     isWritable: true,
     unit: "°C",
     scale: 1,
+    tags: ["control", "temperature", "setpoint"],
   },
   {
     name: "Bypass Control",
@@ -83,6 +67,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     dataType: "enum",
     isWritable: true,
     options: { "0": "Geschlossen", "1": "Offen", "2": "Auto" },
+    tags: ["control", "bypass"],
   },
   {
     name: "Boost Switch",
@@ -90,6 +75,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     type: "coil",
     dataType: "bool",
     isWritable: true,
+    tags: ["control", "boost"],
     legacyNames: ["Boost Timer (min)"],
   },
   {
@@ -98,6 +84,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     type: "coil",
     dataType: "bool",
     isWritable: false,
+    tags: ["status", "boost"],
   },
 
   // --- Sensors (read-only input registers) ---
@@ -109,6 +96,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     isWritable: false,
     unit: "°C",
     scale: 10,
+    tags: ["sensor", "temperature", "outdoor"],
   },
   {
     name: "Temperature - Supply",
@@ -118,6 +106,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     isWritable: false,
     unit: "°C",
     scale: 10,
+    tags: ["sensor", "temperature", "supply"],
   },
   {
     name: "Temperature - Extract",
@@ -127,6 +116,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     isWritable: false,
     unit: "°C",
     scale: 10,
+    tags: ["sensor", "temperature", "extract", "indoor"],
   },
   {
     name: "Temperature - Exhaust",
@@ -136,6 +126,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     isWritable: false,
     unit: "°C",
     scale: 10,
+    tags: ["sensor", "temperature", "exhaust"],
   },
   {
     name: "Humidity",
@@ -144,6 +135,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     dataType: "uint16",
     isWritable: false,
     unit: "%",
+    tags: ["sensor", "humidity", "indoor"],
   },
   {
     name: "CO2 Level",
@@ -152,6 +144,7 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     dataType: "uint16",
     isWritable: false,
     unit: "ppm",
+    tags: ["sensor", "co2", "indoor"],
   },
   {
     name: "Filter Status",
@@ -165,14 +158,11 @@ export const S21_REGISTERS: CanonicalRegister[] = [
       "2": "Abluftfilter verstopft",
       "3": "Beide / Timer abgelaufen",
     },
+    tags: ["sensor", "filter", "status"],
     legacyNames: ["Filter Timer Remaining"],
   },
 ];
 
-/**
- * Register names that no longer exist on the real S21 and must be removed
- * during reconciliation (they are not adopted by any canonical entry).
- */
 export const OBSOLETE_REGISTER_NAMES = ["Standby Mode"];
 
 function toInsert(deviceId: number, reg: CanonicalRegister): InsertRegister {
@@ -186,20 +176,17 @@ function toInsert(deviceId: number, reg: CanonicalRegister): InsertRegister {
     unit: reg.unit ?? null,
     scale: reg.scale ?? 1,
     options: reg.options ?? null,
+    tags: reg.tags ?? null,
   };
 }
 
-/** Build the full canonical seed for a freshly created device. */
 export function buildSeedRegisters(deviceId: number): InsertRegister[] {
   return S21_REGISTERS.map((reg) => toInsert(deviceId, reg));
 }
 
 /**
- * Idempotently bring a device's register rows in line with the canonical S21
- * map. Matches each canonical register by its name first, then by any legacy
- * alias; updates the matched row in place (preserving its id so caches/links
- * stay valid), creates any that are missing, and finally deletes only known
- * obsolete rows. Unknown user-added registers are left untouched.
+ * Idempotently bring a device's register rows in line with the canonical S21 map.
+ * Tags are seeded on new rows only — user-edited tags on existing rows are preserved.
  */
 export async function reconcileS21Registers(deviceId: number): Promise<void> {
   const existing = await storage.getRegisters(deviceId);
@@ -213,6 +200,11 @@ export async function reconcileS21Registers(deviceId: number): Promise<void> {
 
     if (match) {
       consumed.add(match.id);
+      // Preserve user-edited tags — only seed if the row has none yet
+      const tagsToSet = (!match.tags || match.tags.length === 0)
+        ? (canonical.tags ?? null)
+        : match.tags;
+
       await storage.updateRegister(match.id, {
         name: canonical.name,
         address: canonical.address,
@@ -222,13 +214,13 @@ export async function reconcileS21Registers(deviceId: number): Promise<void> {
         unit: canonical.unit ?? null,
         scale: canonical.scale ?? 1,
         options: canonical.options ?? null,
+        tags: tagsToSet,
       });
     } else {
       await storage.createRegister(toInsert(deviceId, canonical));
     }
   }
 
-  // Remove registers that are obsolete on the real S21 hardware.
   for (const reg of existing) {
     if (!consumed.has(reg.id) && OBSOLETE_REGISTER_NAMES.includes(reg.name)) {
       await storage.deleteRegister(reg.id);
@@ -236,7 +228,6 @@ export async function reconcileS21Registers(deviceId: number): Promise<void> {
   }
 }
 
-/** Reconcile every known device at startup. */
 export async function reconcileAllS21Devices(): Promise<void> {
   const devices = await storage.getDevices();
   for (const device of devices) {

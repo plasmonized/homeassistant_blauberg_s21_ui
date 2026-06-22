@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9
+
+- Feature: Register-Tags — jeder Sensor/Aktor bekommt Tags (Außen, Innen, Zuluft, Temperatur, etc.)
+- Feature: Register bearbeiten — Name, Einheit und Tags per Dialog editierbar (Zahnrad-Icon beim Hover)
+- Feature: Externe Sensoren bearbeiten — Stift-Icon öffnet Dialog für Name, Typ, Entity-ID, Einheit
+- Fix: Alle API-Calls in Hooks nutzen jetzt `resolveUrl()` für korrektes HA-Ingress-Routing
+- Fix: Tags werden bei Reconciliation nur auf neuen Registern gesetzt — Nutzer-Edits bleiben erhalten
+
 ## 0.1.8
 
 - Fix: API-Calls unter HA Ingress — `resolveUrl()` im Query-Client prefixed alle `/api/*`-Requests mit dem Ingress-Basispfad

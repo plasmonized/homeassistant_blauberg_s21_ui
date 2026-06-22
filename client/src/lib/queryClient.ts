@@ -8,7 +8,7 @@ declare global {
 
 // Resolve API URL: under HA Ingress, prepend the ingress base path
 // so fetch("/api/devices") → fetch("/api/hassio_ingress/<token>/api/devices")
-function resolveUrl(url: string): string {
+export function resolveUrl(url: string): string {
   const base = (window.__BASE_PATH__ || "/").replace(/\/$/, "");
   if (base && url.startsWith("/")) {
     return base + url;

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Register } from "@shared/schema";
+import { Register, TAG_LABELS, TAG_COLORS, LOCATION_TAGS, FUNCTION_TAGS, ROLE_TAGS } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import {
   Select,
@@ -14,11 +15,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Loader2, Save, Trash2, Edit2, X, Gauge, Zap, ToggleLeft,
   Activity, Fan, Rocket, Thermometer, Wind, Droplets, Sun, Snowflake, Home,
-  RotateCcw, ChevronUp, ChevronDown, Minus, Plus,
+  RotateCcw, ChevronUp, ChevronDown, Minus, Plus, Settings2,
 } from "lucide-react";
-import { useWriteRegister, useDeleteRegister } from "@/hooks/use-registers";
+import { useWriteRegister, useDeleteRegister, useUpdateRegister } from "@/hooks/use-registers";
 import { cn } from "@/lib/utils";
 
 interface RegisterCardProps {
@@ -26,7 +33,6 @@ interface RegisterCardProps {
   deviceId: number;
 }
 
-// Register type detection helpers
 const isFanSpeed = (reg: Register) =>
   reg.name.toLowerCase().includes("fan") && reg.name.toLowerCase().includes("speed");
 const isSystemPower = (reg: Register) =>
@@ -46,9 +52,126 @@ const isHumidity = (reg: Register) =>
 const isCO2 = (reg: Register) =>
   reg.name.toLowerCase().includes("co2");
 
+// Tag groups for the edit dialog
+const TAG_GROUPS = [
+  { label: "Ort", tags: LOCATION_TAGS as readonly string[] },
+  { label: "Funktion", tags: FUNCTION_TAGS as readonly string[] },
+  { label: "Rolle", tags: ROLE_TAGS as readonly string[] },
+];
+
+function EditRegisterDialog({
+  register,
+  deviceId,
+  open,
+  onClose,
+}: {
+  register: Register;
+  deviceId: number;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(register.name);
+  const [unit, setUnit] = useState(register.unit ?? "");
+  const [tags, setTags] = useState<string[]>(register.tags ?? []);
+  const updateRegister = useUpdateRegister();
+
+  const toggleTag = (tag: string) => {
+    setTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleSave = () => {
+    updateRegister.mutate(
+      {
+        id: register.id,
+        deviceId,
+        name: name.trim() || register.name,
+        unit: unit.trim() || null,
+        tags: tags.length > 0 ? tags : null,
+      },
+      { onSuccess: onClose }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Register bearbeiten</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} data-testid="input-register-name" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Einheit</Label>
+            <Input
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="z.B. °C, %, ppm"
+              data-testid="input-register-unit"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <p className="text-xs text-muted-foreground">
+              Tags helfen der App zu verstehen, welche Art von Sensor oder Steuerung das ist.
+            </p>
+            {TAG_GROUPS.map((group) => (
+              <div key={group.label}>
+                <div className="text-xs text-muted-foreground font-medium mb-1.5 mt-2">{group.label}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.tags.map((tag) => {
+                    const active = tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleTag(tag)}
+                        className={cn(
+                          "px-2 py-0.5 rounded-full text-xs font-medium border transition-all",
+                          active
+                            ? cn("border-transparent", TAG_COLORS[tag])
+                            : "border-border text-muted-foreground hover:border-muted-foreground/50"
+                        )}
+                        data-testid={`tag-toggle-${tag}`}
+                      >
+                        {TAG_LABELS[tag] ?? tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={handleSave}
+              disabled={updateRegister.isPending}
+              className="flex-1"
+              data-testid="button-save-register"
+            >
+              {updateRegister.isPending ? "Speichern..." : "Speichern"}
+            </Button>
+            <Button variant="outline" onClick={onClose} data-testid="button-cancel-register">
+              Abbrechen
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function RegisterCard({ register, deviceId }: RegisterCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [showMetaEdit, setShowMetaEdit] = useState(false);
   const writeMutation = useWriteRegister();
   const deleteMutation = useDeleteRegister();
 
@@ -66,23 +189,14 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
 
   const enumLabel = enumOptions ? (enumOptions[displayValue] ?? displayValue) : displayValue;
 
-  // Handle writes
   const handleWrite = (value: number | boolean | string) => {
     if (!isWritable) return;
     writeMutation.mutate({ id: register.id, value, deviceId });
   };
 
-  const handleSwitchChange = (checked: boolean) => {
-    handleWrite(checked);
-  };
-
-  const handleFanSpeed = (speed: number) => {
-    handleWrite(speed);
-  };
-
-  const handleSliderChange = (value: number[]) => {
-    handleWrite(value[0]);
-  };
+  const handleSwitchChange = (checked: boolean) => handleWrite(checked);
+  const handleFanSpeed = (speed: number) => handleWrite(speed);
+  const handleSliderChange = (value: number[]) => handleWrite(value[0]);
 
   const handleDelete = () => {
     if (confirm("Dieses Register wirklich entfernen?")) {
@@ -90,7 +204,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
     }
   };
 
-  // Icon selection
   const getIcon = () => {
     if (isFanSpeed(register)) return <Fan className="w-4 h-4 text-blue-500" />;
     if (isSystemPower(register)) return <Zap className="w-4 h-4 text-yellow-500" />;
@@ -108,17 +221,15 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
     }
   };
 
-  // Get clean register name
-  const getCleanName = () => {
-    return register.name
-      .replace(/\s*\(.*?\)/g, "")
-      .replace(/\s*-\s*/g, " ")
-      .trim();
-  };
+  const getCleanName = () =>
+    register.name.replace(/\s*\(.*?\)/g, "").replace(/\s*-\s*/g, " ").trim();
 
-  // Render different control UIs based on register type
+  // Tags to display (skip generic role tags to reduce noise)
+  const displayTags = (register.tags ?? []).filter(
+    (t) => !["sensor", "control", "status"].includes(t)
+  );
+
   const renderControl = () => {
-    // System On/Off - Big toggle
     if (isSystemPower(register) && isBool) {
       return (
         <div className="flex items-center gap-3">
@@ -141,7 +252,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Boost Switch (coil) - enables the hardware boost-switch input on the unit.
     if (isBoost(register) && isBool) {
       return (
         <div className="space-y-1.5">
@@ -165,7 +275,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Fan Speed - Segmented control (Stufe 1-5; "Aus" über den System-Schalter)
     if (isFanSpeed(register) && isNumber) {
       const currentSpeed = !isNaN(numValue) ? numValue : 0;
       const speeds = [1, 2, 3, 4, 5];
@@ -198,7 +307,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Operation Mode - Big tiles
     if (isOperationMode(register) && isEnum && enumOptions) {
       const modeIcons: Record<string, any> = {
         "0": <Wind className="w-5 h-5" />,
@@ -237,7 +345,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Bypass Control - 3-state enum (Auto / Offen / Geschlossen)
     if (isBypass(register) && isEnum && enumOptions) {
       const bypassIcons: Record<string, any> = {
         "0": <ChevronDown className="w-4 h-4" />,
@@ -270,15 +377,11 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Bypass Control - legacy binary fallback (non-enum devices)
     if (isBypass(register)) {
       const bypassOn = isBool ? boolValue : (numValue === 1 || displayValue === "1");
       const handleBypassToggle = (checked: boolean) => {
-        if (isBool) {
-          handleSwitchChange(checked);
-        } else {
-          handleWrite(checked ? 1 : 0);
-        }
+        if (isBool) handleSwitchChange(checked);
+        else handleWrite(checked ? 1 : 0);
       };
       return (
         <div className="flex items-center gap-3">
@@ -295,7 +398,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Temperature Setpoint - stepper + slider (15-30°C)
     if (isTemperatureSetpoint(register) && isNumber) {
       const minTemp = 15;
       const maxTemp = 30;
@@ -344,7 +446,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Generic Boolean
     if (isBool) {
       return (
         <div className="flex items-center gap-3">
@@ -361,7 +462,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Generic Enum
     if (isEnum && enumOptions) {
       return (
         <Select
@@ -381,7 +481,6 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Generic Number - Editable value
     if (isEditing && isWritable) {
       return (
         <div className="flex items-center gap-2">
@@ -410,70 +509,100 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
       );
     }
 
-    // Read-only or non-editing display
     return (
       <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-bold font-mono tabular-nums">
-          {displayValue}
-        </span>
+        <span className="text-2xl font-bold font-mono tabular-nums">{displayValue}</span>
         {register.unit && <span className="text-xs text-muted-foreground">{register.unit}</span>}
       </div>
     );
   };
 
   return (
-    <Card className={cn(
-      "group relative overflow-hidden border-border/40 transition-all",
-      isWritable && "hover:border-primary/50 hover:shadow-sm",
-      !isWritable && "bg-muted/30"
-    )}>
-      <CardContent className="p-4">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-1">
-          <div className="flex items-center gap-2">
-            {getIcon()}
-            <span className="font-medium text-sm text-foreground/90 truncate max-w-[160px]" title={register.name}>
-              {getCleanName()}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            {isWritable && (
+    <>
+      <Card className={cn(
+        "group relative overflow-hidden border-border/40 transition-all",
+        isWritable && "hover:border-primary/50 hover:shadow-sm",
+        !isWritable && "bg-muted/30"
+      )}>
+        <CardContent className="p-4">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-1">
+            <div className="flex items-center gap-2">
+              {getIcon()}
+              <span className="font-medium text-sm text-foreground/90 truncate max-w-[160px]" title={register.name}>
+                {getCleanName()}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              {isWritable && (
+                <Badge variant="outline" className="text-[10px] font-mono opacity-50">RW</Badge>
+              )}
               <Badge variant="outline" className="text-[10px] font-mono opacity-50">
-                RW
+                {register.type.toUpperCase().slice(0, 1)}{register.address}
               </Badge>
-            )}
-            <Badge variant="outline" className="text-[10px] font-mono opacity-50">
-              {register.type.toUpperCase().slice(0, 1)}{register.address}
-            </Badge>
+            </div>
           </div>
-        </div>
 
-        {/* Control UI */}
-        <div className="mt-3">
-          {renderControl()}
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isWritable && !isBool && !isEnum && !isFanSpeed(register) && !isTemperatureSetpoint(register) && !isEditing && (
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
-              setEditValue(displayValue !== "--" ? displayValue : "0");
-              setIsEditing(true);
-            }}>
-              <Edit2 className="w-3 h-3 text-muted-foreground" />
-            </Button>
+          {/* Tags */}
+          {displayTags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {displayTags.map((tag) => (
+                <span
+                  key={tag}
+                  className={cn(
+                    "px-1.5 py-0 rounded-full text-[10px] font-medium",
+                    TAG_COLORS[tag] ?? "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {TAG_LABELS[tag] ?? tag}
+                </span>
+              ))}
+            </div>
           )}
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleDelete}>
-            <Trash2 className="w-3 h-3 text-destructive/70 hover:text-destructive" />
-          </Button>
-        </div>
-      </CardContent>
 
-      {writeMutation.isPending && (
-        <div className="absolute inset-0 bg-background/50 flex items-center justify-center backdrop-blur-[1px] z-10">
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-        </div>
-      )}
-    </Card>
+          {/* Control UI */}
+          <div className="mt-3">{renderControl()}</div>
+
+          {/* Action buttons */}
+          <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => setShowMetaEdit(true)}
+              title="Bearbeiten"
+              data-testid={`button-edit-register-${register.id}`}
+            >
+              <Settings2 className="w-3 h-3 text-muted-foreground" />
+            </Button>
+            {isWritable && !isBool && !isEnum && !isFanSpeed(register) && !isTemperatureSetpoint(register) && !isEditing && (
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                setEditValue(displayValue !== "--" ? displayValue : "0");
+                setIsEditing(true);
+              }}>
+                <Edit2 className="w-3 h-3 text-muted-foreground" />
+              </Button>
+            )}
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleDelete}
+              data-testid={`button-delete-register-${register.id}`}>
+              <Trash2 className="w-3 h-3 text-destructive/70 hover:text-destructive" />
+            </Button>
+          </div>
+        </CardContent>
+
+        {writeMutation.isPending && (
+          <div className="absolute inset-0 bg-background/50 flex items-center justify-center backdrop-blur-[1px] z-10">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          </div>
+        )}
+      </Card>
+
+      <EditRegisterDialog
+        register={register}
+        deviceId={deviceId}
+        open={showMetaEdit}
+        onClose={() => setShowMetaEdit(false)}
+      />
+    </>
   );
 }

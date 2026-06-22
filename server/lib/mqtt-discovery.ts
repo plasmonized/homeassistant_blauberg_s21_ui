@@ -164,38 +164,41 @@ export async function discoverDevice(deviceId: number): Promise<void> {
     // address across tables (e.g. holding@2 Fan Speed vs input@2 Supply temp)
     // never collide on the same MQTT topic.
     const uniqueId = `${reg.type}_${reg.address}`;
+    const tags: string[] = reg.tags ?? [];
 
-    if (reg.name.includes("Temperature") && reg.name.includes("Setpoint") && reg.isWritable) {
-      // Schreibbarer Raum-Sollwert (Heizregister) → HA-Number, nicht Nur-Lese-Sensor.
+    const hasTag = (...t: string[]) => t.some((x) => tags.includes(x));
+
+    if (hasTag("temperature") && hasTag("setpoint") && reg.isWritable) {
+      // Schreibbarer Raum-Sollwert → HA-Number
       discoverNumber(uniqueId, reg.name, reg.unit || "°C", 15, 30, 1, "temperature");
-    } else if (reg.name.includes("Temperature") || reg.name.includes("Outdoor") || reg.name.includes("Supply") || reg.name.includes("Extract") || reg.name.includes("Exhaust")) {
+    } else if (hasTag("temperature")) {
       discoverSensor(uniqueId, reg.name, reg.unit || "°C", "temperature", "measurement");
-    } else if (reg.name.includes("Humidity")) {
-      discoverSensor(uniqueId, reg.name, "%", "humidity", "measurement");
-    } else if (reg.name.includes("CO2")) {
-      discoverSensor(uniqueId, reg.name, "ppm", "carbon_dioxide", "measurement");
-    } else if (reg.name.includes("Filter Status")) {
+    } else if (hasTag("humidity")) {
+      discoverSensor(uniqueId, reg.name, reg.unit || "%", "humidity", "measurement");
+    } else if (hasTag("co2")) {
+      discoverSensor(uniqueId, reg.name, reg.unit || "ppm", "carbon_dioxide", "measurement");
+    } else if (hasTag("filter")) {
       // Read-only enum status → plain sensor publishing the mapped label.
       discoverSensor(uniqueId, reg.name, null);
-    } else if (reg.name.includes("System State") && reg.isWritable) {
+    } else if (hasTag("power") && reg.isWritable) {
       discoverSwitch(uniqueId, reg.name);
-    } else if (reg.name.includes("Boost Switch")) {
-      // Writable boost-switch enable (coil) → switch; read-only falls back to binary sensor.
+    } else if (hasTag("boost") && reg.dataType === "bool") {
+      // Writable boost-switch → switch; read-only → binary sensor
       if (reg.isWritable) {
         discoverSwitch(uniqueId, reg.name);
       } else {
         discoverBinarySensor(uniqueId, reg.name);
       }
-    } else if (reg.name.includes("Boost Active")) {
-      discoverBinarySensor(uniqueId, reg.name);
-    } else if (reg.name.includes("Fan Speed") && reg.isWritable) {
+    } else if (hasTag("fan") && reg.isWritable) {
       discoverNumber(uniqueId, reg.name, null, 1, 5, 1);
-    } else if (reg.name.includes("Operation Mode") && reg.isWritable) {
+    } else if (hasTag("mode") && reg.isWritable) {
       const options = reg.options ? Object.values(reg.options) as string[] : ["Lüftung", "Heizung", "Kühlung", "Auto"];
       discoverSelect(uniqueId, reg.name, options);
-    } else if (reg.name.includes("Bypass") && reg.isWritable) {
+    } else if (hasTag("bypass") && reg.isWritable && reg.dataType === "enum") {
       const options = reg.options ? Object.values(reg.options) as string[] : ["Geschlossen", "Offen", "Auto"];
       discoverSelect(uniqueId, reg.name, options);
+    } else if (reg.dataType === "bool" && !reg.isWritable) {
+      discoverBinarySensor(uniqueId, reg.name);
     } else {
       // Generic sensor
       discoverSensor(uniqueId, reg.name, reg.unit || null);

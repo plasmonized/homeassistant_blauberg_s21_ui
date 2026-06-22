@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { useExternalSensors, useCreateExternalSensor, useDeleteExternalSensor, useHomeAssistantStatus, useHomeAssistantSensors, useImportHomeAssistantSensor, useSyncHomeAssistantSensors } from "@/hooks/use-external-sensors";
+import {
+  useExternalSensors,
+  useCreateExternalSensor,
+  useUpdateExternalSensor,
+  useDeleteExternalSensor,
+  useHomeAssistantStatus,
+  useHomeAssistantSensors,
+  useImportHomeAssistantSensor,
+  useSyncHomeAssistantSensors,
+} from "@/hooks/use-external-sensors";
+import { type ExternalSensor } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +30,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Radio, Home, Cloud, Thermometer, Droplets, Wind, Gauge, CloudRain, RefreshCw, Import, Scan } from "lucide-react";
+import {
+  Plus, Trash2, Radio, Home, Thermometer, Droplets, Wind, Gauge,
+  CloudRain, RefreshCw, Import, Scan, Pencil,
+} from "lucide-react";
 
 const sourceOptions = [
   { value: "homeassistant", label: "Home Assistant", icon: Home },
@@ -37,6 +50,120 @@ const sensorTypeOptions = [
   { value: "wind_speed", label: "Windgeschwindigkeit", icon: Wind },
 ];
 
+function SensorTypeLabel({ type }: { type: string }) {
+  const opt = sensorTypeOptions.find((o) => o.value === type);
+  return (
+    <span className="flex items-center gap-1">
+      {opt ? <opt.icon className="w-3 h-3" /> : null}
+      {opt?.label ?? type}
+    </span>
+  );
+}
+
+interface EditSensorDialogProps {
+  sensor: ExternalSensor;
+  deviceId: number;
+  onClose: () => void;
+}
+
+function EditSensorDialog({ sensor, deviceId, onClose }: EditSensorDialogProps) {
+  const [name, setName] = useState(sensor.name);
+  const [entityId, setEntityId] = useState(sensor.entityId ?? "");
+  const [sensorType, setSensorType] = useState(sensor.sensorType);
+  const [unit, setUnit] = useState(sensor.unit ?? "");
+  const updateSensor = useUpdateExternalSensor(deviceId);
+
+  const handleSave = () => {
+    updateSensor.mutate(
+      {
+        id: sensor.id,
+        name: name.trim() || sensor.name,
+        entityId: entityId.trim() || null,
+        sensorType: sensorType as ExternalSensor["sensorType"],
+        unit: unit.trim() || null,
+      },
+      { onSuccess: onClose }
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Sensor bearbeiten</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              data-testid="input-edit-sensor-name"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Sensor-Typ</Label>
+            <p className="text-xs text-muted-foreground">
+              Bestimmt, wie die App diesen Sensor verwendet (z.B. für Außentemperatur-Regelung).
+            </p>
+            <Select value={sensorType} onValueChange={(v) => setSensorType(v as any)}>
+              <SelectTrigger data-testid="select-edit-sensor-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sensorTypeOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <div className="flex items-center gap-2">
+                      <opt.icon className="w-4 h-4" />
+                      {opt.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Entity ID (Home Assistant)</Label>
+            <Input
+              value={entityId}
+              onChange={(e) => setEntityId(e.target.value)}
+              placeholder="sensor.outdoor_temp"
+              className="font-mono text-sm"
+              data-testid="input-edit-sensor-entity"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Einheit</Label>
+            <Input
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="°C"
+              data-testid="input-edit-sensor-unit"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              onClick={handleSave}
+              disabled={updateSensor.isPending}
+              className="flex-1"
+              data-testid="button-save-sensor"
+            >
+              {updateSensor.isPending ? "Speichern..." : "Speichern"}
+            </Button>
+            <Button variant="outline" onClick={onClose} data-testid="button-cancel-sensor">
+              Abbrechen
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
   const { data: sensors, isLoading } = useExternalSensors(deviceId);
   const createSensor = useCreateExternalSensor(deviceId);
@@ -48,16 +175,19 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
 
   const [isOpen, setIsOpen] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
+  const [editingSensor, setEditingSensor] = useState<ExternalSensor | null>(null);
+
+  // Add form state
   const [name, setName] = useState("");
   const [sourceType, setSourceType] = useState<"homeassistant" | "openweather" | "manual">("homeassistant");
   const [entityId, setEntityId] = useState("");
-  const [sensorType, setSensorType] = useState<"temperature" | "humidity" | "co2" | "forecast_temp" | "pressure" | "wind_speed">("temperature");
+  const [sensorType, setSensorType] = useState("temperature");
   const [unit, setUnit] = useState("°C");
 
   const handleCreate = () => {
     if (!name.trim()) return;
     createSensor.mutate(
-      { name, deviceId, sourceType, entityId: entityId || null, sensorType, unit },
+      { name, deviceId, sourceType, entityId: entityId || null, sensorType: sensorType as any, unit },
       {
         onSuccess: () => {
           setIsOpen(false);
@@ -84,6 +214,15 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
 
   return (
     <div className="space-y-4">
+      {/* Edit dialog (rendered outside list to avoid nesting) */}
+      {editingSensor && (
+        <EditSensorDialog
+          sensor={editingSensor}
+          deviceId={deviceId}
+          onClose={() => setEditingSensor(null)}
+        />
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium">Externe Sensoren</h3>
@@ -114,99 +253,106 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
           )}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" data-testid="button-add-sensor">
                 <Plus className="w-4 h-4 mr-1" /> Sensor hinzufügen
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Externen Sensor hinzufügen</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label htmlFor="sensor-name">Name</Label>
-                <Input
-                  id="sensor-name"
-                  placeholder="z.B. Außentemperatur Wetterstation"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Externen Sensor hinzufügen</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sensor-name">Name</Label>
+                  <Input
+                    id="sensor-name"
+                    placeholder="z.B. Außentemperatur Wetterstation"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    data-testid="input-sensor-name"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label>Datenquelle</Label>
-                <Select value={sourceType} onValueChange={(v: string) => setSourceType(v as any)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sourceOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center gap-2">
-                          <opt.icon className="w-4 h-4" />
-                          {opt.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-2">
+                  <Label>Datenquelle</Label>
+                  <Select value={sourceType} onValueChange={(v: string) => setSourceType(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sourceOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center gap-2">
+                            <opt.icon className="w-4 h-4" />
+                            {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="entity-id">Entity ID / API-Endpoint</Label>
-                <Input
-                  id="entity-id"
-                  placeholder="sensor.outdoor_temp"
-                  value={entityId}
-                  onChange={(e) => setEntityId(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  z.B. <code className="bg-muted px-1 rounded">sensor.outdoor_temp</code> (Home Assistant)
-                  oder <code className="bg-muted px-1 rounded">/weather/forecast</code> (API)
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="entity-id">Entity ID</Label>
+                  <Input
+                    id="entity-id"
+                    placeholder="sensor.outdoor_temp"
+                    value={entityId}
+                    onChange={(e) => setEntityId(e.target.value)}
+                    className="font-mono text-sm"
+                    data-testid="input-entity-id"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    z.B. <code className="bg-muted px-1 rounded">sensor.outdoor_temp</code>
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Sensor-Typ</Label>
-                <Select value={sensorType} onValueChange={(v: string) => setSensorType(v as any)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sensorTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center gap-2">
-                          <opt.icon className="w-4 h-4" />
-                          {opt.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-2">
+                  <Label>Sensor-Typ</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Legt fest, wie die App diesen Sensor für Regelungen verwendet.
+                  </p>
+                  <Select value={sensorType} onValueChange={(v: string) => setSensorType(v)}>
+                    <SelectTrigger data-testid="select-sensor-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sensorTypeOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center gap-2">
+                            <opt.icon className="w-4 h-4" />
+                            {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="unit">Einheit</Label>
-                <Input
-                  id="unit"
-                  placeholder="°C"
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Einheit</Label>
+                  <Input
+                    id="unit"
+                    placeholder="°C"
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    data-testid="input-sensor-unit"
+                  />
+                </div>
 
-              <Button
-                onClick={handleCreate}
-                disabled={createSensor.isPending || !name.trim()}
-                className="w-full"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                {createSensor.isPending ? "Speichern..." : "Speichern"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <Button
+                  onClick={handleCreate}
+                  disabled={createSensor.isPending || !name.trim()}
+                  className="w-full"
+                  data-testid="button-create-sensor"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  {createSensor.isPending ? "Speichern..." : "Speichern"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {isLoading ? (
@@ -216,51 +362,63 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
         </div>
       ) : sensors && sensors.length > 0 ? (
         <div className="space-y-2">
-          {sensors.map((sensor: any) => (
-            <Card key={sensor.id} className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-muted">
-                  <Radio className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{sensor.name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {sourceOptions.find((o) => o.value === sensor.sourceType)?.label}
-                    </Badge>
+          {sensors.map((sensor: ExternalSensor) => (
+            <Card key={sensor.id} className="p-4" data-testid={`card-sensor-${sensor.id}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 rounded-lg bg-muted shrink-0">
+                    <Radio className="w-4 h-4 text-muted-foreground" />
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {sensor.entityId && (
-                      <span className="font-mono mr-2">{sensor.entityId}</span>
-                    )}
-                    <span>
-                      {sensorTypeOptions.find((o) => o.value === sensor.sensorType)?.label}
-                    </span>
-                    {sensor.unit && (
-                      <span className="ml-1">({sensor.unit})</span>
-                    )}
-                  </div>
-                  {sensor.lastValue !== null && (
-                    <div className="text-xs font-mono mt-0.5">
-                      Letzter Wert: {sensor.lastValue} {sensor.unit}
-                      {sensor.updatedAt && (
-                        <span className="text-muted-foreground ml-2">
-                          {new Date(sensor.updatedAt).toLocaleString("de-DE")}
-                        </span>
-                      )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">{sensor.name}</span>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {sourceOptions.find((o) => o.value === sensor.sourceType)?.label}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        <SensorTypeLabel type={sensor.sensorType} />
+                      </Badge>
                     </div>
-                  )}
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {sensor.entityId && (
+                        <span className="font-mono mr-2">{sensor.entityId}</span>
+                      )}
+                      {sensor.unit && <span>({sensor.unit})</span>}
+                    </div>
+                    {sensor.lastValue !== null && (
+                      <div className="text-xs font-mono mt-0.5 text-foreground/70">
+                        Letzter Wert: <span className="font-semibold">{sensor.lastValue} {sensor.unit}</span>
+                        {sensor.updatedAt && (
+                          <span className="text-muted-foreground ml-2">
+                            {new Date(sensor.updatedAt).toLocaleString("de-DE")}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setEditingSensor(sensor)}
+                    title="Bearbeiten"
+                    data-testid={`button-edit-sensor-${sensor.id}`}
+                  >
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive"
+                    onClick={() => deleteSensor.mutate(sensor.id)}
+                    disabled={deleteSensor.isPending}
+                    data-testid={`button-delete-sensor-${sensor.id}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-destructive"
-                onClick={() => deleteSensor.mutate(sensor.id)}
-                disabled={deleteSensor.isPending}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
             </Card>
           ))}
         </div>

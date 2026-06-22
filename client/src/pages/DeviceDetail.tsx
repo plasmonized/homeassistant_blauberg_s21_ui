@@ -113,21 +113,26 @@ export default function DeviceDetail() {
   const handleConnect = () => connectMutation.mutate(deviceId);
   const handlePoll = () => pollMutation.mutate(deviceId);
 
-  // Group registers by type/intent
-  const controls = registers?.filter(r => (r.type === 'coil' || r.isWritable));
-  const sensors = registers?.filter(r => (r.type === 'input' || r.type === 'discrete' || (!r.isWritable && r.type === 'holding')));
+  const hasTag = (r: { tags?: string[] | null }, ...t: string[]) =>
+    t.some((x) => (r.tags ?? []).includes(x));
 
-  // Group controls by category
-  const systemControls = controls?.filter(r => r.name.includes('System'));
-  const ventilationControls = controls?.filter(r => r.name.includes('Fan') || r.name.includes('Operation') || r.name.includes('Bypass'));
-  const timerControls = controls?.filter(r => r.name.includes('Boost'));
-  const otherControls = controls?.filter(r => !systemControls?.includes(r) && !ventilationControls?.includes(r) && !timerControls?.includes(r));
+  // Group registers by type/intent — tag-based so renamed registers still land in the right group
+  const controls = registers?.filter(r => r.isWritable || r.type === 'coil');
+  const sensors = registers?.filter(r => !r.isWritable && r.type !== 'coil');
 
-  // Group sensors by category
-  const tempSensors = sensors?.filter(r => r.name.includes('Temperature'));
-  const airQualitySensors = sensors?.filter(r => r.name.includes('Humidity') || r.name.includes('CO2'));
-  const statusSensors = sensors?.filter(r => r.name.includes('Filter'));
-  const otherSensors = sensors?.filter(r => !tempSensors?.includes(r) && !airQualitySensors?.includes(r) && !statusSensors?.includes(r));
+  // Group controls by category using tags
+  const systemControls    = controls?.filter(r => hasTag(r, 'power'));
+  const ventilationControls = controls?.filter(r => hasTag(r, 'fan', 'mode', 'bypass') && !hasTag(r, 'power'));
+  const boostControls     = controls?.filter(r => hasTag(r, 'boost'));
+  const otherControls     = controls?.filter(r =>
+    !systemControls?.includes(r) && !ventilationControls?.includes(r) && !boostControls?.includes(r));
+
+  // Group sensors by category using tags
+  const tempSensors       = sensors?.filter(r => hasTag(r, 'temperature'));
+  const airQualitySensors = sensors?.filter(r => hasTag(r, 'humidity', 'co2'));
+  const statusSensors     = sensors?.filter(r => hasTag(r, 'filter', 'status') && !hasTag(r, 'temperature', 'humidity', 'co2'));
+  const otherSensors      = sensors?.filter(r =>
+    !tempSensors?.includes(r) && !airQualitySensors?.includes(r) && !statusSensors?.includes(r));
 
   return (
     <div className="min-h-screen bg-background">
@@ -255,11 +260,11 @@ export default function DeviceDetail() {
                     </div>
                   </div>
                 )}
-                {timerControls && timerControls.length > 0 && (
+                {boostControls && boostControls.length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Boost</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {timerControls.map(register => (
+                      {boostControls.map(register => (
                         <RegisterCard key={register.id} register={register} deviceId={deviceId} />
                       ))}
                     </div>

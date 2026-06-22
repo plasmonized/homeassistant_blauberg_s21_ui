@@ -2,10 +2,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertRegister } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { resolveUrl, apiRequest } from "@/lib/queryClient";
 
-// Helper to construct the query key correctly
 function getRegistersQueryKey(deviceId: number) {
-  // We need to match the structure used in useRegisters
   return [api.registers.list.path.replace(":id", String(deviceId))];
 }
 
@@ -14,11 +13,10 @@ export function useRegisters(deviceId: number) {
     queryKey: [api.registers.list.path.replace(":id", String(deviceId))],
     queryFn: async () => {
       const url = buildUrl(api.registers.list.path, { id: deviceId });
-      const res = await fetch(url);
+      const res = await fetch(resolveUrl(url));
       if (!res.ok) throw new Error("Failed to fetch registers");
       return api.registers.list.responses[200].parse(await res.json());
     },
-    // Poll registers frequently when viewing details
     refetchInterval: 2000,
   });
 }
@@ -30,7 +28,7 @@ export function useCreateRegister() {
   return useMutation({
     mutationFn: async ({ deviceId, ...data }: InsertRegister) => {
       const url = buildUrl(api.registers.create.path, { id: deviceId });
-      const res = await fetch(url, {
+      const res = await fetch(resolveUrl(url), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -51,6 +49,34 @@ export function useCreateRegister() {
   });
 }
 
+export function useUpdateRegister() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, deviceId, ...updates }: { id: number; deviceId: number } & Partial<InsertRegister>) => {
+      const url = buildUrl(api.registers.update.path, { id });
+      const res = await fetch(resolveUrl(url), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error((error as any).message || "Failed to update register");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: getRegistersQueryKey(variables.deviceId) });
+      toast({ title: "Register aktualisiert" });
+    },
+    onError: (err) => {
+      toast({ variant: "destructive", title: "Fehler", description: err.message });
+    },
+  });
+}
+
 export function useDeleteRegister() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -58,7 +84,7 @@ export function useDeleteRegister() {
   return useMutation({
     mutationFn: async ({ id, deviceId }: { id: number; deviceId: number }) => {
       const url = buildUrl(api.registers.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await fetch(resolveUrl(url), { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete register");
     },
     onSuccess: (_, variables) => {
@@ -75,7 +101,7 @@ export function useWriteRegister() {
   return useMutation({
     mutationFn: async ({ id, value, deviceId }: { id: number; value: number | boolean | string; deviceId: number }) => {
       const url = buildUrl(api.registers.write.path, { id });
-      const res = await fetch(url, {
+      const res = await fetch(resolveUrl(url), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value }),
@@ -84,7 +110,6 @@ export function useWriteRegister() {
       return res.json();
     },
     onSuccess: (_, variables) => {
-      // Optimistic update or refetch
       queryClient.invalidateQueries({ queryKey: getRegistersQueryKey(variables.deviceId) });
       toast({ title: "Value Written", description: "Command sent to device" });
     },
