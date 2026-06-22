@@ -75,9 +75,25 @@ async function getSensorValue(
       return sVal ?? eVal ?? null;
     }
     case "humidity": {
-      const ext = findExt("humidity");
+      const ext = findExt("humidity") ?? findExt("indoor_humidity");
       if (ext) return parseFloat(ext.lastValue);
-      const reg = findReg("Humidity");
+      // Prefer indoor humidity register for control; fall back to any humidity register
+      const reg =
+        registers.find((r) => (r.tags ?? []).includes("humidity") && (r.tags ?? []).includes("indoor")) ??
+        findReg("Humidity");
+      return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
+    }
+    case "indoor_humidity": {
+      const ext = findExt("indoor_humidity") ?? findExt("humidity");
+      if (ext) return parseFloat(ext.lastValue);
+      const reg = registers.find((r) => (r.tags ?? []).includes("humidity") && (r.tags ?? []).includes("indoor"))
+        ?? findReg("Humidity");
+      return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
+    }
+    case "outdoor_humidity": {
+      const ext = findExt("outdoor_humidity");
+      if (ext) return parseFloat(ext.lastValue);
+      const reg = registers.find((r) => (r.tags ?? []).includes("humidity") && (r.tags ?? []).includes("outdoor"));
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
     case "co2": {

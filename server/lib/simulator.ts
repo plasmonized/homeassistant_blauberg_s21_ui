@@ -35,8 +35,10 @@ function initInputBuffer(): Buffer {
   buf.writeUInt16BE(245, 6);
   // Temperature Exhaust IR_CurTEMP_ExAirOut (addr 4) = 23.5°C -> 235
   buf.writeUInt16BE(235, 8);
-  // Humidity IR_CurRH_Int (addr 10) = 45%
+  // Humidity Indoor IR_CurRH_Int (addr 10) = 45%
   buf.writeUInt16BE(45, 20);
+  // Humidity Outdoor IR_CurRH_Ext (addr 11) = 65%
+  buf.writeUInt16BE(65, 22);
   // CO2 IR_CurCO2_Int (addr 12) = 420 ppm
   buf.writeUInt16BE(420, 24);
   // Filter Status IR_StateFILTER (addr 31) = 0 (Sauber)
