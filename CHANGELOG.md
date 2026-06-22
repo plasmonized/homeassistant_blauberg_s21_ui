@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Fix: API-Calls unter HA Ingress — `resolveUrl()` im Query-Client prefixed alle `/api/*`-Requests mit dem Ingress-Basispfad
+- Fix: CORS und No-Cache-Header für Ingress iframe-Einbettung
+- Fix: OPTIONS-Preflight-Requests werden korrekt mit 204 beantwortet
+
 ## 0.1.7
 
 - Fix: 404-Seite unter HA Ingress — wouter Router erhält den Ingress-Basispfad via `window.__BASE_PATH__`

@@ -1,0 +1,113 @@
+Hier ist die detaillierte Anleitung, basierend auf dem, was in diesem Projekt umgesetzt wurde:
+
+Anleitung: Flask-Web-UI eingebettet in Home Assistant (Ingress)
+Das Prinzip
+Home Assistant hat ein System namens Ingress. Damit wird dein Add-on nicht über IP:Port erreichbar, sondern direkt in die HA-Oberfläche eingebettet – mit Sidebar-Eintrag und ohne separaten Browser-Tab.
+
+Schritt 1: config.yaml des Add-ons anpassen
+Das ist der wichtigste Schritt. In deiner config.yaml (im Root des Add-on-Ordners):
+
+name: "Dein Add-on Name"
+version: "1.0.0"
+slug: dein_addon_slug
+description: "Beschreibung"
+# Ingress aktivieren
+ingress: true
+ingress_port: 5000        # Der Port, auf dem dein Flask läuft
+# Für den normalen Direktzugriff (optional, als Fallback)
+webui: "http://[HOST]:[PORT:5000]"
+# Sidebar-Eintrag
+panel_icon: mdi:irgendein-icon
+panel_title: "Dein Add-on Titel"
+# Ports (für Direktzugriff, optional)
+ports:
+  5000/tcp: 5000
+ports_description:
+  5000/tcp: "Web UI"
+
+Schritt 2: Flask-Backend – den Ingress-Pfad erkennen
+Home Assistant schickt bei Ingress-Anfragen einen speziellen HTTP-Header: X-Ingress-Path. Dein Flask muss diesen auslesen und an alle Templates weitergeben:
+
+from flask import Flask, request, render_template
+app = Flask(__name__)
+@app.route("/")
+def index():
+    # Ingress-Pfad aus dem Header lesen
+    ingress_path = request.headers.get("X-Ingress-Path", "")
+    return render_template("index.html", ingress_path=ingress_path)
+
+Das Gleiche bei jeder weiteren Route, die eine HTML-Seite zurückgibt:
+
+@app.route("/settings")
+def settings():
+    ingress_path = request.headers.get("X-Ingress-Path", "")
+    return render_template("settings.html", ingress_path=ingress_path)
+
+Schritt 3: Flask – CORS und Cache-Header
+Home Assistant lädt die Seite in einem iframe. Du brauchst:
+
+from flask import make_response
+@app.after_request
+def add_headers(response):
+    ingress_path = request.headers.get("X-Ingress-Path", "")
+    
+    if ingress_path:
+        # Kein Caching bei Ingress (verhindert veraltete UI)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    
+    # CORS für Home Assistant erlauben
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
+
+Schritt 4: HTML-Template – BASE_URL verwenden
+Das ist der häufigste Fehler: Wenn dein Add-on über Ingress läuft, sind alle URLs wie /api/data falsch – HA hängt davor einen dynamischen Pfad wie /api/hassio_ingress/aBcDeF/. Du musst alle Links und API-Calls mit dem Ingress-Pfad präfixieren.
+
+In deinem HTML-Template (Jinja2):
+
+<script>
+    // Ingress-Pfad vom Backend übernehmen
+    const BASE_URL = '{{ ingress_path }}' || '';
+    
+    // Navigation immer mit BASE_URL
+    window.navigateTo = function(path) {
+        window.location.href = BASE_URL + path;
+    };
+    
+    // Fetch-API global überschreiben, damit alle API-Calls funktionieren
+    if (BASE_URL) {
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            if (typeof url === 'string' && url.startsWith('/')) {
+                url = BASE_URL + url;
+            }
+            return originalFetch(url, options);
+        };
+    }
+</script>
+
+Alle internen Links im HTML:
+
+<!-- FALSCH: -->
+<a href="/settings">Einstellungen</a>
+<!-- RICHTIG: -->
+<a href="javascript:navigateTo('/settings')">Einstellungen</a>
+
+Schritt 5: Flask auf dem richtigen Host starten
+Dein Flask muss auf 0.0.0.0 lauschen, nicht nur auf localhost:
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
+Zusammenfassung: Was geht schief ohne diese Schritte?
+Problem	Ursache
+Add-on nur über IP:Port erreichbar	ingress: true fehlt in config.yaml
+Seite lädt, aber API-Calls schlagen fehl	BASE_URL wird nicht vor API-Pfade gesetzt
+Seite zeigt alten Stand	Cache-Header fehlen
+Sidebar-Eintrag fehlt	panel_icon / panel_title fehlen in config.yaml
+iframe zeigt Fehler	CORS-Header fehlen
+Das war die vollständige Vorgehensweise, die hier verwendet wurde. Die wichtigsten Dateien zum Nachschauen sind mioty-application-center/config.yaml und mioty-application-center/app/web_gui.py.

@@ -1,5 +1,21 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+declare global {
+  interface Window {
+    __BASE_PATH__?: string;
+  }
+}
+
+// Resolve API URL: under HA Ingress, prepend the ingress base path
+// so fetch("/api/devices") → fetch("/api/hassio_ingress/<token>/api/devices")
+function resolveUrl(url: string): string {
+  const base = (window.__BASE_PATH__ || "/").replace(/\/$/, "");
+  if (base && url.startsWith("/")) {
+    return base + url;
+  }
+  return url;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -12,7 +28,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const res = await fetch(resolveUrl(url), {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
@@ -29,7 +45,8 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const res = await fetch(resolveUrl(url), {
       credentials: "include",
     });
 

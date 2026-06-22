@@ -60,9 +60,25 @@ app.use((req, res, next) => {
 });
 
 // === HOME ASSISTANT ADD-ON INGRESS SUPPORT ===
-// Ingress proxy sends requests with a base path like /api/hassio_ingress/<slug>/
-// We need to detect this and serve the SPA correctly from the sub-path
 const isAddon = process.env.SUPERVISOR_TOKEN !== undefined;
+
+// CORS + Cache headers required for HA Ingress iframe embedding
+app.use((req, res, next) => {
+  const ingressPath = req.headers["x-ingress-path"] as string | undefined;
+  if (ingressPath) {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
 
 (async () => {
   // Don't auto-start simulator in production/addon mode
