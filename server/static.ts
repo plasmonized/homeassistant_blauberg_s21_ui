@@ -19,13 +19,32 @@ export function serveStatic(app: Express) {
 
     // HA Ingress sends X-Ingress-Path header with the base path
     const ingressPath = (req.headers["x-ingress-path"] as string) || "";
-    const basePath = ingressPath ? ingressPath.replace(/\/$/, "") + "/" : "/";
+    // basePath has no trailing slash so we can do basePath + "/api/..."
+    const basePath = ingressPath ? ingressPath.replace(/\/$/, "") : "";
 
-    // Inject base path so the frontend router can use it
-    html = html.replace(
-      "<head>",
-      `<head>\n  <script>window.__BASE_PATH__ = "${basePath}";</script>`,
-    );
+    // Inject:
+    //  1. window.__BASE_PATH__  – used by the wouter Router and resolveUrl()
+    //  2. Global window.fetch override – intercepts ALL fetch calls so no hook
+    //     can accidentally forget resolveUrl(). Recommended by the HA Ingress guide.
+    const injectScript = `
+<script>
+  window.__BASE_PATH__ = ${JSON.stringify(basePath ? basePath + "/" : "/")};
+  (function () {
+    var _base = ${JSON.stringify(basePath)};
+    if (!_base) return;
+    var _orig = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      if (typeof input === 'string' && input.startsWith('/') && !input.startsWith(_base)) {
+        input = _base + input;
+      } else if (input instanceof Request && input.url.startsWith('/') && !input.url.startsWith(_base)) {
+        input = new Request(_base + input.url, input);
+      }
+      return _orig(input, init);
+    };
+  })();
+</script>`;
+
+    html = html.replace("<head>", "<head>" + injectScript);
 
     res.setHeader("Content-Type", "text/html");
     res.send(html);

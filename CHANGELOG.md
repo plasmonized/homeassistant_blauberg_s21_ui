@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Fix: **Globaler `window.fetch`-Override** — alle fetch-Aufrufe (auch ohne `resolveUrl()`) werden automatisch mit dem HA-Ingress-Pfad geprefixed; verhindert stille Fehler bei neu hinzugefügten Hooks
+- Fix: `use-devices.ts` — alle fetch-Aufrufe nutzen jetzt `resolveUrl()`; das war der Root-Cause für den Ingress-Fehler (erster API-Call der App war ungepatched)
+- Fix: `server/static.ts` — Ingress-Skript-Injection robuster: verwendet `JSON.stringify` für sicheres Escaping und separiertes `basePath`-Format
+
 ## 0.1.9
 
 - Feature: Register-Tags — jeder Sensor/Aktor bekommt Tags (Außen, Innen, Zuluft, Temperatur, etc.)
