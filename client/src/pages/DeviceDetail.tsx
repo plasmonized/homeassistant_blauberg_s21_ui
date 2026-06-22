@@ -2,12 +2,13 @@ import { useEffect } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useDevice, useConnectDevice, usePollDevice, useDevices, useDeleteDevice } from "@/hooks/use-devices";
 import { useRegisters } from "@/hooks/use-registers";
+import { useExternalSensors } from "@/hooks/use-external-sensors";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot, CheckCircle2, Clock, Thermometer, Droplets, Wind, Sun, Moon, Trash2 } from "lucide-react";
+import { RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot, CheckCircle2, Clock, Thermometer, Droplets, Wind, Sun, Moon, Trash2, Radio } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { AddDeviceDialog } from "@/components/AddDeviceDialog";
 import { RegisterCard } from "@/components/RegisterCard";
@@ -18,7 +19,42 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { useControlProfiles } from "@/hooks/use-control-profiles";
 import { formatDistanceToNow } from "date-fns";
-import type { ControlProfile } from "@shared/schema";
+import type { ControlProfile, ExternalSensor } from "@shared/schema";
+
+function ExternalSensorValueCard({ sensor }: { sensor: ExternalSensor }) {
+  const isHumidity = sensor.sensorType.includes("humidity");
+  const isCo2 = sensor.sensorType === "co2";
+  const Icon = isCo2 ? Wind : Droplets;
+  const colorClass = isCo2 ? "text-green-400" : "text-blue-400";
+
+  return (
+    <Card className="border-border/40 bg-card/50 relative group" data-testid={`card-ext-sensor-${sensor.id}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Icon className={`w-4 h-4 ${colorClass}`} />
+            <span className="text-sm font-medium truncate">{sensor.name}</span>
+          </div>
+          <Badge variant="outline" className="text-[10px] shrink-0 gap-1">
+            <Radio className="w-2.5 h-2.5" /> extern
+          </Badge>
+        </div>
+        <div className={`text-2xl font-bold font-mono ${colorClass}`}>
+          {sensor.lastValue ?? "–"}
+          {sensor.unit && <span className="text-sm font-normal text-muted-foreground ml-1">{sensor.unit}</span>}
+        </div>
+        {sensor.entityId && (
+          <div className="text-[10px] text-muted-foreground font-mono mt-1 truncate">{sensor.entityId}</div>
+        )}
+        {sensor.updatedAt && (
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            {formatDistanceToNow(new Date(sensor.updatedAt))} ago
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const schemaTypeLabel: Record<string, string> = {
   temperature_control: "Temperaturregelung",
@@ -91,7 +127,8 @@ export default function DeviceDetail() {
   
   const { data: device, isLoading: isDeviceLoading } = useDevice(deviceId);
   const { data: registers, isLoading: isRegistersLoading } = useRegisters(deviceId);
-  
+  const { data: externalSensors } = useExternalSensors(deviceId);
+
   const { data: profiles } = useControlProfiles(deviceId);
   const activeProfiles: ControlProfile[] = (profiles ?? []).filter((p: ControlProfile) => p.enabled);
 
@@ -127,9 +164,25 @@ export default function DeviceDetail() {
   const otherControls     = controls?.filter(r =>
     !systemControls?.includes(r) && !ventilationControls?.includes(r) && !boostControls?.includes(r));
 
-  // Group sensors by category using tags
+  // External sensors that actively provide values (lastValue != null)
+  // These replace S21 register cards for sensor types the S21 doesn't have built-in.
+  const activeExtByType = (type: string): ExternalSensor | undefined =>
+    (externalSensors as ExternalSensor[] | undefined)?.find(
+      (s) => s.sensorType === type && s.lastValue !== null
+    );
+  const extCo2        = activeExtByType("co2");
+  const extOutdoorHum = activeExtByType("outdoor_humidity");
+
+  // Group sensors by category using tags — exclude registers overridden by an external sensor
   const tempSensors       = sensors?.filter(r => hasTag(r, 'temperature'));
-  const airQualitySensors = sensors?.filter(r => hasTag(r, 'humidity', 'co2'));
+  const airQualitySensors = sensors?.filter(r => {
+    if (!hasTag(r, 'humidity', 'co2')) return false;
+    // Hide CO2 register when an external CO2 sensor is active
+    if (extCo2 && hasTag(r, 'co2')) return false;
+    // Hide outdoor humidity register when an external outdoor_humidity sensor is active
+    if (extOutdoorHum && hasTag(r, 'humidity') && hasTag(r, 'outdoor')) return false;
+    return true;
+  });
   const statusSensors     = sensors?.filter(r => hasTag(r, 'filter', 'status') && !hasTag(r, 'temperature', 'humidity', 'co2'));
   const otherSensors      = sensors?.filter(r =>
     !tempSensors?.includes(r) && !airQualitySensors?.includes(r) && !statusSensors?.includes(r));
@@ -303,11 +356,15 @@ export default function DeviceDetail() {
                       </div>
                     </div>
                   )}
-                  {airQualitySensors && airQualitySensors.length > 0 && (
+                  {((airQualitySensors && airQualitySensors.length > 0) || extCo2 || extOutdoorHum) && (
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Luftqualität</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {airQualitySensors.map(register => (
+                        {/* External sensor cards first (replace missing S21 hardware) */}
+                        {extCo2 && <ExternalSensorValueCard sensor={extCo2} />}
+                        {extOutdoorHum && <ExternalSensorValueCard sensor={extOutdoorHum} />}
+                        {/* Remaining S21 register cards (not overridden) */}
+                        {airQualitySensors?.map(register => (
                           <RegisterCard key={register.id} register={register} deviceId={deviceId} />
                         ))}
                       </div>
