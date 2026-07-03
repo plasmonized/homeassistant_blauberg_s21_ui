@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+
+- **Fix (kritisch): Ingress lieferte 404 Not Found** — `ports: 8099/tcp: 8099` und `ingress_port: 8099` zeigten auf denselben Port. Supervisor's Ingress-Proxy und die feste externe Portfreigabe konkurrieren um denselben Listener, wenn beide aktiv auf den gleichen Port zeigen — das führt zu 404/502/503-Fehlern beim Öffnen des Ingress-Panels. `ports` steht jetzt auf `null` (nicht standardmäßig freigegeben); Direktzugriff per IP bleibt weiterhin möglich, muss aber einmalig unter Addon → Konfiguration → **Netzwerk** mit einem Port belegt werden (z.B. wieder 8099).
+
 ## 0.2.2
 
 - **Fix (kritisch): Oberfläche komplett unerreichbar** — Der interne Web-Server band an den frei konfigurierbaren `web_port` (bei betroffenen Installationen z.B. 8089), während `ingress_port`/`ports` in `config.yaml` fest auf 8099 verdrahtet sind. Sobald `web_port` vom Standard abwich, liefen weder Ingress noch der Direktzugriff per IP:Port mehr auf den tatsächlich lauschenden Server. Der Port ist jetzt fest auf 8099 verdrahtet; eine abweichende `web_port`-Einstellung wird geloggt, aber ignoriert.
