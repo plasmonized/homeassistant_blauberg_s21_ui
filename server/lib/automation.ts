@@ -237,21 +237,23 @@ async function runAutomationCycle() {
   try {
     const devices = await storage.getDevices();
     for (const device of devices) {
-      if (!device.isConnected) continue;
+      // Always attempt a poll, even if the device is currently marked
+      // disconnected. pollDeviceRegisters() opens a fresh Modbus connection
+      // (via getModbusClient's lazy reconnect) when needed and flips
+      // isConnected back to true on success - so a device that dropped its
+      // connection (server restart, brief network blip, S21 reboot, etc.)
+      // reconnects automatically on the next poll cycle instead of staying
+      // disconnected until the user manually clicks "Connect".
+      const pollResult = await pollDeviceRegisters(device.id);
+      if (!pollResult.success) {
+        // Still unreachable this cycle - skip rules/profiles until it's back,
+        // we'll retry again next cycle.
+        continue;
+      }
 
       // Ensure MQTT discovery is set up for this device
       if (isMqttConnected()) {
         await discoverDevice(device.id);
-      }
-
-      // Refresh register values from the real device every cycle. Without this,
-      // register values (and lastSeen) only ever changed on manual poll/connect,
-      // so the UI's "Last seen" never advanced and rules/profiles below acted on
-      // stale, possibly hours-old data.
-      const pollResult = await pollDeviceRegisters(device.id);
-      if (!pollResult.success) {
-        // Device unreachable this cycle - skip rules/profiles until it's back.
-        continue;
       }
 
       const rules = await storage.getAutomationRules(device.id);

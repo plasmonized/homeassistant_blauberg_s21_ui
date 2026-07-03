@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.8
+
+- **Fix: Automatischer Reconnect nach Verbindungsverlust** — bisher übersprang der Hintergrund-Automatisierungszyklus ein Gerät komplett, sobald es einmal als "getrennt" markiert war, und wartete auf einen manuellen Klick auf "Connect". Dadurch stand die Anlage nach einem kurzen Netzwerkaussetzer, einem Neustart des Add-ons oder einem Reboot des S21 dauerhaft auf "Getrennt", bis man die Oberfläche öffnete und manuell neu verband. Der Zyklus versucht jetzt bei jedem Durchlauf (Standard: alle 10s) automatisch erneut zu verbinden, auch wenn das Gerät gerade als getrennt gilt — die Verbindung stellt sich damit von selbst wieder her, ohne dass ein manuelles Eingreifen nötig ist.
+
 ## 0.2.7
 
 - Feature: **Boost-Automatisierung per Home-Assistant-Sensor** — im Bereich "Automatisierung" kann jetzt ein neuer Trigger-Typ konfiguriert werden: Sobald ein beliebiger Home-Assistant-Sensor vom Typ "Binär" (z.B. Fenster-, Bewegungs- oder Präsenzsensor) auf "ein" wechselt, aktiviert das Addon automatisch für eine frei wählbare Dauer (in Minuten) die Boost-Funktion des S21 und schaltet sie danach selbstständig wieder ab. Der Trigger läuft als ganz normale Automatisierungsregel und kann daher beliebig oft parallel zu bestehenden Regeln (auch mehreren Boost-Triggern gleichzeitig) verwendet werden, ohne dass sie sich gegenseitig abschalten — Boost bleibt so lange aktiv, wie mindestens ein Trigger es anfordert.
