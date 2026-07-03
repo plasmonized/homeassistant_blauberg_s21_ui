@@ -10,7 +10,10 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // index: false is critical — without it, express.static auto-serves the
+  // raw index.html for directory-style requests (e.g. "/"), bypassing the
+  // catch-all handler below that injects the HA Ingress base path script.
+  app.use(express.static(distPath, { index: false }));
 
   // Serve index.html for all non-API routes, injecting the HA Ingress base path
   app.use("*", (req: Request, res: Response) => {

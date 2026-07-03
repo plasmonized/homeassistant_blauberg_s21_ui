@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4
+
+- **Fix (kritisch): 404-Seite der App selbst unter Ingress** — `express.static()` lieferte bei Verzeichnis-Anfragen (z.B. `/`) automatisch die unveränderte `index.html` direkt aus dem Build-Ordner aus, noch bevor der eigentliche Handler zum Zug kam, der das Skript zum Setzen des Ingress-Basispfads (`window.__BASE_PATH__`) einfügt. Dadurch dachte der Router, die App liefe auf `/` statt im Ingress-Unterpfad, fand keine passende Route und zeigte seine eigene "Seite nicht gefunden"-Meldung — sichtbar am charakteristischen "Did you forget to add the page to the router?"-Text. `express.static()` läuft jetzt mit `{ index: false }`, sodass jede Seitenanfrage zuverlässig durch den Handler läuft, der den Basispfad korrekt einfügt. Dieser Bug bestand vermutlich schon länger, wurde aber erst nach den vorherigen Netzwerk-Fixes sichtbar, da Anfragen davor den Container gar nicht erst erreichten.
+
 ## 0.2.3
 
 - **Fix (kritisch): Ingress lieferte 404 Not Found** — `ports: 8099/tcp: 8099` und `ingress_port: 8099` zeigten auf denselben Port. Supervisor's Ingress-Proxy und die feste externe Portfreigabe konkurrieren um denselben Listener, wenn beide aktiv auf den gleichen Port zeigen — das führt zu 404/502/503-Fehlern beim Öffnen des Ingress-Panels. `ports` steht jetzt auf `null` (nicht standardmäßig freigegeben); Direktzugriff per IP bleibt weiterhin möglich, muss aber einmalig unter Addon → Konfiguration → **Netzwerk** mit einem Port belegt werden (z.B. wieder 8099).
