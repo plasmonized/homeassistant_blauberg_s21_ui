@@ -1,2 +1,3 @@
 - [S21 register map sync](s21-register-map.md) — register changes must update THREE encodings (canonical map, MQTT discovery, native HA Python component) or stale entities ship.
 - [HA add-on Ingress networking rules](ha-addon-ingress-rules.md) — `host_network: true` breaks Ingress outright; the internal port must be hardcoded, never user-configurable, or Ingress/direct access silently break.
+- [Background loop vs. live poll](background-loop-vs-live-poll.md) — a periodic job can look active while only reading stale cached DB state; verify it actually calls the live-fetch path, and that its configured interval isn't a silently-ignored setting.

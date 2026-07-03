@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.5
+
+- **Fix: "Last seen" aktualisierte sich nicht automatisch** — der Hintergrund-Automatisierungszyklus (alle `poll_interval` Sekunden) hat MQTT-Werte publiziert und Regeln ausgewertet, aber **nie neue Register-Werte vom Gerät gelesen** und `lastSeen` nie aktualisiert. Beides passierte bisher ausschließlich beim manuellen "Poll Now"-Klick oder beim initialen Verbinden. Dadurch blieben nicht nur die Zeitstempel stehen, sondern Automatisierungsregeln und Regelungsprofile arbeiteten unbemerkt mit veralteten (teils stunden-/tagealten) Sensorwerten. Der Automatisierungszyklus liest jetzt bei jedem Durchlauf frische Register-Werte vom Gerät und aktualisiert `lastSeen`/Verbindungsstatus, bevor Regeln ausgewertet werden.
+- Fix: Das konfigurierte `poll_interval` (Sekunden) wurde vom Server bisher komplett ignoriert — der Zyklus lief immer fest alle 10s. Der Wert aus den Addon-Einstellungen wird jetzt tatsächlich verwendet.
+
 ## 0.2.4
 
 - **Fix (kritisch): 404-Seite der App selbst unter Ingress** — `express.static()` lieferte bei Verzeichnis-Anfragen (z.B. `/`) automatisch die unveränderte `index.html` direkt aus dem Build-Ordner aus, noch bevor der eigentliche Handler zum Zug kam, der das Skript zum Setzen des Ingress-Basispfads (`window.__BASE_PATH__`) einfügt. Dadurch dachte der Router, die App liefe auf `/` statt im Ingress-Unterpfad, fand keine passende Route und zeigte seine eigene "Seite nicht gefunden"-Meldung — sichtbar am charakteristischen "Did you forget to add the page to the router?"-Text. `express.static()` läuft jetzt mit `{ index: false }`, sodass jede Seitenanfrage zuverlässig durch den Handler läuft, der den Basispfad korrekt einfügt. Dieser Bug bestand vermutlich schon länger, wurde aber erst nach den vorherigen Netzwerk-Fixes sichtbar, da Anfragen davor den Container gar nicht erst erreichten.

@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { getModbusClient } from "./modbus";
+import { pollDeviceRegisters } from "./poll";
 import { getHomeAssistantState } from "./ha-client";
 import { connectMqtt, isMqttConnected } from "./mqtt-client";
 import { discoverDevice, publishRegisterStates, setupCommandHandlers } from "./mqtt-discovery";
@@ -15,7 +16,18 @@ import {
 } from "./control-engine";
 
 let automationInterval: NodeJS.Timeout | null = null;
-const POLL_INTERVAL_MS = 10_000; // Check every 10 seconds
+
+// Honor the addon's configured `poll_interval` (seconds, forwarded via the
+// POLL_INTERVAL env var from run.sh). Falls back to 10s if unset/invalid.
+function resolvePollIntervalMs(): number {
+  const configured = Number(process.env.POLL_INTERVAL);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured * 1000;
+  }
+  return 10_000;
+}
+
+const POLL_INTERVAL_MS = resolvePollIntervalMs();
 let mqttInitialized = false;
 
 // Track last execution time per rule to prevent immediate re-trigger
@@ -227,6 +239,16 @@ async function runAutomationCycle() {
         await discoverDevice(device.id);
       }
 
+      // Refresh register values from the real device every cycle. Without this,
+      // register values (and lastSeen) only ever changed on manual poll/connect,
+      // so the UI's "Last seen" never advanced and rules/profiles below acted on
+      // stale, possibly hours-old data.
+      const pollResult = await pollDeviceRegisters(device.id);
+      if (!pollResult.success) {
+        // Device unreachable this cycle - skip rules/profiles until it's back.
+        continue;
+      }
+
       const rules = await storage.getAutomationRules(device.id);
       const registers = await storage.getRegisters(device.id);
       const externalSensors = await storage.getExternalSensors(device.id);
@@ -305,7 +327,7 @@ async function runAutomationCycle() {
 
 export async function startAutomationEngine() {
   if (automationInterval) return;
-  console.log("[Automation] Engine started, checking every 30s");
+  console.log(`[Automation] Engine started, checking every ${POLL_INTERVAL_MS / 1000}s`);
 
   // Initialize MQTT connection and discovery
   try {
