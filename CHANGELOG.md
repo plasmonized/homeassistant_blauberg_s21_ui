@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.9
+
+- Feature: **Tatsächlicher Bypass-Zustand sichtbar** — bisher zeigte die Karte "Bypass Control" nur die eingestellte Betriebsart (Geschlossen/Offen/Auto), aber nicht, was die Klappe gerade tatsächlich macht. Besonders im Modus "Auto" (z.B. sommerliche Nachtauskühlung) war dadurch nicht erkennbar, ob der Bypass gerade offen oder geschlossen ist. Eine neue, schreibgeschützte Karte "Bypass Status" zeigt direkt daneben die reale Klappenstellung in Prozent (0% = geschlossen, 100% = offen) an — ausgelesen aus dem Register `IR_StatusBpsRotor` des Geräts. Zur Klarstellung: Die Temperaturregelung der App steuert den Bypass nicht aktiv; das bleibt der eigenen Auto-Logik der Anlage (bzw. einer manuell konfigurierten Automatisierungsregel) überlassen — die neue Anzeige macht nur sichtbar, was das Gerät selbst entschieden hat.
+
 ## 0.2.8
 
 - **Fix: Automatischer Reconnect nach Verbindungsverlust** — bisher übersprang der Hintergrund-Automatisierungszyklus ein Gerät komplett, sobald es einmal als "getrennt" markiert war, und wartete auf einen manuellen Klick auf "Connect". Dadurch stand die Anlage nach einem kurzen Netzwerkaussetzer, einem Neustart des Add-ons oder einem Reboot des S21 dauerhaft auf "Getrennt", bis man die Oberfläche öffnete und manuell neu verband. Der Zyklus versucht jetzt bei jedem Durchlauf (Standard: alle 10s) automatisch erneut zu verbinden, auch wenn das Gerät gerade als getrennt gilt — die Verbindung stellt sich damit von selbst wieder her, ohne dass ein manuelles Eingreifen nötig ist.

@@ -159,7 +159,9 @@ export default function DeviceDetail() {
 
   // Group controls by category using tags
   const systemControls    = controls?.filter(r => hasTag(r, 'power'));
-  const ventilationControls = controls?.filter(r => hasTag(r, 'fan', 'mode', 'bypass') && !hasTag(r, 'power'));
+  // Sourced from all registers (not just `controls`) so the read-only Bypass Status
+  // register renders next to the Bypass Control card instead of a separate sensors group.
+  const ventilationControls = registers?.filter(r => hasTag(r, 'fan', 'mode', 'bypass') && !hasTag(r, 'power'));
   const boostControls     = controls?.filter(r => hasTag(r, 'boost'));
   const otherControls     = controls?.filter(r =>
     !systemControls?.includes(r) && !ventilationControls?.includes(r) && !boostControls?.includes(r));
@@ -183,9 +185,10 @@ export default function DeviceDetail() {
     if (extOutdoorHum && hasTag(r, 'humidity') && hasTag(r, 'outdoor')) return false;
     return true;
   });
-  const statusSensors     = sensors?.filter(r => hasTag(r, 'filter', 'status') && !hasTag(r, 'temperature', 'humidity', 'co2'));
+  // Bypass status is already shown alongside Bypass Control in ventilationControls above.
+  const statusSensors     = sensors?.filter(r => hasTag(r, 'filter', 'status') && !hasTag(r, 'temperature', 'humidity', 'co2', 'bypass'));
   const otherSensors      = sensors?.filter(r =>
-    !tempSensors?.includes(r) && !airQualitySensors?.includes(r) && !statusSensors?.includes(r));
+    !tempSensors?.includes(r) && !airQualitySensors?.includes(r) && !statusSensors?.includes(r) && !hasTag(r, 'bypass'));
 
   return (
     <div className="min-h-screen bg-background">

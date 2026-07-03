@@ -20,6 +20,7 @@ async def async_setup_entry(
         BlaubergSensor("Exhaust Temperature", UnitOfTemperature.CELSIUS, 4, SensorDeviceClass.TEMPERATURE),
         BlaubergSensor("Humidity", PERCENTAGE, 10, SensorDeviceClass.HUMIDITY),
         BlaubergSensor("CO2 Level", CONCENTRATION_PARTS_PER_MILLION, 12, SensorDeviceClass.CO2),
+        BlaubergSensor("Bypass Status", PERCENTAGE, 51, None),
         BlaubergSensor("Filter Status", None, 31, None),
     ]
     async_add_entities(sensors)

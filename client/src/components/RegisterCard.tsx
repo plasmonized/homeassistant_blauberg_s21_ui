@@ -41,6 +41,8 @@ const isOperationMode = (reg: Register) =>
   reg.name.toLowerCase().includes("operation") && reg.name.toLowerCase().includes("mode");
 const isBypass = (reg: Register) =>
   reg.name.toLowerCase().includes("bypass");
+const isBypassStatus = (reg: Register) =>
+  isBypass(reg) && !reg.isWritable;
 const isBoost = (reg: Register) =>
   reg.name.toLowerCase().includes("boost");
 const isTemperatureSetpoint = (reg: Register) =>
@@ -373,6 +375,25 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
               </Button>
             );
           })}
+        </div>
+      );
+    }
+
+    if (isBypassStatus(register) && isNumber) {
+      const pct = !isNaN(numValue) ? Math.min(100, Math.max(0, numValue)) : 0;
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="w-5 h-5 text-cyan-400" />
+            <span className="text-2xl font-bold font-mono tabular-nums">{!isNaN(numValue) ? numValue : "–"}</span>
+            <span className="text-xs text-muted-foreground">% geöffnet</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-cyan-500 transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Tatsächliche Klappenstellung des Bypasses (0% = geschlossen, 100% = offen) — nützlich, wenn die Steuerung oben auf "Auto" steht.
+          </p>
         </div>
       );
     }

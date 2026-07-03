@@ -157,6 +157,15 @@ export const S21_REGISTERS: CanonicalRegister[] = [
     tags: ["sensor", "co2", "indoor"],
   },
   {
+    name: "Bypass Status",
+    address: 51,
+    type: "input",
+    dataType: "uint16",
+    isWritable: false,
+    unit: "%",
+    tags: ["status", "bypass"],
+  },
+  {
     name: "Filter Status",
     address: 31,
     type: "input",

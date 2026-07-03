@@ -30,6 +30,22 @@ must never be edited) for the old name/address.
 - Fan stages are **1–5**, never 0. "Off" is the System State **power coil @0**, never fan=0.
 - There is **no Standby** register.
 - Boost is a coil, not a timer: **Boost Switch coil@13** (writable), **Boost Active coil@3** (read-only).
-- Holding: Fan Speed@2, Operation Mode@43, Temperature Setpoint@44, Bypass Control@74.
+- Holding: Fan Speed@2, Operation Mode@43, Temperature Setpoint@44, Bypass Control@74
+  (the requested bypass mode: 0=Geschlossen/1=Offen/2=Auto — this is NOT the physical position).
 - Input (read-only): temps Outdoor@1/Supply@2/Extract@3/Exhaust@4 (int16, scale 10),
-  Humidity@10, CO2@12, Filter Status@31 (enum).
+  Humidity@10, CO2@12, Bypass Status@51 (0-100%, actual physical bypass/rotor position —
+  manual's `IR_StatusBpsRotor`, 100% = fully open/rotor stopped; use this to see the real
+  state when Bypass Control@74 is set to Auto), Filter Status@31 (enum).
+- Software never actively drives the bypass register from temperature/regulation logic —
+  see `control-engine.ts`. It's left to the device's own firmware "Auto" logic unless a
+  legacy `automation_rules` entry (actionType 'bypass') is configured.
+
+## Frontend gotcha: name-substring checks in RegisterCard.tsx
+`RegisterCard.tsx`'s `is*` helpers (e.g. `isBypass`) match by substring on `register.name`,
+not by tag. Adding a new read-only register whose name shares a keyword with an existing
+writable control (e.g. "Bypass Status" vs "Bypass Control") will silently fall into the
+wrong render branch (a toggle/enum control) unless a more specific predicate — combining the
+keyword with `isWritable`/`dataType` — is added and checked *before* the generic one.
+**How to apply:** when adding a read-only sibling of an existing writable register, add a
+dedicated `isXStatus = (reg) => isX(reg) && !reg.isWritable` predicate and its own render
+branch ahead of the writable one's fallback branch.

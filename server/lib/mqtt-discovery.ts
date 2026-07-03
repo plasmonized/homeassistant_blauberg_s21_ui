@@ -197,6 +197,9 @@ export async function discoverDevice(deviceId: number): Promise<void> {
     } else if (hasTag("bypass") && reg.isWritable && reg.dataType === "enum") {
       const options = reg.options ? Object.values(reg.options) as string[] : ["Geschlossen", "Offen", "Auto"];
       discoverSelect(uniqueId, reg.name, options);
+    } else if (hasTag("bypass") && !reg.isWritable) {
+      // Real physical bypass/rotor position (0-100 %), independent of the requested mode above.
+      discoverSensor(uniqueId, reg.name, reg.unit || "%", null, "measurement");
     } else if (reg.dataType === "bool" && !reg.isWritable) {
       discoverBinarySensor(uniqueId, reg.name);
     } else {

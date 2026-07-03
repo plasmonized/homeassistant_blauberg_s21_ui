@@ -41,6 +41,8 @@ function initInputBuffer(): Buffer {
   buf.writeUInt16BE(65, 22);
   // CO2 IR_CurCO2_Int (addr 12) = 420 ppm
   buf.writeUInt16BE(420, 24);
+  // Bypass Status IR_StatusBpsRotor (addr 51) = 80% open (device's own Auto logic)
+  buf.writeUInt16BE(80, 102);
   // Filter Status IR_StateFILTER (addr 31) = 0 (Sauber)
   buf.writeUInt16BE(0, 62);
   return buf;
