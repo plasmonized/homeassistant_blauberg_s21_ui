@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Plus, Trash2, Radio, Home, Thermometer, Droplets, Wind, Gauge,
-  CloudRain, RefreshCw, Import, Scan, Pencil,
+  CloudRain, RefreshCw, Import, Scan, Pencil, Search,
 } from "lucide-react";
 
 const sourceOptions = [
@@ -178,6 +178,7 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [editingSensor, setEditingSensor] = useState<ExternalSensor | null>(null);
+  const [haSearchQuery, setHaSearchQuery] = useState("");
 
   // Add form state
   const [name, setName] = useState("");
@@ -203,8 +204,19 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
 
   const handleDiscover = async () => {
     setShowDiscover(true);
+    setHaSearchQuery("");
     await discoverHaSensors();
   };
+
+  const filteredHaSensors = (haSensors ?? []).filter((sensor: any) => {
+    const query = haSearchQuery.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      sensor.name?.toLowerCase().includes(query) ||
+      sensor.entity_id?.toLowerCase().includes(query) ||
+      sensor.sensor_type?.toLowerCase().includes(query)
+    );
+  });
 
   const handleImport = (sensor: any) => {
     importSensor.mutate({
@@ -440,6 +452,11 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
           <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
             <Scan className="w-4 h-4" />
             Entdeckte Home Assistant Sensoren
+            {haSensors && haSensors.length > 0 && (
+              <span className="text-xs font-normal text-muted-foreground">
+                ({filteredHaSensors.length} von {haSensors.length})
+              </span>
+            )}
           </h4>
           {haLoading ? (
             <div className="space-y-2">
@@ -447,30 +464,46 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
               <Skeleton className="h-10" />
             </div>
           ) : haSensors && haSensors.length > 0 ? (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {haSensors.map((sensor: any) => (
-                <div key={sensor.entity_id} className="flex items-center justify-between p-2 bg-card rounded border">
-                  <div>
-                    <div className="text-sm font-medium">{sensor.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-mono">{sensor.entity_id}</span>
-                      <span className="ml-2">{sensor.sensor_type}</span>
-                      {sensor.last_value && (
-                        <span className="ml-2 font-mono">{sensor.last_value} {sensor.unit}</span>
-                      )}
+            <>
+              <div className="relative mb-2">
+                <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={haSearchQuery}
+                  onChange={(e) => setHaSearchQuery(e.target.value)}
+                  placeholder="Sensor suchen (Name, Entity ID, Typ)..."
+                  className="pl-8"
+                  data-testid="input-search-ha-sensors"
+                />
+              </div>
+              {filteredHaSensors.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Keine Sensoren gefunden für "{haSearchQuery}"</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {filteredHaSensors.map((sensor: any) => (
+                    <div key={sensor.entity_id} className="flex items-center justify-between p-2 bg-card rounded border">
+                      <div>
+                        <div className="text-sm font-medium">{sensor.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-mono">{sensor.entity_id}</span>
+                          <span className="ml-2">{sensor.sensor_type}</span>
+                          {sensor.last_value && (
+                            <span className="ml-2 font-mono">{sensor.last_value} {sensor.unit}</span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleImport(sensor)}
+                        disabled={importSensor.isPending}
+                      >
+                        <Import className="w-3 h-3 mr-1" /> Importieren
+                      </Button>
                     </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleImport(sensor)}
-                    disabled={importSensor.isPending}
-                  >
-                    <Import className="w-3 h-3 mr-1" /> Importieren
-                  </Button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">Keine passenden Sensoren gefunden</p>
           )}

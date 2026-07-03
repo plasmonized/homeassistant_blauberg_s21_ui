@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6
+
+- Feature: **Suchfeld für entdeckte Home Assistant Sensoren** — bei "Sensoren entdecken" im Bereich Externe Sensoren kann die Liste jetzt live nach Name, Entity ID oder Sensor-Typ gefiltert werden. Zeigt zusätzlich einen Zähler ("X von Y") an und eine Hinweismeldung, wenn die Suche keine Treffer ergibt.
+
 ## 0.2.5
 
 - **Fix: "Last seen" aktualisierte sich nicht automatisch** — der Hintergrund-Automatisierungszyklus (alle `poll_interval` Sekunden) hat MQTT-Werte publiziert und Regeln ausgewertet, aber **nie neue Register-Werte vom Gerät gelesen** und `lastSeen` nie aktualisiert. Beides passierte bisher ausschließlich beim manuellen "Poll Now"-Klick oder beim initialen Verbinden. Dadurch blieben nicht nur die Zeitstempel stehen, sondern Automatisierungsregeln und Regelungsprofile arbeiteten unbemerkt mit veralteten (teils stunden-/tagealten) Sensorwerten. Der Automatisierungszyklus liest jetzt bei jedem Durchlauf frische Register-Werte vom Gerät und aktualisiert `lastSeen`/Verbindungsstatus, bevor Regeln ausgewertet werden.
