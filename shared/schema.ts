@@ -122,7 +122,7 @@ export const automationRules = pgTable("automation_rules", {
   name: text("name").notNull(),
   enabled: boolean("enabled").default(true),
   season: text("season", { enum: ["summer", "winter", "all"] }).default("all").notNull(),
-  sensorType: text("sensor_type", { enum: ["outdoor_temp", "indoor_temp", "humidity", "outdoor_humidity", "indoor_humidity", "co2", "forecast_temp"] }).notNull(),
+  sensorType: text("sensor_type", { enum: ["outdoor_temp", "indoor_temp", "humidity", "outdoor_humidity", "indoor_humidity", "co2", "forecast_temp", "binary"] }).notNull(),
   operator: text("operator", { enum: ["gt", "lt", "gte", "lte", "eq"] }).notNull(),
   threshold: integer("threshold").notNull(),
   actionType: text("action_type", { enum: ["fan_speed", "bypass", "mode", "boost"] }).notNull(),
@@ -131,6 +131,15 @@ export const automationRules = pgTable("automation_rules", {
   timeTo: text("time_to"),
   externalSensorId: integer("external_sensor_id"),
   hysteresis: integer("hysteresis").default(0),
+  // When set (minutes), a "boost" action triggered by this rule stays on for this
+  // duration and then automatically turns back off, instead of following the
+  // condition live every cycle. Used for e.g. "boost for 20min when a HA binary
+  // sensor (window/presence/...) turns on".
+  actionDurationMinutes: integer("action_duration_minutes"),
+  // Engine-managed: while set and in the future, this rule's timed boost window
+  // is still active. Persisted (not just in-memory) so a server restart doesn't
+  // lose track of an in-progress timed boost. Never set directly by the user.
+  activeUntil: timestamp("active_until"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -186,7 +195,7 @@ export const externalSensors = pgTable("external_sensors", {
   name: text("name").notNull(),
   sourceType: text("source_type", { enum: ["homeassistant", "openweather", "manual"] }).default("homeassistant").notNull(),
   entityId: text("entity_id"),
-  sensorType: text("sensor_type", { enum: ["temperature", "indoor_temp", "outdoor_temp", "humidity", "indoor_humidity", "outdoor_humidity", "co2", "forecast_temp", "pressure", "wind_speed"] }).notNull(),
+  sensorType: text("sensor_type", { enum: ["temperature", "indoor_temp", "outdoor_temp", "humidity", "indoor_humidity", "outdoor_humidity", "co2", "forecast_temp", "pressure", "wind_speed", "binary"] }).notNull(),
   lastValue: text("last_value"),
   unit: text("unit"),
   updatedAt: timestamp("updated_at"),

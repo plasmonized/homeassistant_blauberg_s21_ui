@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Plus, Trash2, Radio, Home, Thermometer, Droplets, Wind, Gauge,
-  CloudRain, RefreshCw, Import, Scan, Pencil, Search,
+  CloudRain, RefreshCw, Import, Scan, Pencil, Search, ToggleLeft,
 } from "lucide-react";
 
 const sourceOptions = [
@@ -50,6 +50,7 @@ const sensorTypeOptions = [
   { value: "forecast_temp", label: "Vorhersage-Temperatur", icon: CloudRain },
   { value: "pressure", label: "Luftdruck", icon: Gauge },
   { value: "wind_speed", label: "Windgeschwindigkeit", icon: Wind },
+  { value: "binary", label: "Binär (Ein/Aus)", icon: ToggleLeft },
 ];
 
 function SensorTypeLabel({ type }: { type: string }) {

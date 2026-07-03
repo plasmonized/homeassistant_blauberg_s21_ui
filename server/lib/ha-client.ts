@@ -56,7 +56,7 @@ export async function getHomeAssistantState(entityId: string): Promise<any | nul
  * based on sensor type patterns.
  */
 export async function discoverHomeAssistantSensors(
-  sensorTypes: string[] = ["temperature", "humidity", "co2", "pressure"]
+  sensorTypes: string[] = ["temperature", "humidity", "co2", "pressure", "binary"]
 ): Promise<any[]> {
   const states = await getHomeAssistantStates();
   const discovered: any[] = [];
@@ -67,7 +67,23 @@ export async function discoverHomeAssistantSensors(
     const name = state.attributes?.friendly_name || state.entity_id;
     const unit = state.attributes?.unit_of_measurement || "";
 
-    // Only consider sensor domain
+    // Binary sensors (window/door/motion/presence/...) are generic on/off
+    // triggers, not measurement sensors - handle them separately so they
+    // don't need a unit-of-measurement to be detected.
+    if (domain === "binary_sensor") {
+      if (sensorTypes.includes("binary")) {
+        discovered.push({
+          entity_id: entityId,
+          name: name,
+          sensor_type: "binary",
+          unit: "",
+          last_value: state.state,
+        });
+      }
+      continue;
+    }
+
+    // Only consider sensor domain from here on
     if (domain !== "sensor") continue;
 
     // Detect sensor type based on unit and name

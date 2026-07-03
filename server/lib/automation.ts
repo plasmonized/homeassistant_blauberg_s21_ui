@@ -63,6 +63,11 @@ async function getSensorValue(
   if (externalSensorId) {
     const sensor = externalSensors?.find((s) => s.id === externalSensorId);
     if (sensor && sensor.lastValue !== null) {
+      // Binary sensors (HA binary_sensor domain) report "on"/"off" - map to
+      // 1/0 so the existing numeric operator/threshold comparisons work.
+      if (sensor.sensorType === "binary") {
+        return sensor.lastValue === "on" ? 1 : 0;
+      }
       return parseFloat(sensor.lastValue);
     }
   }
@@ -281,16 +286,78 @@ async function runAutomationCycle() {
 
       if (rules.length === 0) continue;
 
+      // Multiple rules can independently want "boost" on (e.g. two different
+      // timed HA-binary-sensor triggers, or a timed trigger alongside a
+      // classic threshold rule). Track that across the loop so a single
+      // rule's timer expiring doesn't switch boost off while another rule
+      // still needs it on.
+      let boostWantedThisCycle = false;
+      let boostExpiredThisCycle = false;
+      let expiredRuleId: number | null = null;
+
       for (const rule of rules) {
         if (!rule.enabled) continue;
         if (!isSeasonMatch(rule.season)) continue;
         if (!isInTimeRange(rule.timeFrom, rule.timeTo)) continue;
 
         const sensorValue = await getSensorValue(registers, rule.sensorType, externalSensors, rule.externalSensorId);
-        if (sensorValue === null) continue;
+        const conditionMet = sensorValue !== null && evaluateCondition(sensorValue, rule.operator, rule.threshold);
 
-        const conditionMet = evaluateCondition(sensorValue, rule.operator, rule.threshold);
+        // Timed boost rules (e.g. "boost for 20min when HA binary sensor
+        // turns on") own a persisted expiry window instead of just mirroring
+        // the live condition every cycle like regular rules do.
+        if (rule.actionType === "boost" && rule.actionDurationMinutes) {
+          const now = Date.now();
+          const wasActive = rule.activeUntil ? new Date(rule.activeUntil).getTime() > now : false;
+
+          if (conditionMet) {
+            boostWantedThisCycle = true;
+            const newActiveUntil = new Date(now + rule.actionDurationMinutes * 60_000);
+            await storage.updateAutomationRule(rule.id, { activeUntil: newActiveUntil });
+
+            if (!wasActive) {
+              // Rising edge: switch boost on and log the start of the timer.
+              const result = await executeRuleAction(device.id, rule, registers);
+              await storage.createAutomationLog({
+                ruleId: rule.id,
+                deviceId: device.id,
+                sensorValue: Math.round((sensorValue ?? 0) * 10),
+                actionTaken: `boost=1 (${rule.actionDurationMinutes}min Timer gestartet)`,
+                success: result.success,
+                message: result.message,
+              });
+            }
+            // else: still within an active window, timer just refreshed - no
+            // need to re-write the register or log every cycle.
+          } else if (wasActive) {
+            // Trigger sensor is no longer "on", but the timer is still
+            // counting down - keep boost on until it elapses.
+            boostWantedThisCycle = true;
+          } else if (rule.activeUntil) {
+            // Timer just elapsed this cycle.
+            await storage.updateAutomationRule(rule.id, { activeUntil: null });
+            boostExpiredThisCycle = true;
+            expiredRuleId = rule.id;
+            await storage.createAutomationLog({
+              ruleId: rule.id,
+              deviceId: device.id,
+              sensorValue: sensorValue !== null ? Math.round(sensorValue * 10) : null,
+              actionTaken: "Timer abgelaufen",
+              success: true,
+              message: `Boost-Timer für Regel "${rule.name}" abgelaufen`,
+            });
+          }
+          continue;
+        }
+
+        if (sensorValue === null) continue;
         if (!conditionMet) continue;
+
+        // A currently-true classic (non-timed) boost rule should also count
+        // towards "something wants boost on", for the same reason as above.
+        if (rule.actionType === "boost" && rule.actionValue) {
+          boostWantedThisCycle = true;
+        }
 
         // Hysteresis check: if we already triggered this rule recently with similar value
         const lastExec = lastExecution.get(rule.id);
@@ -318,6 +385,21 @@ async function runAutomationCycle() {
         if (result.success) {
           lastExecution.set(rule.id, { value: sensorValue, timestamp: Date.now() });
         }
+      }
+
+      // A timed boost rule's window just closed - only actually switch boost
+      // off if nothing else (another still-active timed rule, or a live
+      // classic boost rule) wants it on this cycle.
+      if (boostExpiredThisCycle && !boostWantedThisCycle && expiredRuleId !== null) {
+        const result = await executeRuleAction(device.id, { actionType: "boost", actionValue: 0 }, registers);
+        await storage.createAutomationLog({
+          ruleId: expiredRuleId,
+          deviceId: device.id,
+          sensorValue: null,
+          actionTaken: "boost=0 (automatisch, Timer abgelaufen)",
+          success: result.success,
+          message: result.message,
+        });
       }
     }
   } catch (error) {

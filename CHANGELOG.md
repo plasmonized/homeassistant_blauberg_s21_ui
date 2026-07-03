@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.7
+
+- Feature: **Boost-Automatisierung per Home-Assistant-Sensor** — im Bereich "Automatisierung" kann jetzt ein neuer Trigger-Typ konfiguriert werden: Sobald ein beliebiger Home-Assistant-Sensor vom Typ "Binär" (z.B. Fenster-, Bewegungs- oder Präsenzsensor) auf "ein" wechselt, aktiviert das Addon automatisch für eine frei wählbare Dauer (in Minuten) die Boost-Funktion des S21 und schaltet sie danach selbstständig wieder ab. Der Trigger läuft als ganz normale Automatisierungsregel und kann daher beliebig oft parallel zu bestehenden Regeln (auch mehreren Boost-Triggern gleichzeitig) verwendet werden, ohne dass sie sich gegenseitig abschalten — Boost bleibt so lange aktiv, wie mindestens ein Trigger es anfordert.
+- Home-Assistant-Sensor-Erkennung berücksichtigt jetzt neben `sensor`-Entitäten auch `binary_sensor`-Entitäten (Sensor-Typ "Binär") — sowohl bei der automatischen Erkennung als auch beim manuellen Anlegen externer Sensoren.
+
 ## 0.2.6
 
 - Feature: **Suchfeld für entdeckte Home Assistant Sensoren** — bei "Sensoren entdecken" im Bereich Externe Sensoren kann die Liste jetzt live nach Name, Entity ID oder Sensor-Typ gefiltert werden. Zeigt zusätzlich einen Zähler ("X von Y") an und eine Hinweismeldung, wenn die Suche keine Treffer ergibt.
