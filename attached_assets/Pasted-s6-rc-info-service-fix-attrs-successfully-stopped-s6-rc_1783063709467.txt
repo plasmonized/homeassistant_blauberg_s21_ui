@@ -1,0 +1,133 @@
+s6-rc: info: service fix-attrs successfully stopped
+s6-rc: warning: service s6rc-oneshot-runner is marked as essential, not stopping it
+s6-rc: info: service s6rc-oneshot-runner: starting
+s6-rc: info: service s6rc-oneshot-runner successfully started
+s6-rc: info: service fix-attrs: starting
+s6-rc: info: service fix-attrs successfully started
+s6-rc: info: service legacy-cont-init: starting
+s6-rc: info: service legacy-cont-init successfully started
+s6-rc: info: service legacy-services: starting
+s6-rc: info: service legacy-services successfully started
+[09:15:12] INFO: Home Assistant Supervisor API verfügbar
+[09:15:12] ERROR: Unable to access the API, forbidden
+[09:15:12] INFO: Starte Blauberg S21 Ventilation Controller...
+[09:15:12] INFO: S21 Gerät: 192.168.0.67:502 (Slave ID: 1)
+[09:15:12] INFO: Web-Port: 8089
+[09:15:12] INFO: Initialisiere PostgreSQL Datenbank...
+[09:15:12] INFO: Erstelle neue Datenbank...
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+The database cluster will be initialized with this locale configuration:
+  locale provider:   libc
+  LC_COLLATE:  C
+  LC_CTYPE:    C.UTF-8
+  LC_MESSAGES: C
+  LC_MONETARY: C
+  LC_NUMERIC:  C
+  LC_TIME:     C
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+Data page checksums are disabled.
+fixing permissions on existing directory /var/lib/postgresql/data ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ... 100
+selecting default "shared_buffers" ... 128MB
+selecting default time zone ... UTC
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+Success.
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+waiting for server to start.... done
+server started
+CREATE ROLE
+CREATE DATABASE
+[09:15:19] INFO: Pushe Datenbank Schema...
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/app/drizzle.config.ts'
+Using 'pg' driver for database querying
+[⣷] Pulling schema from database...
+[✓] Pulling schema from database...
+[✓] Changes applied
+[09:15:22] INFO: Starte Web-Anwendung...
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.cjs
+[Automation] Engine started, checking every 30s
+[MQTT] No MQTT host configured, skipping MQTT connection
+9:15:23 AM [express] serving on port 8089
+9:15:23 AM [express] Running as Home Assistant Add-on (Ingress enabled)
+9:15:31 AM [express] GET /api/simulator/status 200 in 4ms :: {"running":false}
+9:15:31 AM [express] GET /api/devices 200 in 8ms :: []
+s6-rc: info: service legacy-services: stopping
+s6-rc: info: service legacy-services successfully stopped
+s6-rc: info: service legacy-cont-init: stopping
+s6-rc: info: service legacy-cont-init successfully stopped
+s6-rc: info: service fix-attrs: stopping
+s6-rc: info: service fix-attrs successfully stopped
+s6-rc: warning: service s6rc-oneshot-runner is marked as essential, not stopping it
+s6-rc: info: service s6rc-oneshot-runner: starting
+s6-rc: info: service s6rc-oneshot-runner successfully started
+s6-rc: info: service fix-attrs: starting
+s6-rc: info: service fix-attrs successfully started
+s6-rc: info: service legacy-cont-init: starting
+s6-rc: info: service legacy-cont-init successfully started
+s6-rc: info: service legacy-services: starting
+s6-rc: info: service legacy-services successfully started
+[09:26:06] INFO: Home Assistant Supervisor API verfügbar
+[09:26:06] ERROR: Unable to access the API, forbidden
+[09:26:06] INFO: Starte Blauberg S21 Ventilation Controller...
+[09:26:06] INFO: S21 Gerät: 192.168.0.67:502 (Slave ID: 1)
+[09:26:06] INFO: Web-Port: 8089
+[09:26:06] INFO: Initialisiere PostgreSQL Datenbank...
+[09:26:06] INFO: Erstelle neue Datenbank...
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+The database cluster will be initialized with this locale configuration:
+  locale provider:   libc
+  LC_COLLATE:  C
+  LC_CTYPE:    C.UTF-8
+  LC_MESSAGES: C
+  LC_MONETARY: C
+  LC_NUMERIC:  C
+  LC_TIME:     C
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+Data page checksums are disabled.
+fixing permissions on existing directory /data/postgresql/data ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ... 100
+selecting default "shared_buffers" ... 128MB
+selecting default time zone ... UTC
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+Success.
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+waiting for server to start.... done
+server started
+CREATE ROLE
+CREATE DATABASE
+[09:26:11] INFO: Pushe Datenbank Schema...
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/app/drizzle.config.ts'
+Using 'pg' driver for database querying
+[⣷] Pulling schema from database...
+[✓] Pulling schema from database...
+[✓] Changes applied
+[09:26:14] INFO: Starte Web-Anwendung...
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.cjs
+[Automation] Engine started, checking every 30s
+[MQTT] No MQTT host configured, skipping MQTT connection
+9:26:15 AM [express] serving on port 8089
+9:26:15 AM [express] Running as Home Assistant Add-on (Ingress enabled)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- **Fix (kritisch): Oberfläche komplett unerreichbar** — Der interne Web-Server band an den frei konfigurierbaren `web_port` (bei betroffenen Installationen z.B. 8089), während `ingress_port`/`ports` in `config.yaml` fest auf 8099 verdrahtet sind. Sobald `web_port` vom Standard abwich, liefen weder Ingress noch der Direktzugriff per IP:Port mehr auf den tatsächlich lauschenden Server. Der Port ist jetzt fest auf 8099 verdrahtet; eine abweichende `web_port`-Einstellung wird geloggt, aber ignoriert.
+- Fix: `services: - mqtt:want` in `config.yaml` ergänzt — behebt einen "Unable to access the API, forbidden"-Fehler beim automatischen MQTT-Service-Erkennungsversuch.
+
 ## 0.2.1
 
 - **Fix (kritisch): Datenverlust nach Update/Neustart** — PostgreSQL-Datenverzeichnis lag unter `/var/lib/postgresql` (Container-Dateisystem, wird bei jedem Update/Neuerstellen des Containers gelöscht). Liegt jetzt unter `/data/postgresql` — dem einzigen Verzeichnis, das Home Assistant addon-übergreifend persistiert. Geräte, Register, externe Sensoren und Automatisierungen bleiben jetzt über Updates und Neustarts hinweg erhalten.

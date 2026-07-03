@@ -17,8 +17,19 @@ POLL_INTERVAL=$(bashio::config 'poll_interval')
 export S21_IP S21_PORT S21_SLAVE_ID
 export MQTT_HOST MQTT_PORT MQTT_USER MQTT_PASSWORD
 export HA_TOKEN LOG_LEVEL POLL_INTERVAL
-export PORT="$WEB_PORT"
 export NODE_ENV="production"
+
+# WICHTIG: Der interne Web-Port ist fest auf 8099 verdrahtet, weil er in
+# config.yaml als `ingress_port` und in `ports:` fest hinterlegt ist. HA
+# Ingress kann nur mit einem zur Build-Zeit fixen Port arbeiten — eine
+# nutzerseitig änderbare "web_port"-Option würde immer wieder zu einem
+# Mismatch führen (App lauscht auf Port A, Ingress/Portfreigabe erwartet
+# Port B -> Oberfläche komplett unerreichbar). Die Option wird daher nur
+# noch geloggt, aber nicht mehr zum Binden verwendet.
+if [ -n "$WEB_PORT" ] && [ "$WEB_PORT" != "8099" ]; then
+    bashio::log.warning "web_port=$WEB_PORT wird ignoriert – aus technischen Gründen (HA Ingress) ist der Port fest auf 8099 eingestellt."
+fi
+export PORT="8099"
 
 export DATA_DIR="/data"
 export DB_NAME="blauberg"
@@ -45,7 +56,7 @@ fi
 
 bashio::log.info "Starte Blauberg S21 Ventilation Controller..."
 bashio::log.info "S21 Gerät: $S21_IP:$S21_PORT (Slave ID: $S21_SLAVE_ID)"
-bashio::log.info "Web-Port: $WEB_PORT"
+bashio::log.info "Web-Port: $PORT (fest, Ingress-kompatibel)"
 
 # === PostgreSQL ===
 # WICHTIG: Die Datenbank MUSS unter /data liegen — das ist das einzige

@@ -1,1 +1,2 @@
 - [S21 register map sync](s21-register-map.md) — register changes must update THREE encodings (canonical map, MQTT discovery, native HA Python component) or stale entities ship.
+- [HA add-on Ingress networking rules](ha-addon-ingress-rules.md) — `host_network: true` breaks Ingress outright; the internal port must be hardcoded, never user-configurable, or Ingress/direct access silently break.
