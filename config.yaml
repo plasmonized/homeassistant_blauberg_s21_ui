@@ -1,6 +1,6 @@
 name: "Blauberg S21 Ventilation Controller"
 description: "Modbus TCP Steuerung und Automation für Blauberg S21 Lüftungsgeräte mit Home Assistant Integration"
-version: "0.2.0"
+version: "0.2.1"
 slug: blauberg_s21_ventilation
 init: false
 arch:
@@ -11,12 +11,15 @@ boot: auto
 hassio_api: true
 hassio_role: default
 homeassistant_api: true
-host_network: true
 webui: "http://[HOST]:[PORT:8099]"
 panel_icon: mdi:fan
 panel_title: "S21 Ventilation"
 ingress: true
 ingress_port: 8099
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: "Web-Oberfläche (Direktzugriff per IP, zusätzlich zu Ingress)"
 options:
   s21_ip: "192.168.1.100"
   s21_port: 502

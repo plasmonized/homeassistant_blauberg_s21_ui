@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- **Fix (kritisch): Datenverlust nach Update/Neustart** — PostgreSQL-Datenverzeichnis lag unter `/var/lib/postgresql` (Container-Dateisystem, wird bei jedem Update/Neuerstellen des Containers gelöscht). Liegt jetzt unter `/data/postgresql` — dem einzigen Verzeichnis, das Home Assistant addon-übergreifend persistiert. Geräte, Register, externe Sensoren und Automatisierungen bleiben jetzt über Updates und Neustarts hinweg erhalten.
+- **Fix (kritisch): Ingress-Einbettung funktionierte nie** — `host_network: true` und HA Ingress sind grundsätzlich inkompatibel (Supervisor kann den Container im Host-Netzwerk-Modus nicht über sein internes Docker-Netz erreichen). `host_network` entfernt; Modbus/MQTT-Verbindungen benötigen es nicht (reine ausgehende TCP-Verbindungen funktionieren im normalen Bridge-Netzwerk). Direktzugriff per IP:Port bleibt zusätzlich über `ports:` verfügbar.
+
 ## 0.2.0
 
 - Fix: **Globaler `window.fetch`-Override** — alle fetch-Aufrufe (auch ohne `resolveUrl()`) werden automatisch mit dem HA-Ingress-Pfad geprefixed; verhindert stille Fehler bei neu hinzugefügten Hooks

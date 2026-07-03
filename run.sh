@@ -48,9 +48,13 @@ bashio::log.info "S21 Gerät: $S21_IP:$S21_PORT (Slave ID: $S21_SLAVE_ID)"
 bashio::log.info "Web-Port: $WEB_PORT"
 
 # === PostgreSQL ===
+# WICHTIG: Die Datenbank MUSS unter /data liegen — das ist das einzige
+# Verzeichnis, das Home Assistant bei Addon-Updates und Neustarts persistiert.
+# /var/lib/postgresql liegt im Container-Dateisystem und wird bei jedem
+# Update/Neuerstellen des Containers gelöscht (Ursache für Datenverlust).
 bashio::log.info "Initialisiere PostgreSQL Datenbank..."
 
-PG_BASE="/var/lib/postgresql"
+PG_BASE="/data/postgresql"
 PG_DATA="$PG_BASE/data"
 PG_LOG="$PG_DATA/server.log"
 
