@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.10
+
+- **Fix (wichtig): Lüfterstufen auf 1-3 begrenzt** — die S21-Hardware unterstützt nur die Lüfterstufen 1-3, die App erlaubte/berechnete bisher aber überall bis zu Stufe 5 (Buttons in der Oberfläche, Home-Assistant-Integration, Regelungsprofile und Automatisierungsregeln). Betroffen waren die Bedienelemente, die MQTT-/Home-Assistant-Entitäten, alle Regelungsprofile (Temperatur-, Feuchtigkeits-, CO2-Regelung, Nachtabsenkung, Wetterkompensiert) sowie manuelle Register-Schreibzugriffe und Automatisierungsregeln. Werte über 3 werden jetzt an jeder Stelle auf 1-3 begrenzt — beim Speichern eines Profils/einer Regel ebenso wie unmittelbar vor dem Schreiben auf das Gerät. Bereits gespeicherte Profile/Register mit veralteten Werten über 3 wurden einmalig korrigiert.
+
 ## 0.2.9
 
 - Feature: **Tatsächlicher Bypass-Zustand sichtbar** — bisher zeigte die Karte "Bypass Control" nur die eingestellte Betriebsart (Geschlossen/Offen/Auto), aber nicht, was die Klappe gerade tatsächlich macht. Besonders im Modus "Auto" (z.B. sommerliche Nachtauskühlung) war dadurch nicht erkennbar, ob der Bypass gerade offen oder geschlossen ist. Eine neue, schreibgeschützte Karte "Bypass Status" zeigt direkt daneben die reale Klappenstellung in Prozent (0% = geschlossen, 100% = offen) an — ausgelesen aus dem Register `IR_StatusBpsRotor` des Geräts. Zur Klarstellung: Die Temperaturregelung der App steuert den Bypass nicht aktiv; das bleibt der eigenen Auto-Logik der Anlage (bzw. einer manuell konfigurierten Automatisierungsregel) überlassen — die neue Anzeige macht nur sichtbar, was das Gerät selbst entschieden hat.
