@@ -192,6 +192,33 @@ export async function registerRoutes(
     return body;
   }
 
+  // Same 1-3 hardware limit applies to control profile parameters. Freeform
+  // number fields in a profile's `parameters` JSON must be clamped here so a
+  // stored profile can never persist an unsupported fan speed (e.g. 4 or 5),
+  // even though the control engine also clamps at final hardware write time.
+  const FAN_SPEED_PARAM_KEYS = [
+    "baseFanSpeed",
+    "activeFanSpeed",
+    "maxFanSpeed",
+    "heaterFanSpeed",
+    "fanSpeedDay",
+    "fanSpeedNight",
+    "outputMin",
+    "outputMax",
+  ];
+  function clampProfileFanSpeedParams(body: any) {
+    if (!body || typeof body.parameters !== "object" || body.parameters === null) {
+      return body;
+    }
+    const parameters = { ...body.parameters };
+    for (const key of FAN_SPEED_PARAM_KEYS) {
+      if (parameters[key] !== undefined && parameters[key] !== null && parameters[key] !== "") {
+        parameters[key] = Math.max(1, Math.min(3, Math.round(Number(parameters[key]))));
+      }
+    }
+    return { ...body, parameters };
+  }
+
   app.post('/api/devices/:id/rules', async (req, res) => {
     try {
       const rule = await storage.createAutomationRule({
@@ -334,11 +361,11 @@ export async function registerRoutes(
       const body = req.body;
       // Derive schemaType from controlType if not provided
       const schemaType = body.schemaType || body.controlType || "temperature_control";
-      const profile = await storage.createControlProfile({
+      const profile = await storage.createControlProfile(clampProfileFanSpeedParams({
         ...body,
         schemaType,
         deviceId: Number(req.params.id),
-      });
+      }));
       res.status(201).json(profile);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -350,7 +377,7 @@ export async function registerRoutes(
 
   // Update a control profile
   app.put('/api/control-profiles/:id', async (req, res) => {
-    const profile = await storage.updateControlProfile(Number(req.params.id), req.body);
+    const profile = await storage.updateControlProfile(Number(req.params.id), clampProfileFanSpeedParams(req.body));
     res.json(profile);
   });
 

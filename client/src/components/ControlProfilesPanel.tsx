@@ -79,6 +79,23 @@ const expertParamKeys = [
   "switchTemp","nightStart","nightEnd","fanspeed","emergencyThreshold",
 ];
 
+// Hardware only supports fan speed levels 1-3 (Blauberg S21). Any parameter
+// controlling a fan speed must be constrained to this range in the input UI.
+const FAN_SPEED_PARAM_KEYS = [
+  "baseFanSpeed",
+  "activeFanSpeed",
+  "maxFanSpeed",
+  "heaterFanSpeed",
+  "fanSpeedDay",
+  "fanSpeedNight",
+  "outputMin",
+  "outputMax",
+];
+
+function isFanSpeedParam(key: string) {
+  return FAN_SPEED_PARAM_KEYS.includes(key);
+}
+
 function isExpertParam(key: string) {
   return expertParamKeys.some((k) => key.toLowerCase().includes(k.toLowerCase()));
 }
@@ -294,7 +311,19 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
         <Input
           type="number"
           value={value ?? 0}
-          onChange={(e) => handleParamChange(key, e.target.value === "" ? null : Number(e.target.value))}
+          onChange={(e) => {
+            if (e.target.value === "") {
+              handleParamChange(key, null);
+              return;
+            }
+            let num = Number(e.target.value);
+            if (isFanSpeedParam(key) && !Number.isNaN(num)) {
+              num = Math.max(1, Math.min(3, num));
+            }
+            handleParamChange(key, num);
+          }}
+          min={isFanSpeedParam(key) ? 1 : undefined}
+          max={isFanSpeedParam(key) ? 3 : undefined}
           step={key.includes("Temp") || key.includes("temp") || key.includes("hysteresis") || key.includes("offset") || key.includes("supply") ? 0.1 : 1}
           data-testid={`input-param-${key}`}
         />
