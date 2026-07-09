@@ -14,7 +14,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Blauberg S21 numbers."""
     async_add_entities([
-        BlaubergNumber("Fan Speed", 2, 1, 5, None, 1, 1),
+        BlaubergNumber("Fan Speed", 2, 1, 3, None, 1, 1),
         BlaubergNumber("Temperature Setpoint", 44, 15, 30, UnitOfTemperature.CELSIUS, 1, 20),
     ])
 

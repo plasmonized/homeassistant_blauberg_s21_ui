@@ -210,6 +210,15 @@ async function executeRuleAction(
     }
 
     let valueToWrite = rule.actionValue;
+
+    // Safety clamp: fan speed must stay within the valid 1-3 hardware range,
+    // regardless of what a (possibly stale) automation rule's actionValue requests.
+    if (rule.actionType === "fan_speed") {
+      valueToWrite = Math.max(1, Math.min(3, Math.round(Number(valueToWrite))));
+    }
+
+    const storedValue = valueToWrite;
+
     if (targetReg.scale && targetReg.scale !== 1) {
       valueToWrite = valueToWrite * targetReg.scale;
     }
@@ -222,11 +231,11 @@ async function executeRuleAction(
       return { success: false, message: "Register type not writable" };
     }
 
-    await storage.updateRegisterValue(targetReg.id, rule.actionValue);
+    await storage.updateRegisterValue(targetReg.id, storedValue);
 
     return {
       success: true,
-      message: `Set ${rule.actionType} to ${rule.actionValue}`,
+      message: `Set ${rule.actionType} to ${storedValue}`,
     };
   } catch (error: any) {
     return { success: false, message: error.message };
@@ -565,10 +574,10 @@ async function executeControlAction(
 
       const fanReg = registers.find((r) => r.name.includes("Fan Speed"));
       if (fanReg) {
-        // Safety clamp: fan speed must stay within the valid 1–5 hardware range.
+        // Safety clamp: fan speed must stay within the valid 1–3 hardware range.
         // "Off" is NOT a fan stage on the S21 — the unit is powered down via the
         // System State coil, which the automation engine must never toggle.
-        const fanValue = Math.max(1, Math.min(5, Math.round(result.value)));
+        const fanValue = Math.max(1, Math.min(3, Math.round(result.value)));
         await client.writeSingleRegister(fanReg.address, fanValue);
         await storage.updateRegisterValue(fanReg.id, fanValue);
         messages.push(`Lüfterstufe: ${fanValue}`);

@@ -77,6 +77,14 @@ function twoPointControl(
   return state;
 }
 
+// Hardware supports fan speeds 1-3 only. All schemas must clamp to this range
+// regardless of what a (possibly stale) profile's parameters request.
+const FAN_SPEED_MIN = 1;
+const FAN_SPEED_MAX = 3;
+function clampFanSpeed(value: number): number {
+  return Math.max(FAN_SPEED_MIN, Math.min(FAN_SPEED_MAX, Math.round(value)));
+}
+
 // === CONTROL SCHEMA IMPLEMENTATIONS ===
 
 export interface ControlResult {
@@ -99,12 +107,12 @@ export async function runTemperatureControl(
     ki = 0.1,
     kd = 0.5,
     outputMin = 1,
-    outputMax = 5,
+    outputMax = 3,
   } = params;
 
-  // PID control outputs fan speed (1-5)
+  // PID control outputs fan speed (1-3)
   const output = pidControl(profileId, measuredValue, setpoint, kp, ki, kd, outputMin, outputMax, 30_000);
-  const fanSpeed = Math.round(output);
+  const fanSpeed = clampFanSpeed(output);
 
   return {
     actionType: "fan_speed",
@@ -125,11 +133,11 @@ export async function runHumidityControl(
     ki = 0.05,
     kd = 0.2,
     outputMin = 1,
-    outputMax = 5,
+    outputMax = 3,
   } = params;
 
   const output = pidControl(profileId, measuredValue, setpoint, kp, ki, kd, outputMin, outputMax, 30_000);
-  const fanSpeed = Math.round(output);
+  const fanSpeed = clampFanSpeed(output);
 
   return {
     actionType: "fan_speed",
@@ -150,7 +158,7 @@ export async function runCo2Control(
     ki = 0.0001,
     kd = 0.001,
     outputMin = 1,
-    outputMax = 5,
+    outputMax = 3,
     emergencyThreshold = 1200,
   } = params;
 
@@ -158,13 +166,13 @@ export async function runCo2Control(
   if (measuredValue > emergencyThreshold) {
     return {
       actionType: "fan_speed",
-      value: 5,
+      value: FAN_SPEED_MAX,
       reason: `CO2 NOTFALL: ${measuredValue}ppm > ${emergencyThreshold}ppm, max Lüftung!`,
     };
   }
 
   const output = pidControl(profileId, measuredValue, setpoint, kp, ki, kd, outputMin, outputMax, 30_000);
-  const fanSpeed = Math.round(output);
+  const fanSpeed = clampFanSpeed(output);
 
   return {
     actionType: "fan_speed",
@@ -241,7 +249,7 @@ export async function runNightSetback(
 
   // If temperature is far from setpoint, increase fan speed
   const deviation = Math.abs(indoorTemp - setpoint);
-  const adjustedFanSpeed = deviation > 2 ? Math.min(5, fanSpeed + 1) : fanSpeed;
+  const adjustedFanSpeed = clampFanSpeed(deviation > 2 ? fanSpeed + 1 : fanSpeed);
 
   return {
     actionType: "fan_speed",
@@ -265,7 +273,7 @@ export async function runWeatherCompensated(
     boostThreshold = 2.0,   // Abweichung vom Sollwert, ab der auf Maximum gelüftet wird (°C)
     baseFanSpeed = 1,       // Grundlüftung im Sollbereich (Stufe)
     activeFanSpeed = 2,     // Lüftung beim aktiven Regeln (Stufe)
-    maxFanSpeed = 5,        // Maximale Lüftung beim Boost (Stufe)
+    maxFanSpeed = 3,        // Maximale Lüftung beim Boost (Stufe)
     useHeater = false,      // Integriertes Elektro-Heizregister mitregeln
     heaterFanSpeed = 2,     // Lüfterstufe beim aktiven Heizen (Stufe)
   } = params;
@@ -284,17 +292,18 @@ export async function runWeatherCompensated(
 
   // Im Komfortband → nur Grundlüftung, kein aktives Heizen/Kühlen nötig
   if (Math.abs(dev) <= comfortBand) {
+    const clampedBase = clampFanSpeed(baseFanSpeed);
     return withMode({
       actionType: "fan_speed",
-      value: baseFanSpeed,
-      reason: `Im Sollbereich (innen ${indoorStr}°C ≈ Soll ${roomSetpoint}°C) → Grundlüftung Stufe ${baseFanSpeed}`,
+      value: clampedBase,
+      reason: `Im Sollbereich (innen ${indoorStr}°C ≈ Soll ${roomSetpoint}°C) → Grundlüftung Stufe ${clampedBase}`,
     }, false);
   }
 
   if (dev > 0) {
     // Raum ist ZU WARM → Kühlung gewünscht. Lüften hilft nur, wenn die Außenluft kühler ist.
     if (outdoorTemp <= indoorTemp - minOutdoorDelta) {
-      const fanSpeed = dev >= boostThreshold ? maxFanSpeed : activeFanSpeed;
+      const fanSpeed = clampFanSpeed(dev >= boostThreshold ? maxFanSpeed : activeFanSpeed);
       return withMode({
         actionType: "fan_speed",
         value: fanSpeed,
@@ -313,7 +322,7 @@ export async function runWeatherCompensated(
 
   // Raum ist ZU KALT → Erwärmung gewünscht. Lüften hilft nur, wenn die Außenluft wärmer ist.
   if (outdoorTemp >= indoorTemp + minOutdoorDelta) {
-    const fanSpeed = Math.abs(dev) >= boostThreshold ? maxFanSpeed : activeFanSpeed;
+    const fanSpeed = clampFanSpeed(Math.abs(dev) >= boostThreshold ? maxFanSpeed : activeFanSpeed);
     return withMode({
       actionType: "fan_speed",
       value: fanSpeed,
@@ -326,7 +335,7 @@ export async function runWeatherCompensated(
     // Integriertes Heizregister übernimmt: Anlage auf Heizung stellen und mit Luftstrom
     // betreiben, damit die Zuluft erwärmt wird. Die Firmware moduliert das Heizregister
     // selbstständig auf den Raum-Sollwert (HR_SetTEMP).
-    const fanSpeed = Math.abs(dev) >= boostThreshold ? maxFanSpeed : heaterFanSpeed;
+    const fanSpeed = clampFanSpeed(Math.abs(dev) >= boostThreshold ? maxFanSpeed : heaterFanSpeed);
     return withMode({
       actionType: "fan_speed",
       value: fanSpeed,

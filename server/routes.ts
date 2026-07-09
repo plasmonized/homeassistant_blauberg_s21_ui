@@ -130,7 +130,7 @@ export async function registerRoutes(
           return res.status(400).json({ message: "Value must be a number" });
         }
         if (register.name === 'Fan Speed') {
-          valToPush = Math.max(1, Math.min(5, Math.round(valToPush)));
+          valToPush = Math.max(1, Math.min(3, Math.round(valToPush)));
           value = valToPush;
         }
         if (register.scale && register.scale !== 1) {
@@ -181,10 +181,21 @@ export async function registerRoutes(
     res.json(rules);
   });
 
+  // Hardware only supports fan speed levels 1-3 (Blauberg S21). Clamp any
+  // fan_speed actionValue at the API boundary so no automation rule can be
+  // created or updated with an unsupported speed of 4 or 5.
+  function clampRuleFanSpeedActionValue(body: any) {
+    if (body && body.actionType === "fan_speed" && body.actionValue !== undefined) {
+      const clamped = Math.max(1, Math.min(3, Math.round(Number(body.actionValue))));
+      return { ...body, actionValue: clamped };
+    }
+    return body;
+  }
+
   app.post('/api/devices/:id/rules', async (req, res) => {
     try {
       const rule = await storage.createAutomationRule({
-        ...req.body,
+        ...clampRuleFanSpeedActionValue(req.body),
         deviceId: Number(req.params.id),
       });
       res.status(201).json(rule);
@@ -197,7 +208,7 @@ export async function registerRoutes(
   });
 
   app.put('/api/rules/:id', async (req, res) => {
-    const rule = await storage.updateAutomationRule(Number(req.params.id), req.body);
+    const rule = await storage.updateAutomationRule(Number(req.params.id), clampRuleFanSpeedActionValue(req.body));
     res.json(rule);
   });
 
@@ -361,7 +372,7 @@ export async function registerRoutes(
           ki: 0.1,
           kd: 0.5,
           outputMin: 1,
-          outputMax: 5,
+          outputMax: 3,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -383,7 +394,7 @@ export async function registerRoutes(
           ki: 0.05,
           kd: 0.2,
           outputMin: 1,
-          outputMax: 5,
+          outputMax: 3,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -405,7 +416,7 @@ export async function registerRoutes(
           ki: 0.0001,
           kd: 0.001,
           outputMin: 1,
-          outputMax: 5,
+          outputMax: 3,
           emergencyThreshold: 1200,
           useExternalSensors: false,
         },
@@ -470,7 +481,7 @@ export async function registerRoutes(
           boostThreshold: 2.0,
           baseFanSpeed: 1,
           activeFanSpeed: 2,
-          maxFanSpeed: 5,
+          maxFanSpeed: 3,
           useExternalSensors: false,
           useHeater: false,
           heaterFanSpeed: 2,
@@ -480,12 +491,12 @@ export async function registerRoutes(
           comfortBand: "Toleranzband um Sollwert (±°C)",
           minOutdoorDelta: "Min. Differenz Außen/Innen (°C)",
           boostThreshold: "Abweichung für max. Lüftung (°C)",
-          baseFanSpeed: "Grundlüftung (Stufe 1–5)",
-          activeFanSpeed: "Lüftung beim Regeln (Stufe 1–5)",
-          maxFanSpeed: "Max. Lüftung (Stufe 1–5)",
+          baseFanSpeed: "Grundlüftung (Stufe 1–3)",
+          activeFanSpeed: "Lüftung beim Regeln (Stufe 1–3)",
+          maxFanSpeed: "Max. Lüftung (Stufe 1–3)",
           useExternalSensors: "Externe Sensoren nutzen",
           useHeater: "Heizregister nutzen (bei Kälte heizen)",
-          heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–5)",
+          heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–3)",
         },
       },
     };

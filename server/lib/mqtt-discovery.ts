@@ -4,7 +4,7 @@
  * Sensors: Temperatures, Humidity, CO2, Filter Status
  * Switches: System On/Off, Boost Switch
  * Binary sensors: Boost Active
- * Numbers: Fan Speed (1-5), Temperature Setpoint
+ * Numbers: Fan Speed (1-3), Temperature Setpoint
  * Select: Operation Mode, Bypass Control
  */
 
@@ -190,7 +190,7 @@ export async function discoverDevice(deviceId: number): Promise<void> {
         discoverBinarySensor(uniqueId, reg.name);
       }
     } else if (hasTag("fan") && reg.isWritable) {
-      discoverNumber(uniqueId, reg.name, null, 1, 5, 1);
+      discoverNumber(uniqueId, reg.name, null, 1, 3, 1);
     } else if (hasTag("mode") && reg.isWritable) {
       const options = reg.options ? Object.values(reg.options) as string[] : ["Lüftung", "Heizung", "Kühlung", "Auto"];
       discoverSelect(uniqueId, reg.name, options);
@@ -283,6 +283,16 @@ export async function setupCommandHandlers(): Promise<void> {
         value = parseInt(payload, 10);
       }
 
+      // Hardware only supports fan speed levels 1-3 (Blauberg S21). Clamp any
+      // incoming MQTT command for the Fan Speed register so a manual/scripted
+      // publish of 0, 4, or 5 can never reach Modbus.
+      let storedPayload = payload;
+      if (reg.name.includes("Fan Speed")) {
+        const clamped = Math.max(1, Math.min(3, Math.round(Number(value))));
+        value = clamped;
+        storedPayload = String(clamped);
+      }
+
       if (reg.scale && reg.scale !== 1) {
         value = value * reg.scale;
       }
@@ -295,8 +305,8 @@ export async function setupCommandHandlers(): Promise<void> {
         } else {
           await client.writeSingleRegister(address, value);
         }
-        await storage.updateRegisterValue(reg.id, payload);
-        publishState(uniqueId, payload);
+        await storage.updateRegisterValue(reg.id, storedPayload);
+        publishState(uniqueId, storedPayload);
         console.log(`[MQTT] Wrote ${value} to ${reg.type} register ${address}`);
       } catch (err) {
         console.error(`[MQTT] Failed to write to ${reg.type} register ${address}:`, err);
