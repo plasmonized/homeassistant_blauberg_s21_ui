@@ -486,20 +486,18 @@ async function evaluateControlProfile(
     // act – never fabricate temperatures, which would defeat the smart safeguards.
     const useExt = params?.useExternalSensors === true;
     const extSensors = useExt ? externalSensors : undefined;
-    // controlType resolved first so we can route the pinned externalSensorId
-    // only to the sensor type that matters for this profile — avoids sending a
-    // CO2 sensor ID to an indoor-temp lookup, etc.
     const controlType = profile.schemaType || profile.controlType;
-    const pinnedId = useExt ? (profile.externalSensorId ?? undefined) : undefined;
 
-    const indoorTemp = await getSensorValue(registers, "indoor_temp", extSensors,
-      useExt && ["temperature_control", "night_setback"].includes(controlType) ? pinnedId : undefined);
-    const outdoorTemp = await getSensorValue(registers, "outdoor_temp", extSensors,
-      useExt && ["summer_winter", "weather_compensated"].includes(controlType) ? pinnedId : undefined);
-    const humidity = await getSensorValue(registers, "humidity", extSensors,
-      useExt && controlType === "humidity_control" ? pinnedId : undefined);
-    const co2 = await getSensorValue(registers, "co2", extSensors,
-      useExt && controlType === "co2_control" ? pinnedId : undefined);
+    // Per-type sensor overrides are stored in params.sensorMappings as { [measurementKey]: sensorId }
+    // The user can pin a specific external sensor per measurement type in the UI.
+    // Falling back to undefined lets getSensorValue auto-detect the best match.
+    const mappings: Record<string, number> = (useExt && params?.sensorMappings) ? params.sensorMappings : {};
+    const pinned = (type: string): number | undefined => mappings[type] || undefined;
+
+    const indoorTemp = await getSensorValue(registers, "indoor_temp", extSensors, pinned("indoor_temp"));
+    const outdoorTemp = await getSensorValue(registers, "outdoor_temp", extSensors, pinned("outdoor_temp"));
+    const humidity = await getSensorValue(registers, "humidity", extSensors, pinned("humidity"));
+    const co2 = await getSensorValue(registers, "co2", extSensors, pinned("co2"));
 
     // Evaluate based on control type
     switch (controlType) {
