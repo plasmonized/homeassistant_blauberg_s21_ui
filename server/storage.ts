@@ -7,6 +7,7 @@ import {
   externalSensors,
   controlProfiles,
   controlLogs,
+  sensorReadings,
   type Device,
   type InsertDevice,
   type Register,
@@ -25,9 +26,11 @@ import {
   type InsertControlProfile,
   type UpdateControlProfileRequest,
   type ControlLog,
-  type InsertControlLog
+  type InsertControlLog,
+  type SensorReading,
+  type InsertSensorReading,
 } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Devices
@@ -74,6 +77,11 @@ export interface IStorage {
   // Control Logs
   getControlLogs(deviceId: number, limit?: number): Promise<ControlLog[]>;
   createControlLog(log: InsertControlLog): Promise<ControlLog>;
+
+  // Sensor Readings (time-series history)
+  addSensorReadings(readings: InsertSensorReading[]): Promise<void>;
+  getSensorHistory(deviceId: number, hours?: number): Promise<{ registerId: number; value: number; recordedAt: Date }[]>;
+  pruneOldSensorReadings(olderThanHours?: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -257,6 +265,26 @@ export class DatabaseStorage implements IStorage {
   async createControlLog(log: InsertControlLog): Promise<ControlLog> {
     const [newLog] = await db.insert(controlLogs).values(log).returning();
     return newLog;
+  }
+
+  async addSensorReadings(readings: InsertSensorReading[]): Promise<void> {
+    if (readings.length === 0) return;
+    await db.insert(sensorReadings).values(readings);
+  }
+
+  async getSensorHistory(deviceId: number, hours = 48): Promise<{ registerId: number; value: number; recordedAt: Date }[]> {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    // Return raw rows — the API route downsamples to 5-min buckets
+    return await db
+      .select({ registerId: sensorReadings.registerId, value: sensorReadings.value, recordedAt: sensorReadings.recordedAt })
+      .from(sensorReadings)
+      .where(and(eq(sensorReadings.deviceId, deviceId), gte(sensorReadings.recordedAt, since)))
+      .orderBy(sensorReadings.recordedAt);
+  }
+
+  async pruneOldSensorReadings(olderThanHours = 50): Promise<void> {
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+    await db.delete(sensorReadings).where(lt(sensorReadings.recordedAt, cutoff));
   }
 }
 

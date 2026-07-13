@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, real, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -201,6 +201,21 @@ export const externalSensors = pgTable("external_sensors", {
   updatedAt: timestamp("updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// === SENSOR READINGS (time-series history for charts) ===
+export const sensorReadings = pgTable("sensor_readings", {
+  id: serial("id").primaryKey(),
+  deviceId: integer("device_id").notNull(),
+  registerId: integer("register_id").notNull(),
+  value: real("value").notNull(),
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+}, (t) => [
+  index("sr_device_recorded_idx").on(t.deviceId, t.recordedAt),
+]);
+
+export const insertSensorReadingSchema = createInsertSchema(sensorReadings).omit({ id: true, recordedAt: true });
+export type SensorReading = typeof sensorReadings.$inferSelect;
+export type InsertSensorReading = z.infer<typeof insertSensorReadingSchema>;
 
 export const automationLogs = pgTable("automation_logs", {
   id: serial("id").primaryKey(),

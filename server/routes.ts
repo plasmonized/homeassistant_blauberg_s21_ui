@@ -9,6 +9,7 @@ import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulat
 import { startAutomationEngine, stopAutomationEngine } from "./lib/automation";
 import { discoverHomeAssistantSensors, getHomeAssistantState, isHomeAssistantAvailable } from "./lib/ha-client";
 import { reconcileS21Registers, reconcileAllS21Devices } from "./lib/s21-register-map";
+import { isMqttConnected } from "./lib/mqtt-client";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -534,6 +535,43 @@ export async function registerRoutes(
   app.get('/api/devices/:id/control-logs', async (req, res) => {
     const logs = await storage.getControlLogs(Number(req.params.id), 50);
     res.json(logs);
+  });
+
+  // Sensor history (48 h time-series for charts)
+  app.get('/api/devices/:id/sensor-history', async (req, res) => {
+    const deviceId = Number(req.params.id);
+    const hours = Math.min(48, Math.max(1, Number(req.query.hours) || 48));
+    const rows = await storage.getSensorHistory(deviceId, hours);
+
+    // Downsample to 5-minute buckets so large datasets don't overwhelm the client
+    const buckets = new Map<string, Map<number, { sum: number; count: number }>>();
+    for (const row of rows) {
+      const t = new Date(row.recordedAt);
+      // Floor to nearest 5 min
+      t.setSeconds(0, 0);
+      t.setMinutes(Math.floor(t.getMinutes() / 5) * 5);
+      const key = t.toISOString();
+      if (!buckets.has(key)) buckets.set(key, new Map());
+      const inner = buckets.get(key)!;
+      if (!inner.has(row.registerId)) inner.set(row.registerId, { sum: 0, count: 0 });
+      const entry = inner.get(row.registerId)!;
+      entry.sum += row.value;
+      entry.count += 1;
+    }
+
+    const result: { t: string; registerId: number; value: number }[] = [];
+    for (const [t, inner] of buckets) {
+      for (const [registerId, { sum, count }] of inner) {
+        result.push({ t, registerId, value: Math.round((sum / count) * 100) / 100 });
+      }
+    }
+    result.sort((a, b) => a.t.localeCompare(b.t));
+    res.json(result);
+  });
+
+  // Global status (MQTT, HA)
+  app.get('/api/status', async (_req, res) => {
+    res.json({ mqtt: isMqttConnected() });
   });
 
   return httpServer;

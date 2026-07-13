@@ -31,8 +31,15 @@ import {
 } from "@/components/ui/accordion";
 import {
   Plus, Trash2, Pencil, Bot, Thermometer, Droplets, Wind, Moon, Sun, Gauge,
-  History, Power, Settings2, ChevronDown, ChevronUp, Flame,
+  History, Power, Settings2, ChevronDown, ChevronUp, Flame, Cpu,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ControlProfilesPanelProps {
   deviceId: number;
@@ -145,6 +152,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const [params, setParams] = useState<Record<string, any>>({});
   const [name, setName] = useState("");
   const [showExpert, setShowExpert] = useState(false);
+  const [selectedSensorId, setSelectedSensorId] = useState<string>("");
 
   const hasExternalSensor = (type: string) => {
     return externalSensors?.some((s: any) => s.sensorType === type) ?? false;
@@ -182,6 +190,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
       ? editingProfile.schemaType || editingProfile.controlType
       : selectedTemplate;
 
+    const extSensorId = selectedSensorId ? Number(selectedSensorId) : null;
+
     const data = {
       name,
       schemaType,
@@ -189,10 +199,11 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
       parameters: params,
       enabled: true,
       deviceId,
+      externalSensorId: extSensorId,
     };
 
     if (editingProfile) {
-      updateProfile.mutate({ id: editingProfile.id, data: { name, parameters: params } });
+      updateProfile.mutate({ id: editingProfile.id, data: { name, parameters: params, externalSensorId: extSensorId } });
     } else {
       createProfile.mutate(data as any);
     }
@@ -203,6 +214,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     setParams({});
     setName("");
     setShowExpert(false);
+    setSelectedSensorId("");
   };
 
   const handleEdit = (profile: any) => {
@@ -211,6 +223,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     setName(profile.name);
     setParams(profile.parameters || {});
     setShowExpert(false);
+    setSelectedSensorId(profile.externalSensorId ? String(profile.externalSensorId) : "");
     setDialogOpen(true);
   };
 
@@ -360,6 +373,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                 setParams({});
                 setName("");
                 setShowExpert(false);
+                setSelectedSensorId("");
               }}
               data-testid="button-add-control-profile"
             >
@@ -430,7 +444,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                     </div>
                   )}
 
-                  {/* External sensor toggle */}
+                  {/* External sensor toggle + sensor picker */}
                   {dialogParamEntries.some(([key]) => key === "useExternalSensors") && (
                     <div className="space-y-3">
                       <h4 className="text-sm font-semibold">Externe Sensoren</h4>
@@ -441,9 +455,43 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                             renderParamInput(key, params[key], label as string)
                           )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Konfigurieren Sie externe Sensoren im Reiter „Konfiguration“.
-                      </p>
+                      {params.useExternalSensors && (
+                        <div className="space-y-2">
+                          <Label className="text-sm flex items-center gap-1.5">
+                            <Cpu className="w-3.5 h-3.5 text-muted-foreground" />
+                            Sensor auswählen
+                          </Label>
+                          {externalSensors && (externalSensors as any[]).length > 0 ? (
+                            <Select
+                              value={selectedSensorId || ""}
+                              onValueChange={setSelectedSensorId}
+                            >
+                              <SelectTrigger data-testid="select-external-sensor-id">
+                                <SelectValue placeholder="Sensor wählen (optional)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Automatisch (bester passender Sensor)</SelectItem>
+                                {(externalSensors as any[]).map((s: any) => (
+                                  <SelectItem key={s.id} value={String(s.id)}>
+                                    {s.name}
+                                    {s.unit ? ` (${s.unit})` : ""}
+                                    {s.lastValue !== null ? ` — ${s.lastValue}` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Noch keine externen Sensoren konfiguriert. Fügen Sie welche im Reiter „Konfiguration“ hinzu.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {!params.useExternalSensors && (
+                        <p className="text-xs text-muted-foreground">
+                          Konfigurieren Sie externe Sensoren im Reiter „Konfiguration“.
+                        </p>
+                      )}
                     </div>
                   )}
 

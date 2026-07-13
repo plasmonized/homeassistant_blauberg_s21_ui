@@ -1,4 +1,5 @@
 import { storage } from "../storage";
+import type { InsertSensorReading } from "@shared/schema";
 import { getModbusClient } from "./modbus";
 import { pollDeviceRegisters } from "./poll";
 import { getHomeAssistantState } from "./ha-client";
@@ -16,6 +17,9 @@ import {
 } from "./control-engine";
 
 let automationInterval: NodeJS.Timeout | null = null;
+// Timestamp of the last sensor history recording (ms). We record every 5 minutes.
+let lastSensorRecordedAt = 0;
+const SENSOR_RECORD_INTERVAL_MS = 5 * 60 * 1000;
 
 // Honor the addon's configured `poll_interval` (seconds, forwarded via the
 // POLL_INTERVAL env var from run.sh). Falls back to 10s if unset/invalid.
@@ -295,6 +299,25 @@ async function runAutomationCycle() {
         await evaluateControlProfile(device.id, profile, registers, externalSensors);
       }
 
+      // Record sensor readings every 5 minutes for history charts
+      const nowMs = Date.now();
+      if (nowMs - lastSensorRecordedAt >= SENSOR_RECORD_INTERVAL_MS) {
+        lastSensorRecordedAt = nowMs;
+        const readings: InsertSensorReading[] = [];
+        for (const reg of registers) {
+          if (reg.lastValue !== null && reg.lastValue !== undefined) {
+            const num = parseFloat(String(reg.lastValue));
+            if (!Number.isNaN(num)) {
+              readings.push({ deviceId: device.id, registerId: reg.id, value: num });
+            }
+          }
+        }
+        if (readings.length > 0) {
+          await storage.addSensorReadings(readings);
+        }
+        await storage.pruneOldSensorReadings(50);
+      }
+
       if (rules.length === 0) continue;
 
       // Multiple rules can independently want "boost" on (e.g. two different
@@ -463,14 +486,22 @@ async function evaluateControlProfile(
     // act – never fabricate temperatures, which would defeat the smart safeguards.
     const useExt = params?.useExternalSensors === true;
     const extSensors = useExt ? externalSensors : undefined;
+    // controlType resolved first so we can route the pinned externalSensorId
+    // only to the sensor type that matters for this profile — avoids sending a
+    // CO2 sensor ID to an indoor-temp lookup, etc.
+    const controlType = profile.schemaType || profile.controlType;
+    const pinnedId = useExt ? (profile.externalSensorId ?? undefined) : undefined;
 
-    const indoorTemp = await getSensorValue(registers, "indoor_temp", extSensors);
-    const outdoorTemp = await getSensorValue(registers, "outdoor_temp", extSensors);
-    const humidity = await getSensorValue(registers, "humidity", extSensors);
-    const co2 = await getSensorValue(registers, "co2", extSensors);
+    const indoorTemp = await getSensorValue(registers, "indoor_temp", extSensors,
+      useExt && ["temperature_control", "night_setback"].includes(controlType) ? pinnedId : undefined);
+    const outdoorTemp = await getSensorValue(registers, "outdoor_temp", extSensors,
+      useExt && ["summer_winter", "weather_compensated"].includes(controlType) ? pinnedId : undefined);
+    const humidity = await getSensorValue(registers, "humidity", extSensors,
+      useExt && controlType === "humidity_control" ? pinnedId : undefined);
+    const co2 = await getSensorValue(registers, "co2", extSensors,
+      useExt && controlType === "co2_control" ? pinnedId : undefined);
 
     // Evaluate based on control type
-    const controlType = profile.schemaType || profile.controlType;
     switch (controlType) {
       case "temperature_control": {
         if (indoorTemp !== null) {

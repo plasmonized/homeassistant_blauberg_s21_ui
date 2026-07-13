@@ -13,11 +13,13 @@ import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { AddDeviceDialog } from "@/components/AddDeviceDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
+import { SensorHistoryChart } from "@/components/SensorHistoryChart";
 import { AutomationPanel } from "@/components/AutomationPanel";
 import { ExternalSensorsPanel } from "@/components/ExternalSensorsPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { useControlProfiles } from "@/hooks/use-control-profiles";
+import { useAppStatus } from "@/hooks/use-sensor-history";
 import { formatDistanceToNow } from "date-fns";
 import type { ControlProfile, ExternalSensor } from "@shared/schema";
 
@@ -132,6 +134,7 @@ export default function DeviceDetail() {
   const { data: profiles } = useControlProfiles(deviceId);
   const activeProfiles: ControlProfile[] = (profiles ?? []).filter((p: ControlProfile) => p.enabled);
 
+  const { data: appStatus } = useAppStatus();
   const connectMutation = useConnectDevice();
   const pollMutation = usePollDevice();
   const { data: allDevices } = useDevices();
@@ -203,6 +206,16 @@ export default function DeviceDetail() {
                   <Badge variant={device.isConnected ? "success" : "destructive"}>
                     {device.isConnected ? "Online" : "Offline"}
                   </Badge>
+                  {appStatus !== undefined && (
+                    <Badge
+                      variant={appStatus.mqtt ? "outline" : "secondary"}
+                      className={`gap-1 text-[11px] ${appStatus.mqtt ? "border-green-700/60 text-green-500" : "text-muted-foreground"}`}
+                      data-testid="badge-mqtt-status"
+                    >
+                      <span className={`inline-block w-1.5 h-1.5 rounded-full ${appStatus.mqtt ? "bg-green-500" : "bg-muted-foreground/50"}`} />
+                      MQTT {appStatus.mqtt ? "verbunden" : "getrennt"}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 font-mono">
                   <span>{device.ip}:{device.port}</span>
@@ -271,6 +284,14 @@ export default function DeviceDetail() {
 
           <TabsContent value="overview" className="space-y-6">
             <TemperatureDiagram registers={registers} isLoading={isRegistersLoading} />
+
+            {/* Sensor History Chart */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Verlauf (48 h)</span>
+              </div>
+              <SensorHistoryChart deviceId={deviceId} />
+            </div>
 
             {/* Aktive Automatisierungen */}
             {activeProfiles.length > 0 && (
