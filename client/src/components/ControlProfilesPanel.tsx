@@ -190,7 +190,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
       ? editingProfile.schemaType || editingProfile.controlType
       : selectedTemplate;
 
-    const extSensorId = selectedSensorId ? Number(selectedSensorId) : null;
+    const extSensorId = selectedSensorId && selectedSensorId !== "none" ? Number(selectedSensorId) : null;
 
     const data = {
       name,
@@ -463,14 +463,14 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                           </Label>
                           {externalSensors && (externalSensors as any[]).length > 0 ? (
                             <Select
-                              value={selectedSensorId || ""}
-                              onValueChange={setSelectedSensorId}
+                              value={selectedSensorId || "none"}
+                              onValueChange={(v) => setSelectedSensorId(v === "none" ? "" : v)}
                             >
                               <SelectTrigger data-testid="select-external-sensor-id">
                                 <SelectValue placeholder="Sensor wählen (optional)" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">Automatisch (bester passender Sensor)</SelectItem>
+                                <SelectItem value="none">Automatisch (bester passender Sensor)</SelectItem>
                                 {(externalSensors as any[]).map((s: any) => (
                                   <SelectItem key={s.id} value={String(s.id)}>
                                     {s.name}
