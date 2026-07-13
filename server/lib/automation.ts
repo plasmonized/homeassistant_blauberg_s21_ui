@@ -292,11 +292,31 @@ async function runAutomationCycle() {
         }
       }
 
-      // Run control profiles (regulation schemas)
+      // Compute virtual average sensors (after HA sync so source sensors have fresh values)
+      const freshSensors = await storage.getExternalSensors(device.id);
+      for (const sensor of freshSensors) {
+        if (sensor.sourceType === 'virtual_avg') {
+          const cfg = sensor.config as { sourceIds?: number[] } | null;
+          if (cfg?.sourceIds?.length) {
+            const vals = freshSensors
+              .filter((s) => cfg.sourceIds!.includes(s.id) && s.lastValue !== null)
+              .map((s) => parseFloat(String(s.lastValue)))
+              .filter((v) => !isNaN(v));
+            if (vals.length > 0) {
+              const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+              const rounded = Math.round(avg * 10) / 10;
+              await storage.updateExternalSensorValue(sensor.id, String(rounded));
+              sensor.lastValue = String(rounded); // update in-memory for profiles below
+            }
+          }
+        }
+      }
+
+      // Run control profiles (regulation schemas) — fresh sensors include HA + virtual avg values
       const profiles = await storage.getControlProfiles(device.id);
       for (const profile of profiles) {
         if (!profile.enabled) continue;
-        await evaluateControlProfile(device.id, profile, registers, externalSensors);
+        await evaluateControlProfile(device.id, profile, registers, freshSensors);
       }
 
       // Record sensor readings every 5 minutes for history charts

@@ -193,11 +193,12 @@ export const externalSensors = pgTable("external_sensors", {
   id: serial("id").primaryKey(),
   deviceId: integer("device_id").notNull(),
   name: text("name").notNull(),
-  sourceType: text("source_type", { enum: ["homeassistant", "openweather", "manual"] }).default("homeassistant").notNull(),
+  sourceType: text("source_type", { enum: ["homeassistant", "openweather", "manual", "virtual_avg"] }).default("homeassistant").notNull(),
   entityId: text("entity_id"),
   sensorType: text("sensor_type", { enum: ["temperature", "indoor_temp", "outdoor_temp", "humidity", "indoor_humidity", "outdoor_humidity", "co2", "forecast_temp", "pressure", "wind_speed", "binary"] }).notNull(),
   lastValue: text("last_value"),
   unit: text("unit"),
+  config: jsonb("config"), // virtual_avg: { sourceIds: number[] }
   updatedAt: timestamp("updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
