@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.11
+
+- Feature: **Virtuelle Mittelwert-Sensoren** — im Bereich "Externe Sensoren" kann jetzt ein neuer Sensor-Typ "Mittelwert-Sensor" angelegt werden. Dieser berechnet automatisch den Durchschnitt mehrerer vorhandener Sensoren (z.B. Innen-Temperaturen aus verschiedenen Räumen) und stellt das Ergebnis als normalen Sensor für Regelungsprofile zur Verfügung. Name, Sensor-Typ (z.B. Innen-Temperatur) und Einheit sind frei wählbar. Die Quell-Sensoren werden per Checkbox ausgewählt; der Mittelwert wird bei jedem Automatisierungs-Zyklus aktualisiert.
+- Feature: **Sensor-Auswahl pro Messtyp in Regelungs-Profilen** — beim Bearbeiten eines Regelungs-Profils kann jetzt pro Messtyp (Innentemperatur, Außentemperatur, Luftfeuchtigkeit, CO₂) ein spezifischer externer Sensor ausgewählt werden. Die Dropdowns zeigen nur kompatible Sensoren an und berücksichtigen auch virtuelle Mittelwert-Sensoren.
+- Feature: **48h Sensor-Verlauf** — die Übersicht-Seite zeigt jetzt Verlaufsdiagramme (Recharts) für alle numerischen Register der letzten 48 Stunden. Werte werden alle 5 Minuten aufgezeichnet und automatisch nach 50 Stunden bereinigt.
+- Feature: **MQTT-Status-Badge** — in der Geräte-Kopfzeile wird der aktuelle MQTT-Verbindungsstatus als Badge angezeigt ("MQTT verbunden" / "MQTT getrennt").
+
 ## 0.2.10
 
 - **Fix (wichtig): Lüfterstufen auf 1-3 begrenzt** — die S21-Hardware unterstützt nur die Lüfterstufen 1-3, die App erlaubte/berechnete bisher aber überall bis zu Stufe 5 (Buttons in der Oberfläche, Home-Assistant-Integration, Regelungsprofile und Automatisierungsregeln). Betroffen waren die Bedienelemente, die MQTT-/Home-Assistant-Entitäten, alle Regelungsprofile (Temperatur-, Feuchtigkeits-, CO2-Regelung, Nachtabsenkung, Wetterkompensiert) sowie manuelle Register-Schreibzugriffe und Automatisierungsregeln. Werte über 3 werden jetzt an jeder Stelle auf 1-3 begrenzt — beim Speichern eines Profils/einer Regel ebenso wie unmittelbar vor dem Schreiben auf das Gerät. Bereits gespeicherte Profile/Register mit veralteten Werten über 3 wurden einmalig korrigiert.
