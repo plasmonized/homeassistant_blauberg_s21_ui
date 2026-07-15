@@ -20,8 +20,21 @@ interface Props {
   deviceId: number;
 }
 
-const TEMP_COLOR = ["#f97316", "#38bdf8", "#4ade80", "#a78bfa"];
+// Colors and labels match TemperatureDiagram.tsx exactly
+const TEMP_SERIES: Record<string, { label: string; color: string }> = {
+  Outdoor: { label: "Außenluft", color: "#60a5fa" }, // blue-400
+  Supply:  { label: "Zuluft",    color: "#4ade80" }, // green-400
+  Extract: { label: "Abluft",    color: "#f87171" }, // red-400
+  Exhaust: { label: "Fortluft",  color: "#fb923c" }, // orange-400
+};
 const FAN_COLOR = "#94a3b8";
+
+function getSeriesInfo(regName: string): { label: string; color: string } {
+  for (const [key, info] of Object.entries(TEMP_SERIES)) {
+    if (regName.includes(key)) return info;
+  }
+  return { label: regName.replace(/^Temperature - /, ""), color: "#94a3b8" };
+}
 
 export function SensorHistoryChart({ deviceId }: Props) {
   const { data: history, isLoading: histLoading } = useSensorHistory(deviceId, 48);
@@ -135,19 +148,22 @@ export function SensorHistoryChart({ deviceId }: Props) {
             wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
             formatter={(val) => <span style={{ color: "hsl(var(--muted-foreground))" }}>{val}</span>}
           />
-          {tempRegs.map((reg, i) => (
-            <Line
-              key={reg.id}
-              yAxisId="temp"
-              type="monotone"
-              dataKey={`r_${reg.id}`}
-              name={reg.name.replace(/^Temperature - /, "").replace(/^Temperatur - /, "")}
-              stroke={TEMP_COLOR[i % TEMP_COLOR.length]}
-              dot={false}
-              strokeWidth={1.5}
-              connectNulls={false}
-            />
-          ))}
+          {tempRegs.map((reg) => {
+            const { label, color } = getSeriesInfo(reg.name);
+            return (
+              <Line
+                key={reg.id}
+                yAxisId="temp"
+                type="monotone"
+                dataKey={`r_${reg.id}`}
+                name={label}
+                stroke={color}
+                dot={false}
+                strokeWidth={1.5}
+                connectNulls={false}
+              />
+            );
+          })}
           {fanReg && (
             <Line
               yAxisId="fan"
