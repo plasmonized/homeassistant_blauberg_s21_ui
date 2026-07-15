@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.12
+
+- Fix: **Farben und Namen im 48h-Verlaufsdiagramm angeglichen** — die Linien im Temperatur-Verlaufsdiagramm verwenden jetzt exakt dieselben deutschen Bezeichnungen (Außenluft, Zuluft, Abluft, Fortluft) und Farben (blau/grün/rot/orange) wie die Systemübersicht-Grafik direkt darüber.
+
 ## 0.2.11
 
 - Feature: **Virtuelle Mittelwert-Sensoren** — im Bereich "Externe Sensoren" kann jetzt ein neuer Sensor-Typ "Mittelwert-Sensor" angelegt werden. Dieser berechnet automatisch den Durchschnitt mehrerer vorhandener Sensoren (z.B. Innen-Temperaturen aus verschiedenen Räumen) und stellt das Ergebnis als normalen Sensor für Regelungsprofile zur Verfügung. Name, Sensor-Typ (z.B. Innen-Temperatur) und Einheit sind frei wählbar; die Einheit wird nach Sensor-Typ vorgeschlagen. Die Quell-Sensoren werden per Checkbox ausgewählt; der Mittelwert wird bei jedem Automatisierungs-Zyklus nach dem Home-Assistant-Sync berechnet und auf eine Dezimalstelle gerundet gespeichert. Virtuelle Sensoren stehen unmittelbar in den Regelungs-Profil-Dropdowns zur Verfügung.
