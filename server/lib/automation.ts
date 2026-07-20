@@ -662,7 +662,13 @@ async function evaluateControlProfile(
 
       // Execute the control action
       const actionResult = await executeControlAction(deviceId, result);
-      profileLastAction.set(profile.id, { value: result.value, ts: now });
+      // Only record the last action when the write actually succeeded.
+      // A failed write must NOT advance the hold-time clock — the engine
+      // should retry the same change on the very next cycle instead of
+      // being locked out for holdMinutes after a transient Modbus error.
+      if (actionResult.success) {
+        profileLastAction.set(profile.id, { value: result.value, ts: now });
+      }
 
       // Log control action
       await storage.createControlLog({
