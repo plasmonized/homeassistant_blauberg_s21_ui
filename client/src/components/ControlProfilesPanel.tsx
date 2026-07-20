@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/accordion";
 import {
   Plus, Trash2, Pencil, Bot, Thermometer, Droplets, Wind, Moon, Sun, Gauge,
-  History, Power, Settings2, ChevronDown, ChevronUp, Flame, Cpu,
+  History, Power, Settings2, ChevronDown, ChevronUp, Flame, Cpu, Timer,
 } from "lucide-react";
 import {
   Select,
@@ -159,6 +159,17 @@ function getSetpointLabel(controlType: string, params: Record<string, any>): str
     roomSetpoint: "Raum-Soll",
   };
   return map[key] || "Sollwert";
+}
+
+function getHoldStatus(logs: any[], profileId: number): { active: boolean; remainingMin: number | null } {
+  if (!logs || logs.length === 0) return { active: false, remainingMin: null };
+  const profileLogs = logs
+    .filter((l: any) => l.profileId === profileId)
+    .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const latest = profileLogs[0];
+  if (!latest || !latest.actionTaken?.includes("⏸")) return { active: false, remainingMin: null };
+  const match = latest.message?.match(/noch (\d+) Min\./);
+  return { active: true, remainingMin: match ? parseInt(match[1], 10) : null };
 }
 
 export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
@@ -720,9 +731,26 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   </div>
                 )}
 
+                {/* Hold-time indicator */}
+                {enabled && (() => {
+                  const holdStatus = getHoldStatus(logs || [], profile.id);
+                  if (!holdStatus.active) return null;
+                  return (
+                    <div
+                      className="mt-3 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400"
+                      data-testid={`status-holdtime-${profile.id}`}
+                    >
+                      <Timer className="h-3 w-3 shrink-0" />
+                      <span>
+                        Haltezeit{holdStatus.remainingMin !== null ? ` – noch ${holdStatus.remainingMin} Min.` : ""}
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 {/* Status indicators */}
                 {enabled && (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                     <Power className="h-3 w-3 text-green-500" />
                     <span>Regelung aktiv</span>
                     {profile.parameters?.useHeater && (
