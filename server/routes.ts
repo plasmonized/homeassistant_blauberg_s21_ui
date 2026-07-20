@@ -470,6 +470,7 @@ export async function registerRoutes(
           outputMax: 3,
           emergencyThreshold: 1200,
           holdMinutes: 5,
+          hysteresis: 50,
           useExternalSensors: false,
         },
         paramLabels: {
@@ -481,6 +482,7 @@ export async function registerRoutes(
           outputMax: "Max. Lüfterstufe",
           emergencyThreshold: "Notfalldrehwert (ppm)",
           holdMinutes: "Mindesthaltedauer (Min.)",
+          hysteresis: "Hysterese (ppm)",
           useExternalSensors: "Externe Sensoren nutzen",
         },
       },

@@ -372,10 +372,13 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             if (isFanSpeedParam(key) && !Number.isNaN(num)) {
               num = Math.max(1, Math.min(3, num));
             }
+            if (key === "holdMinutes" && !Number.isNaN(num)) {
+              num = Math.max(1, Math.min(30, num));
+            }
             handleParamChange(key, num);
           }}
-          min={isFanSpeedParam(key) ? 1 : undefined}
-          max={isFanSpeedParam(key) ? 3 : undefined}
+          min={isFanSpeedParam(key) ? 1 : key === "holdMinutes" ? 1 : undefined}
+          max={isFanSpeedParam(key) ? 3 : key === "holdMinutes" ? 30 : undefined}
           step={key.includes("Temp") || key.includes("temp") || key.includes("hysteresis") || key.includes("offset") || key.includes("supply") ? 0.1 : 1}
           data-testid={`input-param-${key}`}
         />

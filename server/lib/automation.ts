@@ -603,26 +603,42 @@ async function evaluateControlProfile(
       // the setpoint, treat the computed output as unchanged (keep last fan
       // speed) to avoid chasing small temperature/humidity fluctuations.
       const hysteresis = Number(params?.hysteresis ?? 0);
+      let hysteresisSkip = false;
+      let hysteresisMeasured: number | null = null;
+      let hysteresisSetpoint: number | null = null;
       if (hysteresis > 0 && last !== undefined) {
-        let measured: number | null = null;
-        let setpoint: number | null = null;
         switch (controlType) {
           case "temperature_control":
-            measured = indoorTemp; setpoint = Number(params?.setpoint ?? 0); break;
+            hysteresisMeasured = indoorTemp; hysteresisSetpoint = Number(params?.setpoint ?? 0); break;
           case "humidity_control":
-            measured = humidity; setpoint = Number(params?.setpoint ?? 0); break;
+            hysteresisMeasured = humidity; hysteresisSetpoint = Number(params?.setpoint ?? 0); break;
           case "co2_control":
-            measured = co2; setpoint = Number(params?.setpoint ?? 0); break;
+            hysteresisMeasured = co2; hysteresisSetpoint = Number(params?.setpoint ?? 0); break;
         }
-        if (measured !== null && setpoint !== null && Math.abs(measured - setpoint) < hysteresis) {
+        if (hysteresisMeasured !== null && hysteresisSetpoint !== null &&
+            Math.abs(hysteresisMeasured - hysteresisSetpoint) < hysteresis) {
           // Force result back to the last known value to prevent a write.
           result = { ...result, value: last.value };
+          hysteresisSkip = true;
         }
       }
 
       // Skip redundant writes: if the computed value hasn't changed, don't
-      // write to the device and don't log (steady-state normal operation).
+      // write to the device. Log hysteresis-based skips so the user can see
+      // the deadband is active; silent skip for normal steady-state operation.
       if (last !== undefined && result.value === last.value) {
+        if (hysteresisSkip && hysteresisMeasured !== null && hysteresisSetpoint !== null) {
+          await storage.createControlLog({
+            profileId: profile.id,
+            deviceId: deviceId,
+            controlType: controlType,
+            measuredValue: result.actionType === "fan_speed" ? (indoorTemp ?? 0) : (outdoorTemp ?? 0),
+            setpointValue: params?.setpoint || 0,
+            actionTaken: `${result.actionType}=〜`,
+            success: true,
+            message: `Hysterese aktiv – Messwert ${hysteresisMeasured.toFixed(1)} liegt innerhalb ±${hysteresis} des Sollwerts ${hysteresisSetpoint} (Stufe ${last.value} beibehalten)`,
+          });
+        }
         return;
       }
 
