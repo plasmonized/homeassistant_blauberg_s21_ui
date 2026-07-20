@@ -24,6 +24,11 @@ let automationInterval: NodeJS.Timeout | null = null;
 const consecutivePartialFailures: Record<number, number> = {};
 const PARTIAL_FAIL_THRESHOLD = 3;
 
+// In-memory record of the last executed action per control profile.
+// Used to enforce hold-time (Mindesthaltedauer) and skip redundant writes.
+// Keyed by profile ID.
+const profileLastAction = new Map<number, { value: number; ts: number }>();
+
 // Timestamp of the last sensor history recording (ms). We record every 5 minutes.
 let lastSensorRecordedAt = 0;
 const SENSOR_RECORD_INTERVAL_MS = 5 * 60 * 1000;
@@ -590,8 +595,58 @@ async function evaluateControlProfile(
     }
 
     if (result) {
+      const holdMs = Math.max(0, (Number(params?.holdMinutes ?? 5)) * 60_000);
+      const last = profileLastAction.get(profile.id);
+      const now = Date.now();
+
+      // Hysteresis deadband: if the measured value is within ±hysteresis of
+      // the setpoint, treat the computed output as unchanged (keep last fan
+      // speed) to avoid chasing small temperature/humidity fluctuations.
+      const hysteresis = Number(params?.hysteresis ?? 0);
+      if (hysteresis > 0 && last !== undefined) {
+        let measured: number | null = null;
+        let setpoint: number | null = null;
+        switch (controlType) {
+          case "temperature_control":
+            measured = indoorTemp; setpoint = Number(params?.setpoint ?? 0); break;
+          case "humidity_control":
+            measured = humidity; setpoint = Number(params?.setpoint ?? 0); break;
+          case "co2_control":
+            measured = co2; setpoint = Number(params?.setpoint ?? 0); break;
+        }
+        if (measured !== null && setpoint !== null && Math.abs(measured - setpoint) < hysteresis) {
+          // Force result back to the last known value to prevent a write.
+          result = { ...result, value: last.value };
+        }
+      }
+
+      // Skip redundant writes: if the computed value hasn't changed, don't
+      // write to the device and don't log (steady-state normal operation).
+      if (last !== undefined && result.value === last.value) {
+        return;
+      }
+
+      // Hold-time (Mindesthaltedauer): after any fan-speed change, discard
+      // subsequent changes until holdMinutes have elapsed. This prevents rapid
+      // 1→2→1→2 oscillation when temperatures hover near a threshold.
+      if (last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
+        const remainingMin = Math.ceil((holdMs - (now - last.ts)) / 60_000);
+        await storage.createControlLog({
+          profileId: profile.id,
+          deviceId: deviceId,
+          controlType: controlType,
+          measuredValue: result.actionType === "fan_speed" ? (indoorTemp ?? 0) : (outdoorTemp ?? 0),
+          setpointValue: params?.setpoint || 0,
+          actionTaken: `${result.actionType}=⏸`,
+          success: true,
+          message: `Haltezeit aktiv – noch ${remainingMin} Min. bis nächste Änderung (Stufe ${last.value} → ${result.value} angefordert)`,
+        });
+        return;
+      }
+
       // Execute the control action
       const actionResult = await executeControlAction(deviceId, result);
+      profileLastAction.set(profile.id, { value: result.value, ts: now });
 
       // Log control action
       await storage.createControlLog({
