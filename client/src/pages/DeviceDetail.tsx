@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useParams, Link, useLocation } from "wouter";
-import { useDevice, useConnectDevice, usePollDevice, useDevices, useDeleteDevice } from "@/hooks/use-devices";
+import { useDevice, useConnectDevice, usePollDevice, useReconnectDevice, useDevices, useDeleteDevice } from "@/hooks/use-devices";
 import { useRegisters } from "@/hooks/use-registers";
 import { useExternalSensors } from "@/hooks/use-external-sensors";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot, CheckCircle2, Clock, Thermometer, Droplets, Wind, Sun, Moon, Trash2, Radio } from "lucide-react";
+import { RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot, CheckCircle2, Clock, Thermometer, Droplets, Wind, Sun, Moon, Trash2, Radio, RotateCcw } from "lucide-react";
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { AddDeviceDialog } from "@/components/AddDeviceDialog";
 import { RegisterCard } from "@/components/RegisterCard";
@@ -137,6 +137,7 @@ export default function DeviceDetail() {
   const { data: appStatus } = useAppStatus();
   const connectMutation = useConnectDevice();
   const pollMutation = usePollDevice();
+  const reconnectMutation = useReconnectDevice();
   const { data: allDevices } = useDevices();
   const deleteDevice = useDeleteDevice();
   const [, navigate] = useLocation();
@@ -152,6 +153,7 @@ export default function DeviceDetail() {
 
   const handleConnect = () => connectMutation.mutate(deviceId);
   const handlePoll = () => pollMutation.mutate(deviceId);
+  const handleReconnect = () => reconnectMutation.mutate(deviceId);
 
   const hasTag = (r: { tags?: string[] | null }, ...t: string[]) =>
     t.some((x) => (r.tags ?? []).includes(x));
@@ -226,25 +228,39 @@ export default function DeviceDetail() {
             </div>
 
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleConnect}
-                disabled={connectMutation.isPending || !!device.isConnected}
-                className={device.isConnected ? "border-green-900/50 text-green-500 bg-green-900/10" : ""}
-              >
-                <Power className="w-4 h-4 mr-2" />
-                {device.isConnected ? "Connected" : "Connect"}
-              </Button>
+              {device.isConnected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  className="border-green-900/50 text-green-500 bg-green-900/10"
+                  data-testid="button-connected-indicator"
+                >
+                  <Power className="w-4 h-4 mr-2" />
+                  Verbunden
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleReconnect}
+                  disabled={reconnectMutation.isPending}
+                  data-testid="button-reconnect"
+                >
+                  <RotateCcw className={`w-4 h-4 mr-2 ${reconnectMutation.isPending ? "animate-spin" : ""}`} />
+                  {reconnectMutation.isPending ? "Verbinde…" : "Neu verbinden"}
+                </Button>
+              )}
               
               <Button 
                 variant="secondary" 
                 size="sm" 
                 onClick={handlePoll}
                 disabled={pollMutation.isPending || !device.isConnected}
+                data-testid="button-poll"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${pollMutation.isPending ? "animate-spin" : ""}`} />
-                Poll Now
+                Aktualisieren
               </Button>
             </div>
           </div>
@@ -255,9 +271,20 @@ export default function DeviceDetail() {
         {!device.isConnected && (
           <Alert variant="destructive" className="mb-6 bg-red-950/20 border-red-900/50">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Connection Lost</AlertTitle>
-            <AlertDescription>
-              The device is currently unreachable. Check your network connection or IP settings.
+            <AlertTitle>Verbindung unterbrochen</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>Die Anlage ist derzeit nicht erreichbar. Klicke auf „Neu verbinden" oder prüfe die Netzwerkverbindung.</span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleReconnect}
+                disabled={reconnectMutation.isPending}
+                data-testid="button-reconnect-alert"
+                className="shrink-0"
+              >
+                <RotateCcw className={`w-4 h-4 mr-2 ${reconnectMutation.isPending ? "animate-spin" : ""}`} />
+                {reconnectMutation.isPending ? "Verbinde…" : "Neu verbinden"}
+              </Button>
             </AlertDescription>
           </Alert>
         )}

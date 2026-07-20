@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { getModbusClient } from "./lib/modbus";
+import { getModbusClient, closeConnection } from "./lib/modbus";
 import { pollDeviceRegisters } from "./lib/poll";
 import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulator";
 import { startAutomationEngine, stopAutomationEngine } from "./lib/automation";
@@ -98,6 +98,21 @@ export async function registerRoutes(
     } catch (error: any) {
       await storage.updateDevice(device.id, { isConnected: false });
       res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Force-reconnect: destroy any cached zombie client, then do a full poll.
+  // Lets the user recover without restarting the S21 hardware.
+  app.post('/api/devices/:id/reconnect', async (req, res) => {
+    const device = await storage.getDevice(Number(req.params.id));
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+
+    closeConnection(device.id);
+    const result = await pollDeviceRegisters(device.id);
+    if (result.success) {
+      res.json({ success: true, message: "Verbindung erfolgreich wiederhergestellt" });
+    } else {
+      res.status(500).json({ success: false, message: result.message ?? "Reconnect fehlgeschlagen" });
     }
   });
 

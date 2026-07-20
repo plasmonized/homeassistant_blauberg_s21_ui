@@ -47,6 +47,15 @@ function serializeClient(id: number, client: ModbusTCPClient): ModbusTCPClient {
   });
 }
 
+function evictClient(id: number, socket: Socket) {
+  // Only evict if the cached entry still refers to this specific socket.
+  // A concurrent reconnect may have already replaced it.
+  if (clients[id]?.socket === socket) {
+    delete clients[id];
+    delete locks[id];
+  }
+}
+
 export async function getModbusClient(id: number, ip: string, port: number, slaveId: number): Promise<ModbusTCPClient> {
   // Reuse existing connection if active
   if (clients[id]) {
@@ -71,6 +80,20 @@ export async function getModbusClient(id: number, ip: string, port: number, slav
     socket.on("connect", () => {
       const proxy = serializeClient(id, client);
       clients[id] = { socket, client, proxy };
+
+      // When the S21 closes the TCP connection from its side (or a network
+      // error occurs after a successful connect), evict the cached client so
+      // the next getModbusClient call opens a fresh socket rather than
+      // returning a zombie client that will fail on every Modbus request.
+      socket.once("close", () => {
+        console.log(`[Modbus] Socket closed for device ${id}, evicting cached client`);
+        evictClient(id, socket);
+      });
+      socket.once("error", (err) => {
+        console.log(`[Modbus] Socket error for device ${id}: ${err.message}, evicting cached client`);
+        evictClient(id, socket);
+      });
+
       resolve(proxy);
     });
 

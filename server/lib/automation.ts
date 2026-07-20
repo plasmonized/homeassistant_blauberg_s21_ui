@@ -1,6 +1,6 @@
 import { storage } from "../storage";
 import type { InsertSensorReading } from "@shared/schema";
-import { getModbusClient } from "./modbus";
+import { getModbusClient, closeConnection } from "./modbus";
 import { pollDeviceRegisters } from "./poll";
 import { getHomeAssistantState } from "./ha-client";
 import { connectMqtt, isMqttConnected } from "./mqtt-client";
@@ -17,6 +17,13 @@ import {
 } from "./control-engine";
 
 let automationInterval: NodeJS.Timeout | null = null;
+
+// Watchdog: track consecutive poll cycles where at least one register read failed.
+// After PARTIAL_FAIL_THRESHOLD such cycles the connection is force-closed so the
+// next cycle opens a fresh TCP socket instead of continuing with a zombie client.
+const consecutivePartialFailures: Record<number, number> = {};
+const PARTIAL_FAIL_THRESHOLD = 3;
+
 // Timestamp of the last sensor history recording (ms). We record every 5 minutes.
 let lastSensorRecordedAt = 0;
 const SENSOR_RECORD_INTERVAL_MS = 5 * 60 * 1000;
@@ -259,9 +266,30 @@ async function runAutomationCycle() {
       // disconnected until the user manually clicks "Connect".
       const pollResult = await pollDeviceRegisters(device.id);
       if (!pollResult.success) {
-        // Still unreachable this cycle - skip rules/profiles until it's back,
-        // we'll retry again next cycle.
+        // Full failure (TCP connect failed or all registers offline).
+        // poll.ts already called closeConnection; reset watchdog counter.
+        consecutivePartialFailures[device.id] = 0;
         continue;
+      }
+
+      // Partial failures: individual register reads failed even though the
+      // TCP connection appeared alive.  This is the "zombie client" scenario:
+      // the Modbus client reported Offline/Timeout while socket.writable was
+      // still true.  Count consecutive bad cycles and force a reconnect after
+      // PARTIAL_FAIL_THRESHOLD to shake out the stale socket.
+      if ((pollResult.failedCount ?? 0) > 0) {
+        consecutivePartialFailures[device.id] = (consecutivePartialFailures[device.id] ?? 0) + 1;
+        if (consecutivePartialFailures[device.id] >= PARTIAL_FAIL_THRESHOLD) {
+          console.warn(
+            `[Watchdog] Device ${device.id}: ${consecutivePartialFailures[device.id]} consecutive` +
+            ` cycles with partial failures – forcing reconnect`
+          );
+          closeConnection(device.id);
+          consecutivePartialFailures[device.id] = 0;
+        }
+      } else {
+        // All registers read successfully – reset watchdog.
+        consecutivePartialFailures[device.id] = 0;
       }
 
       // Ensure MQTT discovery is set up for this device

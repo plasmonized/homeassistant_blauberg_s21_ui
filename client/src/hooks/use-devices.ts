@@ -110,3 +110,25 @@ export function usePollDevice() {
     },
   });
 }
+
+export function useReconnectDevice() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(resolveUrl(`/api/devices/${id}/reconnect`), { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Reconnect fehlgeschlagen");
+      return data;
+    },
+    onSuccess: (data, id) => {
+      queryClient.invalidateQueries({ queryKey: [api.devices.get.path, id] });
+      queryClient.invalidateQueries({ queryKey: [api.registers.list.path.replace(":id", String(id))] });
+      toast({ title: "Verbunden", description: data.message });
+    },
+    onError: (err) => {
+      toast({ variant: "destructive", title: "Reconnect fehlgeschlagen", description: err.message });
+    },
+  });
+}
