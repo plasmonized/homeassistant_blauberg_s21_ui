@@ -17,6 +17,7 @@ import {
 } from "./control-engine";
 
 let automationInterval: NodeJS.Timeout | null = null;
+let automationRunning = false; // true while a cycle is executing
 
 // Watchdog: track consecutive poll cycles where at least one register read failed.
 // After PARTIAL_FAIL_THRESHOLD such cycles the connection is force-closed so the
@@ -545,9 +546,25 @@ export async function startAutomationEngine() {
     console.log("[Automation] MQTT not available, continuing without MQTT Discovery");
   }
 
-  automationInterval = setInterval(runAutomationCycle, POLL_INTERVAL_MS);
-  // Run once immediately
-  await runAutomationCycle();
+  // Use a setTimeout chain instead of setInterval so that a slow cycle
+  // (Modbus timeout, HA API delay, DB pressure) can never overlap with the
+  // next one. setInterval fires every 10 s regardless of whether the previous
+  // invocation has finished — two concurrent cycles both see
+  // profileLastAction.get() === undefined and write the same fan speed
+  // repeatedly, wasting Modbus bandwidth and defeating the skip/hold logic.
+  async function scheduleNextCycle() {
+    if (!automationRunning) return; // engine was stopped
+    try {
+      await runAutomationCycle();
+    } finally {
+      if (automationRunning) {
+        automationInterval = setTimeout(scheduleNextCycle, POLL_INTERVAL_MS);
+      }
+    }
+  }
+
+  automationRunning = true;
+  await scheduleNextCycle();
 }
 
 async function evaluateControlProfile(
@@ -834,8 +851,9 @@ async function executeControlAction(
 }
 
 export function stopAutomationEngine() {
+  automationRunning = false;
   if (automationInterval) {
-    clearInterval(automationInterval);
+    clearTimeout(automationInterval);
     automationInterval = null;
     console.log("[Automation] Engine stopped");
   }
