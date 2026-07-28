@@ -30,7 +30,7 @@ import {
   type SensorReading,
   type InsertSensorReading,
 } from "@shared/schema";
-import { eq, and, desc, lt, gte, sql } from "drizzle-orm";
+import { eq, and, desc, lt, gte, sql, not, like } from "drizzle-orm";
 
 export interface IStorage {
   // Devices
@@ -77,6 +77,7 @@ export interface IStorage {
   // Control Logs
   getControlLogs(deviceId: number, limit?: number): Promise<ControlLog[]>;
   createControlLog(log: InsertControlLog): Promise<ControlLog>;
+  getLastSuccessfulControlAction(profileId: number): Promise<ControlLog | undefined>;
 
   // Sensor Readings (time-series history)
   addSensorReadings(readings: InsertSensorReading[]): Promise<void>;
@@ -265,6 +266,20 @@ export class DatabaseStorage implements IStorage {
   async createControlLog(log: InsertControlLog): Promise<ControlLog> {
     const [newLog] = await db.insert(controlLogs).values(log).returning();
     return newLog;
+  }
+
+  async getLastSuccessfulControlAction(profileId: number): Promise<ControlLog | undefined> {
+    const [row] = await db.select()
+      .from(controlLogs)
+      .where(and(
+        eq(controlLogs.profileId, profileId),
+        eq(controlLogs.success, true),
+        not(like(controlLogs.actionTaken, "%=⏸")),
+        not(like(controlLogs.actionTaken, "%=〜"))
+      ))
+      .orderBy(desc(controlLogs.timestamp))
+      .limit(1);
+    return row;
   }
 
   async addSensorReadings(readings: InsertSensorReading[]): Promise<void> {

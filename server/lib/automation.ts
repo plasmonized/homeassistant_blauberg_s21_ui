@@ -494,9 +494,39 @@ async function runAutomationCycle() {
   }
 }
 
+async function seedProfileLastActionFromDb(): Promise<void> {
+  try {
+    const devices = await storage.getDevices();
+    for (const device of devices) {
+      const profiles = await storage.getControlProfiles(device.id);
+      for (const profile of profiles) {
+        if (profileLastAction.has(profile.id)) continue;
+        const lastLog = await storage.getLastSuccessfulControlAction(profile.id);
+        if (!lastLog || !lastLog.actionTaken || !lastLog.timestamp) continue;
+        const match = lastLog.actionTaken.match(/=(\d+(?:\.\d+)?)$/);
+        if (!match) continue;
+        const value = Number(match[1]);
+        const ts = new Date(lastLog.timestamp).getTime();
+        if (!isNaN(value) && !isNaN(ts)) {
+          profileLastAction.set(profile.id, { value, ts });
+          const ageMin = Math.round((Date.now() - ts) / 60_000);
+          console.log(`[Automation] Hold-time restored for profile ${profile.id}: value=${value}, age=${ageMin}min`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Automation] Failed to restore hold-time state from DB:", err);
+  }
+}
+
 export async function startAutomationEngine() {
   if (automationInterval) return;
   console.log(`[Automation] Engine started, checking every ${POLL_INTERVAL_MS / 1000}s`);
+
+  // Restore hold-time state from DB so a server restart does not reset
+  // profileLastAction — a profile that was last set 2 min ago will continue
+  // to respect its holdMinutes window instead of firing immediately.
+  await seedProfileLastActionFromDb();
 
   // Initialize MQTT connection and discovery
   try {
