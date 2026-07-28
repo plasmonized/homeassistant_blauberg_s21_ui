@@ -653,10 +653,23 @@ async function evaluateControlProfile(
         }
       }
 
-      // Skip redundant writes: if the computed value hasn't changed, don't
-      // write to the device. Log hysteresis-based skips so the user can see
-      // the deadband is active; silent skip for normal steady-state operation.
-      if (last !== undefined && result.value === last.value) {
+      // Skip redundant writes: if the computed value hasn't changed AND the
+      // device register confirms the same value, skip. But if an external
+      // action (boost rule, manual HA override, MQTT command) has changed the
+      // actual fan speed since the automation last wrote, we must correct it
+      // — even when the automation's own desired value hasn't moved.
+      const actionReg = result.actionType === "fan_speed"
+        ? (registers as any[]).find((r: any) => r.name.includes("Fan Speed"))
+        : result.actionType === "mode"
+        ? (registers as any[]).find((r: any) => r.name.includes("Operation Mode"))
+        : null;
+      const deviceActualValue = actionReg?.lastValue !== undefined && actionReg.lastValue !== null
+        ? Number(actionReg.lastValue)
+        : undefined;
+      // Device has drifted from what automation last wrote → must re-write
+      const deviceDrifted = deviceActualValue !== undefined && deviceActualValue !== result.value;
+
+      if (last !== undefined && result.value === last.value && !deviceDrifted) {
         if (hysteresisSkip && hysteresisMeasured !== null && hysteresisSetpoint !== null) {
           await storage.createControlLog({
             profileId: profile.id,
@@ -672,10 +685,20 @@ async function evaluateControlProfile(
         return;
       }
 
+      // If the device drifted but we're still within hold-time, correct the
+      // device immediately (don't let a boost/manual override persist forever).
+      // If there's no drift, the normal hold-time logic below applies.
+      if (deviceDrifted) {
+        console.log(`[Automation] Profile ${profile.id}: device drifted to ${deviceActualValue}, automation wants ${result.value} – correcting`);
+      }
+
       // Hold-time (Mindesthaltedauer): after any fan-speed change, discard
       // subsequent changes until holdMinutes have elapsed. This prevents rapid
       // 1→2→1→2 oscillation when temperatures hover near a threshold.
-      if (last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
+      // Exception: if the device was overridden externally (deviceDrifted), skip
+      // the hold-time and correct the device immediately so the automation stays
+      // in control — a boost rule or manual HA command must not persist forever.
+      if (!deviceDrifted && last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
         const remainingMin = Math.ceil((holdMs - (now - last.ts)) / 60_000);
         await storage.createControlLog({
           profileId: profile.id,
