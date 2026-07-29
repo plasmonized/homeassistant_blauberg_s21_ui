@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.6.1
+
+- **Hotfix: Anlage blieb nach Schwellwert-Erhöhung ausgeschaltet** — Drei zusammenwirkende Fehler verhinderten den Wiederanlauf nach Hitzeschutz-Standby: (1) Fan-Speed-Register zeigte bereits den Zielwert → Automation wertete das als „nichts zu tun" und prüfte den Coil nie; (2) `isStandbyTransition`-Erkennung schlug fehl, sobald `profileLastAction.value` durch einen früheren Teil-Wakeup auf 1 gesetzt wurde; (3) Polling-Loop speichert Coil-Werte als String `"false"` — `Number("false")` ergibt `NaN`, nicht `0`, wodurch der Wake-up-Coil-Schreibvorgang stets still übersprungen wurde. Fix: eingeschaltete Anlage mit ausgeschaltetem Coil wird jetzt als „Drift" erkannt, was alle drei Schutzmechanismen (Redundanz-Skip, Haltezeit, Coil-Check) korrekt überbrückt.
+
 ## 0.3.6
 
 - **Fix: Hitzeschutz-Sektion fehlte im Profil-Dialog** — `heatProtectionEnabled` war in `defaultParams` eingetragen aber fehlte in `paramLabels`. Da der Dialog nur Parameter rendert, die in `paramLabels` stehen, wurde die gesamte Hitzeschutz-Sektion (Toggle, Abschalten-Schwellenwert, CO₂-Override, Feuchte-Override) für neue und bestehende Profile nicht angezeigt.
