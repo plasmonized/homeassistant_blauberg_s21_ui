@@ -174,7 +174,12 @@ function getHoldStatus(logs: any[], profileId: number): { active: boolean; remai
 
 export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const { data: profiles, isLoading: profilesLoading } = useControlProfiles(deviceId);
-  const { data: logs, isLoading: logsLoading } = useControlLogs(deviceId);
+  const [logPage, setLogPage] = useState(1);
+  const LOG_PAGE_SIZE = 25;
+  const { data: logsData, isLoading: logsLoading } = useControlLogs(deviceId, logPage, LOG_PAGE_SIZE);
+  const logs = logsData?.logs;
+  const logTotal = logsData?.total ?? 0;
+  const logTotalPages = logsData?.totalPages ?? 1;
   const { data: templates } = useControlProfileTemplates();
   const { data: registers } = useRegisters(deviceId);
   const { data: externalSensors } = useExternalSensors(deviceId);
@@ -787,8 +792,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             <div className="flex items-center gap-2">
               <History className="h-4 w-4" />
               <span>Regelungsverlauf</span>
-              {logs && logs.length > 0 && (
-                <Badge variant="outline" className="text-xs">{logs.length}</Badge>
+              {logTotal > 0 && (
+                <Badge variant="outline" className="text-xs">{logTotal}</Badge>
               )}
             </div>
           </AccordionTrigger>
@@ -796,29 +801,58 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             {logsLoading ? (
               <Skeleton className="h-24" />
             ) : logs && logs.length > 0 ? (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {logs.slice(0, 20).map((log: any) => (
-                  <div
-                    key={log.id}
-                    className="text-sm p-2 rounded bg-muted/50"
-                    data-testid={`control-log-${log.id}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">
-                        {controlTypeLabels[log.controlType] || log.controlType || log.schemaType || "Unbekannt"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(log.timestamp).toLocaleString("de-DE")}
-                      </span>
+              <div className="space-y-2">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {logs.map((log: any) => (
+                    <div
+                      key={log.id}
+                      className="text-sm p-2 rounded bg-muted/50"
+                      data-testid={`control-log-${log.id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">
+                          {controlTypeLabels[log.controlType] || log.controlType || log.schemaType || "Unbekannt"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(log.timestamp).toLocaleString("de-DE")}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground mt-1">
+                        {log.actionTaken} — {log.message}
+                      </p>
+                      {log.success === false && (
+                        <Badge variant="destructive" className="text-xs mt-1">Fehlgeschlagen</Badge>
+                      )}
                     </div>
-                    <p className="text-muted-foreground mt-1">
-                      {log.actionTaken} — {log.message}
-                    </p>
-                    {log.success === false && (
-                      <Badge variant="destructive" className="text-xs mt-1">Fehlgeschlagen</Badge>
-                    )}
+                  ))}
+                </div>
+                {logTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className="text-xs text-muted-foreground">
+                      Seite {logPage} von {logTotalPages} ({logTotal} Einträge)
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogPage(p => Math.max(1, p - 1))}
+                        disabled={logPage <= 1}
+                        className="h-7 px-2 text-xs"
+                      >
+                        ‹ Zurück
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogPage(p => Math.min(logTotalPages, p + 1))}
+                        disabled={logPage >= logTotalPages}
+                        className="h-7 px-2 text-xs"
+                      >
+                        Weiter ›
+                      </Button>
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">

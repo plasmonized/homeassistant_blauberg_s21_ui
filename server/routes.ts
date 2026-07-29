@@ -564,10 +564,19 @@ export async function registerRoutes(
     res.json(templates);
   });
 
-  // Control Logs
+  // Control Logs (paginated)
   app.get('/api/devices/:id/control-logs', async (req, res) => {
-    const logs = await storage.getControlLogs(Number(req.params.id), 50);
-    res.json(logs);
+    const deviceId = Number(req.params.id);
+    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 25));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const offset = (page - 1) * pageSize;
+
+    const [logs, total] = await Promise.all([
+      storage.getControlLogs(deviceId, pageSize, offset),
+      storage.countControlLogs(deviceId),
+    ]);
+
+    res.json({ logs, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   });
 
   // Sensor history (48 h time-series for charts)

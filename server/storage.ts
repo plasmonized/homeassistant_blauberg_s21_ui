@@ -256,11 +256,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Control Logs
-  async getControlLogs(deviceId: number, limit = 50): Promise<ControlLog[]> {
+  async getControlLogs(deviceId: number, limit = 25, offset = 0): Promise<ControlLog[]> {
     return await db.select().from(controlLogs)
       .where(eq(controlLogs.deviceId, deviceId))
       .orderBy(desc(controlLogs.timestamp))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async countControlLogs(deviceId: number): Promise<number> {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(controlLogs)
+      .where(eq(controlLogs.deviceId, deviceId));
+    return row?.count ?? 0;
   }
 
   async createControlLog(log: InsertControlLog): Promise<ControlLog> {

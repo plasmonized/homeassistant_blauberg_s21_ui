@@ -13,13 +13,21 @@ export function useControlProfiles(deviceId: number) {
   });
 }
 
-export function useControlLogs(deviceId: number) {
+export function useControlLogs(deviceId: number, page = 1, pageSize = 25) {
   return useQuery({
-    queryKey: ["/api/devices", deviceId, "control-logs"],
+    queryKey: ["/api/devices", deviceId, "control-logs", page, pageSize],
     queryFn: async () => {
-      const res = await fetch(`/api/devices/${deviceId}/control-logs`);
+      const res = await fetch(
+        `/api/devices/${deviceId}/control-logs?page=${page}&pageSize=${pageSize}`
+      );
       if (!res.ok) throw new Error("Failed to fetch control logs");
-      return res.json();
+      return res.json() as Promise<{
+        logs: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+      }>;
     },
   });
 }
