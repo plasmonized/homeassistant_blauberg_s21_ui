@@ -109,7 +109,9 @@ const expertParamKeys = [
   "kp","ki","kd","outputMin","outputMax","hysteresis","summerHysteresis",
   "switchTemp","nightStart","nightEnd","fanspeed","emergencyThreshold",
   "holdMinutes",
-  "co2OverrideThreshold","humidityOverrideThreshold",
+  // co2OverrideThreshold and humidityOverrideThreshold are intentionally NOT
+  // listed here — they live inside the Hitzeschutz section of the dialog, not
+  // in the generic "Erweitert" collapsible.
 ];
 
 // Hardware only supports fan speed levels 1-3 (Blauberg S21). Any parameter
@@ -445,8 +447,13 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const dialogParamEntries = currentTemplate
     ? Object.entries(currentTemplate.paramLabels || {})
     : [];
-  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key) && key !== "useExternalSensors" && key !== "useHeater" && key !== "heatProtectionEnabled" && key !== "heatShutdownAbove");
-  const expertEntries = dialogParamEntries.filter(([key]) => isExpertParam(key) && key !== "useExternalSensors" && key !== "useHeater" && key !== "heatProtectionEnabled" && key !== "heatShutdownAbove");
+  // Keys rendered in dedicated sections are excluded from both generic lists.
+  const DEDICATED_KEYS = new Set([
+    "useExternalSensors", "useHeater", "heatProtectionEnabled",
+    "heatShutdownAbove", "co2OverrideThreshold", "humidityOverrideThreshold",
+  ]);
+  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key) && !DEDICATED_KEYS.has(key));
+  const expertEntries   = dialogParamEntries.filter(([key]) => isExpertParam(key)  && !DEDICATED_KEYS.has(key));
 
   return (
     <div className="space-y-6">
@@ -634,38 +641,82 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                     </div>
                   )}
 
-                  {/* Hitzeschutz toggle + threshold */}
+                  {/* Hitzeschutz toggle + threshold + override thresholds */}
                   {dialogParamEntries.some(([key]) => key === "heatProtectionEnabled") && (
                     <div className="space-y-3">
                       <h4 className="text-sm font-semibold">Hitzeschutz</h4>
                       {renderParamInput("heatProtectionEnabled", params["heatProtectionEnabled"], "Hitzeschutz aktivieren")}
-                      <div className="space-y-2">
-                        <Label className={`text-sm ${params.heatProtectionEnabled === false ? "text-muted-foreground/50" : ""}`}>
-                          Abschalten ab (°C)
-                        </Label>
-                        <Input
-                          type="number"
-                          value={params.heatShutdownAbove ?? 32}
-                          disabled={params.heatProtectionEnabled === false}
-                          onChange={(e) => {
-                            if (e.target.value === "") {
-                              handleParamChange("heatShutdownAbove", null);
-                              return;
-                            }
-                            handleParamChange("heatShutdownAbove", Number(e.target.value));
-                          }}
-                          step={1}
-                          min={20}
-                          max={50}
-                          data-testid="input-param-heatShutdownAbove"
-                          className={params.heatProtectionEnabled === false ? "opacity-40" : ""}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {params.heatProtectionEnabled === false
-                            ? "Hitzeschutz ist deaktiviert – der gespeicherte Schwellenwert bleibt erhalten."
-                            : "Anlage geht auf Standby, sobald die Außentemperatur diesen Wert überschreitet."}
-                        </p>
-                      </div>
+
+                      {/* All three threshold fields share the same enabled/disabled state */}
+                      {(() => {
+                        const off = params.heatProtectionEnabled === false;
+                        const fieldClass = off ? "opacity-40" : "";
+                        const labelClass = `text-sm ${off ? "text-muted-foreground/50" : ""}`;
+                        return (
+                          <div className={`space-y-4 ${off ? "pointer-events-none select-none" : ""}`}>
+                            {/* Abschalten ab */}
+                            <div className="space-y-2">
+                              <Label className={labelClass}>Abschalten ab (°C, Standard: 32)</Label>
+                              <Input
+                                type="number"
+                                value={params.heatShutdownAbove ?? 32}
+                                disabled={off}
+                                onChange={(e) => {
+                                  if (e.target.value === "") { handleParamChange("heatShutdownAbove", null); return; }
+                                  handleParamChange("heatShutdownAbove", Number(e.target.value));
+                                }}
+                                step={1} min={20} max={50}
+                                data-testid="input-param-heatShutdownAbove"
+                                className={fieldClass}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {off
+                                  ? "Hitzeschutz ist deaktiviert – der gespeicherte Schwellenwert bleibt erhalten."
+                                  : "Anlage geht auf Standby, sobald die Außentemperatur diesen Wert überschreitet."}
+                              </p>
+                            </div>
+
+                            {/* Override-Schwellenwerte */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <Label className={labelClass}>CO₂-Override (ppm, Standard: 1000)</Label>
+                                <Input
+                                  type="number"
+                                  value={params.co2OverrideThreshold ?? 1000}
+                                  disabled={off}
+                                  onChange={(e) => {
+                                    if (e.target.value === "") { handleParamChange("co2OverrideThreshold", null); return; }
+                                    handleParamChange("co2OverrideThreshold", Number(e.target.value));
+                                  }}
+                                  step={50} min={400} max={5000}
+                                  data-testid="input-param-co2OverrideThreshold"
+                                  className={fieldClass}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className={labelClass}>Feuchte-Override (%, Standard: 65)</Label>
+                                <Input
+                                  type="number"
+                                  value={params.humidityOverrideThreshold ?? 65}
+                                  disabled={off}
+                                  onChange={(e) => {
+                                    if (e.target.value === "") { handleParamChange("humidityOverrideThreshold", null); return; }
+                                    handleParamChange("humidityOverrideThreshold", Number(e.target.value));
+                                  }}
+                                  step={1} min={30} max={100}
+                                  data-testid="input-param-humidityOverrideThreshold"
+                                  className={fieldClass}
+                                />
+                              </div>
+                            </div>
+                            {!off && (
+                              <p className="text-xs text-muted-foreground">
+                                Überschreitet CO₂ oder Feuchte den Override-Wert, bleibt die Anlage auf Stufe 1 aktiv — auch wenn Hitzeschutz greifen würde.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
