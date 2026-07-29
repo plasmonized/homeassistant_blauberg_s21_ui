@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.3
+
+- **Fix (kritisch): Regelungs-Engine konnte stundenlang einfrieren** — jsmodbus wartet bei einem TCP-Request ohne Antwort (S21-Firmware hängt, Paket verloren) unbegrenzt. Mit dem in v0.3.1 eingeführten `setTimeout`-Kettenansatz (kein Überlappen mehr) bedeutete ein einziger solcher hängender Register-Read, dass kein weiterer Automatisierungs-Zyklus mehr anlief — keine Lüftungsregelung, keine Logeinträge, bis zum nächsten Neustart. Ein harter 60-Sekunden-Cycle-Timeout beendet jetzt jeden feststeckenden Zyklus, schließt alle Modbus-Verbindungen um ausstehende Requests sofort zu entleeren, und plant den nächsten Zyklus zuverlässig 10 Sekunden später.
+
+- **Fix: Socket-Timeout zerstörte Verbindung mitten im Poll** — `socket.setTimeout(5000)` wurde zur Verbindungsphase gesetzt, blieb aber danach aktiv. Bei 16 Registern in Serie konnte eine kurze Pause (Serialisierungs-Lock, langsame S21-Antwort) dazu führen, dass der Timeout mitten im Poll feuerte — der Socket wurde zerstört, alle verbleibenden Register scheiterten mit „Offline", der Zyklus galt als Totalausfall und die Profile wurden übersprungen. `socket.setTimeout(0)` wird jetzt unmittelbar nach erfolgreichem Connect gesetzt, sodass der Timeout nur noch während der Verbindungsphase gilt.
+
+- **Fix: Einzelne Register-Reads können jetzt maximal 5 Sekunden hängen** — jeder Modbus-Lesezugriff in `poll.ts` läuft jetzt in einem `Promise.race` mit einem 5-Sekunden-Timeout. Ein eingefrorener Read gilt nach 5 Sekunden als Fehler (failedCount++), der Poll läuft mit den restlichen Registern weiter. Im Worst-Case (alle 16 Register hängen) dauert ein Zyklus maximal ~80 Sekunden statt unbegrenzt; in der Praxis sind fehlerhafte Reads in Millisekunden erledigt (jsmodbus meldet „Offline" sofort).
+
+- **Fix: Veralteter HA-Sensor hielt Lüfterstufe stundenlang falsch** — wenn ein Regelungsprofil mit `Externe Sensoren` konfiguriert ist und der HA-Sensor ausfällt oder längere Zeit keine neuen Werte liefert (HA-Neustart, Sensor offline), blieb der letzte bekannte Wert (z.B. 21 °C vom Vorjabend) in der Datenbank stehen. Die Regelungslogik verwendete diesen veralteten Wert, berechnete die falsche Lüfterstufe, der Skip-Check feuerte (Ergebnis = Letzter Wert) und der Lüfter blieb stehen — ohne jeden Hinweis im Log. Sensoren die seit mehr als 30 Minuten nicht aktualisiert wurden (konfigurierbar via Umgebungsvariable `SENSOR_STALE_MINUTES`) werden jetzt ignoriert; stattdessen wird automatisch auf das direkt vom Gerät gelesene Register zurückgefallen. Bei jedem Fallback erscheint eine Warnung im Add-on-Log.
+
+- **Feature: Regelverlauf zeigt jetzt mehrere Tage** — bisher waren maximal 20 Einträge sichtbar (und durch den Burst-Bug aus früheren Versionen oft vollständig mit gleichartigen Einträgen gefüllt). Der Verlauf zeigt jetzt 25 Einträge pro Seite mit Vor-/Zurück-Navigation und einem Zähler „Seite X von Y (N Einträge gesamt)". Das Backend speichert unbegrenzt viele Einträge und liefert sie paginiert aus.
+
+- **Diagnose-Log pro Zyklus** — im Add-on-Log erscheint jetzt bei jedem Regelungs-Zyklus eine Zeile der Form `[Control] Profile 12 (weather_compensated): outdoor=25.5, indoor=26.1, result=1, last=3`. Damit ist sofort erkennbar ob die Regelung läuft, welche Temperaturen verwendet werden, was berechnet wird und warum Skip/Hold feuert oder ein Schreibzugriff ausgelöst wird.
+
 ## 0.2.12
 
 - Fix: **Farben und Namen im 48h-Verlaufsdiagramm angeglichen** — die Linien im Temperatur-Verlaufsdiagramm verwenden jetzt exakt dieselben deutschen Bezeichnungen (Außenluft, Zuluft, Abluft, Fortluft) und Farben (blau/grün/rot/orange) wie die Systemübersicht-Grafik direkt darüber.
