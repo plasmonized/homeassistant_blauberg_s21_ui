@@ -141,8 +141,12 @@ async function getSensorValue(
 
   switch (sensorType) {
     case "outdoor_temp": {
-      // Prefer a dedicated outdoor sensor, fall back to a generic temperature sensor
-      const ext = findFreshExt("outdoor_temp") || findFreshExt("temperature");
+      // Only use an external sensor if it is explicitly typed as "outdoor_temp".
+      // A generic "temperature" sensor must NOT auto-detect as the outdoor source:
+      // doing so caused a sensor that was renamed away from "outdoor_temp" (while
+      // still returning a stale value from HA) to be silently preferred over the
+      // device register, preventing the profile from ever switching fan speeds.
+      const ext = findFreshExt("outdoor_temp");
       if (ext) return parseFloat(ext.lastValue);
       warnIfStale("outdoor_temp");
       const reg = findReg("Outdoor");
