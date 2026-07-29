@@ -1,6 +1,21 @@
 import { storage } from "../storage";
 import { getModbusClient, closeConnection } from "./modbus";
 
+// Per-request timeout: if a single Modbus register read does not resolve
+// within this many milliseconds it is aborted and counted as a failure.
+// This prevents a frozen S21 TCP connection from stalling an entire poll
+// cycle for up to the 60-second cycle hard-timeout.
+const REGISTER_READ_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout reading ${label} after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 // Reads every register for a device straight from the S21 over Modbus,
 // writes the fresh values into the DB, and updates isConnected/lastSeen.
 // Shared by the manual "Refresh" API route and the periodic automation
@@ -27,16 +42,32 @@ export async function pollDeviceRegisters(
       let value: any = null;
       try {
         if (reg.type === "holding") {
-          const resp = await client.readHoldingRegisters(reg.address, 1);
+          const resp = await withTimeout(
+            client.readHoldingRegisters(reg.address, 1),
+            REGISTER_READ_TIMEOUT_MS,
+            reg.name
+          );
           value = resp.response.body.values[0];
         } else if (reg.type === "input") {
-          const resp = await client.readInputRegisters(reg.address, 1);
+          const resp = await withTimeout(
+            client.readInputRegisters(reg.address, 1),
+            REGISTER_READ_TIMEOUT_MS,
+            reg.name
+          );
           value = resp.response.body.values[0];
         } else if (reg.type === "coil") {
-          const resp = await client.readCoils(reg.address, 1);
+          const resp = await withTimeout(
+            client.readCoils(reg.address, 1),
+            REGISTER_READ_TIMEOUT_MS,
+            reg.name
+          );
           value = resp.response.body.values[0] ? 1 : 0;
         } else if (reg.type === "discrete") {
-          const resp = await client.readDiscreteInputs(reg.address, 1);
+          const resp = await withTimeout(
+            client.readDiscreteInputs(reg.address, 1),
+            REGISTER_READ_TIMEOUT_MS,
+            reg.name
+          );
           const body = resp.response.body as any;
           value = body.values?.[0] ? 1 : 0;
         }
