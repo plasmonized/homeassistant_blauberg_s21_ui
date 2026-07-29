@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.6
+
+- **Fix: Hitzeschutz-Sektion fehlte im Profil-Dialog** — `heatProtectionEnabled` war in `defaultParams` eingetragen aber fehlte in `paramLabels`. Da der Dialog nur Parameter rendert, die in `paramLabels` stehen, wurde die gesamte Hitzeschutz-Sektion (Toggle, Abschalten-Schwellenwert, CO₂-Override, Feuchte-Override) für neue und bestehende Profile nicht angezeigt.
+
+- **Feature: Hitzeschutz-Parameter im Dialog gruppiert** — CO₂-Override und Feuchte-Override-Schwellenwerte erscheinen jetzt direkt unterhalb des Abschalten-Schwellenwerts im Hitzeschutz-Abschnitt des Profil-Dialogs. Beide Felder werden ausgegraut wenn der Hitzeschutz-Toggle ausgeschaltet ist. Zuvor lagen sie im Erweitert-Bereich ohne erkennbaren Bezug zum Hitzeschutz.
+
+- **Feature: Hitzeschutz bleibt nach Serverneustart dauerhaft deaktiviert** — Wenn `heatProtectionEnabled` auf `false` gesetzt ist, wird der Standby-Pfad jetzt auch nach einem Serverneustart zuverlässig übersprungen. Zuvor konnte ein Neustart dazu führen, dass der gespeicherte `heatProtectionEnabled: false`-Wert ignoriert wurde.
+
+- **Feature: Hitzeschutz-Badge aktualisiert sich automatisch** — Die Profil-Karten fragen den Regelungsverlauf jetzt regelmäßig ab, sodass das Hitzeschutz-Badge (aktiv / Override) ohne Seitenreload erscheint oder verschwindet, sobald sich der Zustand ändert.
+
+- **Infrastruktur: Einheitlicher Test-Runner** — `npm test` führt alle `test:*`-Skripte automatisch in alphabetischer Reihenfolge aus und bricht bei der ersten Fehler ab. Neue Testsuiten werden durch Eintragen in `package.json` als `"test:<name>"` automatisch aufgenommen.
+
 ## 0.3.5
 
 - **Feature: Hitzeschutz-Standby mit selektivem Wiederanlauf** — Das Wetterkompensiert-Profil kann die Anlage jetzt automatisch auf Standby schalten, wenn die Außentemperatur einen konfigurierbaren Schwellenwert überschreitet (Standard: 32°C). Da bei Hitze ein Wärmeeintrag durch die Lüftung kontraproduktiv ist – selbst mit Wärmetauscher kann der Tauscher die Zuluft nur auf Innentemperatur kühlen, nie darunter – stoppt der Hitzeschutz die Anlage vollständig über den System-State-Coil. Zwei Sicherheits-Overrides verhindern eine zu lange Unterbrechung: Übersteigt der CO₂-Wert einen konfigurierbaren Grenzwert (Standard: 1000 ppm) oder die Luftfeuchte einen Grenzwert (Standard: 65%), wird die Anlage automatisch auf Stufe 1 gezwungen um Frischluft sicherzustellen – auch bei Hitze. Sinkt die Außentemperatur wieder unter den Schwellenwert, schaltet die Anlage selbstständig wieder ein und setzt die normale Wetterkompensierung fort. Standby-Übergänge umgehen die Mindesthaltedauer (hold-time), um sofort zu reagieren. Der Schwellenwert kann im Profil-Dialog unter "Hitzeschutz: Abschalten ab (°C)" konfiguriert werden; bei 0 ist der Hitzeschutz deaktiviert.
