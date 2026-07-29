@@ -162,29 +162,9 @@ function getSetpointLabel(controlType: string, params: Record<string, any>): str
   return map[key] || "Sollwert";
 }
 
-function getHeatProtectionStatus(
-  logs: any[],
-  profileId: number
-): { standby: boolean; override: boolean; overrideReason: string | null } {
-  if (!logs || logs.length === 0) return { standby: false, override: false, overrideReason: null };
-  const profileLogs = logs
-    .filter((l: any) => l.profileId === profileId)
-    .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  const latest = profileLogs[0];
-  if (!latest) return { standby: false, override: false, overrideReason: null };
-
-  if (latest.actionTaken?.startsWith("standby")) {
-    return { standby: true, override: false, overrideReason: null };
-  }
-
-  // Override: heat-protection threshold exceeded but CO₂/humidity forced stage 1
-  if (latest.message?.includes("Hitzeschutz") && latest.message?.includes("Override")) {
-    const match = latest.message.match(/Override wegen (.+?) →/);
-    return { standby: false, override: true, overrideReason: match ? match[1] : null };
-  }
-
-  return { standby: false, override: false, overrideReason: null };
-}
+// Extracted to a separate file so it can be unit-tested without React deps.
+// Tests: scripts/test-heat-protection-badge.ts
+import { getHeatProtectionStatus } from "@/lib/heat-protection";
 
 function getHoldStatus(logs: any[], profileId: number): { active: boolean; remainingMin: number | null } {
   if (!logs || logs.length === 0) return { active: false, remainingMin: null };
