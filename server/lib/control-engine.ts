@@ -264,19 +264,52 @@ export async function runWeatherCompensated(
   deviceId: number,
   params: any,
   outdoorTemp: number,
-  indoorTemp: number
+  indoorTemp: number,
+  co2?: number | null,
+  humidity?: number | null,
 ): Promise<ControlResult> {
   const {
-    roomSetpoint = 21,      // Raum-Sollwert (°C)
-    comfortBand = 0.5,      // Toleranzband um den Sollwert (±°C) → nur Grundlüftung
-    minOutdoorDelta = 1.0,  // Mindestdifferenz Außen/Innen, damit Lüften überhaupt hilft (°C)
-    boostThreshold = 2.0,   // Abweichung vom Sollwert, ab der auf Maximum gelüftet wird (°C)
-    baseFanSpeed = 1,       // Grundlüftung im Sollbereich (Stufe)
-    activeFanSpeed = 2,     // Lüftung beim aktiven Regeln (Stufe)
-    maxFanSpeed = 3,        // Maximale Lüftung beim Boost (Stufe)
-    useHeater = false,      // Integriertes Elektro-Heizregister mitregeln
-    heaterFanSpeed = 2,     // Lüfterstufe beim aktiven Heizen (Stufe)
+    roomSetpoint = 21,            // Raum-Sollwert (°C)
+    comfortBand = 0.5,            // Toleranzband um den Sollwert (±°C) → nur Grundlüftung
+    minOutdoorDelta = 1.0,        // Mindestdifferenz Außen/Innen, damit Lüften überhaupt hilft (°C)
+    boostThreshold = 2.0,         // Abweichung vom Sollwert, ab der auf Maximum gelüftet wird (°C)
+    baseFanSpeed = 1,             // Grundlüftung im Sollbereich (Stufe)
+    activeFanSpeed = 2,           // Lüftung beim aktiven Regeln (Stufe)
+    maxFanSpeed = 3,              // Maximale Lüftung beim Boost (Stufe)
+    useHeater = false,            // Integriertes Elektro-Heizregister mitregeln
+    heaterFanSpeed = 2,           // Lüfterstufe beim aktiven Heizen (Stufe)
+    heatShutdownAbove = 32,       // Außentemperatur ab der die Anlage auf Standby geht (°C); 0 = deaktiviert
+    co2OverrideThreshold = 1000,  // CO2-Grenzwert, der Standby verhindert und Stufe 1 erzwingt (ppm)
+    humidityOverrideThreshold = 65, // Feuchte-Grenzwert, der Standby verhindert und Stufe 1 erzwingt (%)
   } = params;
+
+  // ── HITZESCHUTZ ─────────────────────────────────────────────────────────────
+  // Wenn die Außentemperatur den Abschaltschwellenwert überschreitet, schaltet
+  // die Anlage auf Standby um den Wärmeeintrag zu stoppen. Ausnahme: wenn CO2
+  // oder Luftfeuchte kritische Werte erreichen, wird Stufe 1 als Mindestlüftung
+  // erzwungen – Frischluft hat dann Vorrang vor Hitzeschutz.
+  if (typeof heatShutdownAbove === "number" && heatShutdownAbove > 0 && outdoorTemp >= heatShutdownAbove) {
+    const co2High = co2 != null && co2 > co2OverrideThreshold;
+    const humidityHigh = humidity != null && humidity > humidityOverrideThreshold;
+
+    if (co2High || humidityHigh) {
+      const overrides: string[] = [];
+      if (co2High) overrides.push(`CO₂ ${co2}ppm > ${co2OverrideThreshold}ppm`);
+      if (humidityHigh) overrides.push(`Feuchte ${(humidity as number).toFixed(1)}% > ${humidityOverrideThreshold}%`);
+      return {
+        actionType: "fan_speed",
+        value: 1,
+        reason: `Hitzeschutz (außen ${outdoorTemp.toFixed(1)}°C ≥ ${heatShutdownAbove}°C) – Override wegen ${overrides.join(", ")} → Stufe 1 Mindestlüftung`,
+      };
+    }
+
+    return {
+      actionType: "standby",
+      value: 0,
+      reason: `Hitzeschutz: außen ${outdoorTemp.toFixed(1)}°C ≥ ${heatShutdownAbove}°C, CO₂ und Feuchte im Normbereich → Anlage auf Standby`,
+    };
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   const dev = indoorTemp - roomSetpoint; // > 0 = Raum zu warm, < 0 = Raum zu kalt
   const indoorStr = indoorTemp.toFixed(1);

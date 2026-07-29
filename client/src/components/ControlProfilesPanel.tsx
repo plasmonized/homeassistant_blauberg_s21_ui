@@ -109,6 +109,7 @@ const expertParamKeys = [
   "kp","ki","kd","outputMin","outputMax","hysteresis","summerHysteresis",
   "switchTemp","nightStart","nightEnd","fanspeed","emergencyThreshold",
   "holdMinutes",
+  "co2OverrideThreshold","humidityOverrideThreshold",
 ];
 
 // Hardware only supports fan speed levels 1-3 (Blauberg S21). Any parameter

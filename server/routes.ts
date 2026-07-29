@@ -545,6 +545,9 @@ export async function registerRoutes(
           useExternalSensors: false,
           useHeater: false,
           heaterFanSpeed: 2,
+          heatShutdownAbove: 32,
+          co2OverrideThreshold: 1000,
+          humidityOverrideThreshold: 65,
         },
         paramLabels: {
           roomSetpoint: "Raum-Sollwert (°C)",
@@ -558,6 +561,9 @@ export async function registerRoutes(
           useExternalSensors: "Externe Sensoren nutzen",
           useHeater: "Heizregister nutzen (bei Kälte heizen)",
           heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–3)",
+          heatShutdownAbove: "Hitzeschutz: Abschalten ab (°C, 0 = aus)",
+          co2OverrideThreshold: "Hitzeschutz-Override: CO₂-Grenzwert (ppm)",
+          humidityOverrideThreshold: "Hitzeschutz-Override: Feuchte-Grenzwert (%)",
         },
       },
     };

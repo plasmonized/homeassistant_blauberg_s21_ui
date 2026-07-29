@@ -725,7 +725,7 @@ async function evaluateControlProfile(
       }
       case "weather_compensated": {
         if (outdoorTemp !== null && indoorTemp !== null) {
-          result = await runWeatherCompensated(profile.id, deviceId, params, outdoorTemp, indoorTemp);
+          result = await runWeatherCompensated(profile.id, deviceId, params, outdoorTemp, indoorTemp, co2, humidity);
         }
         break;
       }
@@ -738,7 +738,8 @@ async function evaluateControlProfile(
     console.log(
       `[Control] Profile ${profile.id} (${controlType}): ` +
       `outdoor=${outdoorTemp?.toFixed(1) ?? "null"}, indoor=${indoorTemp?.toFixed(1) ?? "null"}, ` +
-      `result=${result?.value ?? "null"}, last=${profileLastAction.get(profile.id)?.value ?? "—"}`
+      `co2=${co2?.toFixed(0) ?? "null"}, humidity=${humidity?.toFixed(1) ?? "null"}, ` +
+      `result=${result?.actionType ?? "null"}=${result?.value ?? "null"}, last=${profileLastAction.get(profile.id)?.value ?? "—"}`
     );
 
     if (result) {
@@ -779,6 +780,8 @@ async function evaluateControlProfile(
         ? (registers as any[]).find((r: any) => r.name.includes("Fan Speed"))
         : result.actionType === "mode"
         ? (registers as any[]).find((r: any) => r.name.includes("Operation Mode"))
+        : result.actionType === "standby"
+        ? (registers as any[]).find((r: any) => (r.tags ?? []).includes("power") && r.type === "coil")
         : null;
       const deviceActualValue = actionReg?.lastValue !== undefined && actionReg.lastValue !== null
         ? Number(actionReg.lastValue)
@@ -812,10 +815,15 @@ async function evaluateControlProfile(
       // Hold-time (Mindesthaltedauer): after any fan-speed change, discard
       // subsequent changes until holdMinutes have elapsed. This prevents rapid
       // 1→2→1→2 oscillation when temperatures hover near a threshold.
-      // Exception: if the device was overridden externally (deviceDrifted), skip
+      // Exception 1: if the device was overridden externally (deviceDrifted), skip
       // the hold-time and correct the device immediately so the automation stays
       // in control — a boost rule or manual HA command must not persist forever.
-      if (!deviceDrifted && last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
+      // Exception 2: standby transitions (entering OR exiting Hitzeschutz-Standby)
+      // must always respond immediately — heat protection cannot wait 10 minutes.
+      const isStandbyTransition =
+        result.actionType === "standby" ||            // entering standby
+        (last !== undefined && last.value === 0 && result.actionType === "fan_speed"); // waking up
+      if (!deviceDrifted && !isStandbyTransition && last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
         const remainingMin = Math.ceil((holdMs - (now - last.ts)) / 60_000);
         await storage.createControlLog({
           profileId: profile.id,
@@ -893,14 +901,36 @@ async function executeControlAction(
 
     const registers = await storage.getRegisters(deviceId);
 
-    if (result.actionType === "fan_speed") {
+    if (result.actionType === "standby") {
+      // Hitzeschutz-Standby: Anlage über den System-State-Coil ausschalten.
+      const powerReg = registers.find(
+        (r) => (r.tags ?? []).includes("power") && r.type === "coil"
+      );
+      if (powerReg) {
+        await client.writeSingleCoil(powerReg.address, false);
+        await storage.updateRegisterValue(powerReg.id, 0);
+        return { success: true, message: "Anlage auf Standby (Hitzeschutz aktiv)" };
+      }
+      return { success: false, message: "Power-Register (System State Coil) nicht gefunden" };
+
+    } else if (result.actionType === "fan_speed") {
       const messages: string[] = [];
+
+      // Wiederanlauf: wenn die Anlage durch Hitzeschutz-Standby ausgeschaltet wurde
+      // und jetzt wieder Lüftung benötigt wird (CO₂/Feuchte-Override oder Außentemp.
+      // gesunken), schalten wir die Anlage erst wieder ein, bevor wir die Stufe setzen.
+      const powerReg = registers.find(
+        (r) => (r.tags ?? []).includes("power") && r.type === "coil"
+      );
+      if (powerReg && Number(powerReg.lastValue) === 0) {
+        await client.writeSingleCoil(powerReg.address, true);
+        await storage.updateRegisterValue(powerReg.id, 1);
+        messages.push("Anlage eingeschaltet (Hitzeschutz beendet)");
+      }
 
       const fanReg = registers.find((r) => r.name.includes("Fan Speed"));
       if (fanReg) {
         // Safety clamp: fan speed must stay within the valid 1–3 hardware range.
-        // "Off" is NOT a fan stage on the S21 — the unit is powered down via the
-        // System State coil, which the automation engine must never toggle.
         const fanValue = Math.max(1, Math.min(3, Math.round(result.value)));
         await client.writeSingleRegister(fanReg.address, fanValue);
         await storage.updateRegisterValue(fanReg.id, fanValue);
