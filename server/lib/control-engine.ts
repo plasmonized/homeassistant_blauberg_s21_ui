@@ -278,6 +278,7 @@ export async function runWeatherCompensated(
     maxFanSpeed = 3,              // Maximale Lüftung beim Boost (Stufe)
     useHeater = false,            // Integriertes Elektro-Heizregister mitregeln
     heaterFanSpeed = 2,           // Lüfterstufe beim aktiven Heizen (Stufe)
+    heatProtectionEnabled = true, // Hitzeschutz-Feature für dieses Profil aktiviert
     heatShutdownAbove = 32,       // Außentemperatur ab der die Anlage auf Standby geht (°C); 0 = deaktiviert
     co2OverrideThreshold = 1000,  // CO2-Grenzwert, der Standby verhindert und Stufe 1 erzwingt (ppm)
     humidityOverrideThreshold = 65, // Feuchte-Grenzwert, der Standby verhindert und Stufe 1 erzwingt (%)
@@ -288,7 +289,9 @@ export async function runWeatherCompensated(
   // die Anlage auf Standby um den Wärmeeintrag zu stoppen. Ausnahme: wenn CO2
   // oder Luftfeuchte kritische Werte erreichen, wird Stufe 1 als Mindestlüftung
   // erzwungen – Frischluft hat dann Vorrang vor Hitzeschutz.
-  if (typeof heatShutdownAbove === "number" && heatShutdownAbove > 0 && outdoorTemp >= heatShutdownAbove) {
+  // heatProtectionEnabled = false deaktiviert den Hitzeschutz für dieses Profil
+  // vollständig, ohne den gespeicherten Schwellenwert zu löschen.
+  if (heatProtectionEnabled !== false && typeof heatShutdownAbove === "number" && heatShutdownAbove > 0 && outdoorTemp >= heatShutdownAbove) {
     const co2High = co2 != null && co2 > co2OverrideThreshold;
     const humidityHigh = humidity != null && humidity > humidityOverrideThreshold;
 
