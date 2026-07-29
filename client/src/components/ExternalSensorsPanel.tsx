@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useExternalSensors,
   useCreateExternalSensor,
@@ -290,6 +290,13 @@ function EditSensorDialog({ sensor, deviceId, allSensors, onClose }: EditSensorD
 }
 
 export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
+  // Tick every 60 s so isSensorStale / formatLastSeen stay current without a reload.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const { data: sensors, isLoading } = useExternalSensors(deviceId);
   const createSensor = useCreateExternalSensor(deviceId);
   const deleteSensor = useDeleteExternalSensor(deviceId);

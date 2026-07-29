@@ -15,6 +15,8 @@ export function useExternalSensors(deviceId: number) {
       if (!res.ok) throw new Error("Failed to fetch external sensors");
       return res.json();
     },
+    // Re-fetch every 60 s so stale badges appear/disappear without a page reload.
+    refetchInterval: 60_000,
   });
 }
 
