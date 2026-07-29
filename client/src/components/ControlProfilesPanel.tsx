@@ -162,6 +162,30 @@ function getSetpointLabel(controlType: string, params: Record<string, any>): str
   return map[key] || "Sollwert";
 }
 
+function getHeatProtectionStatus(
+  logs: any[],
+  profileId: number
+): { standby: boolean; override: boolean; overrideReason: string | null } {
+  if (!logs || logs.length === 0) return { standby: false, override: false, overrideReason: null };
+  const profileLogs = logs
+    .filter((l: any) => l.profileId === profileId)
+    .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const latest = profileLogs[0];
+  if (!latest) return { standby: false, override: false, overrideReason: null };
+
+  if (latest.actionTaken?.startsWith("standby")) {
+    return { standby: true, override: false, overrideReason: null };
+  }
+
+  // Override: heat-protection threshold exceeded but CO₂/humidity forced stage 1
+  if (latest.message?.includes("Hitzeschutz") && latest.message?.includes("Override")) {
+    const match = latest.message.match(/Override wegen (.+?) →/);
+    return { standby: false, override: true, overrideReason: match ? match[1] : null };
+  }
+
+  return { standby: false, override: false, overrideReason: null };
+}
+
 function getHoldStatus(logs: any[], profileId: number): { active: boolean; remainingMin: number | null } {
   if (!logs || logs.length === 0) return { active: false, remainingMin: null };
   const profileLogs = logs
@@ -750,6 +774,34 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                       <span>
                         Haltezeit{holdStatus.remainingMin !== null ? ` – noch ${holdStatus.remainingMin} Min.` : ""}
                       </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Heat-protection status badges */}
+                {enabled && controlType === "weather_compensated" && (() => {
+                  const heatStatus = getHeatProtectionStatus(logs || [], profile.id);
+                  if (!heatStatus.standby && !heatStatus.override) return null;
+                  return (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {heatStatus.standby && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 text-[10px] px-1.5 py-0 border-orange-500/50 bg-orange-500/10 text-orange-500"
+                          data-testid={`badge-heatprotection-${profile.id}`}
+                        >
+                          🌡 Hitzeschutz aktiv
+                        </Badge>
+                      )}
+                      {heatStatus.override && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 text-[10px] px-1.5 py-0 border-sky-500/50 bg-sky-500/10 text-sky-400"
+                          data-testid={`badge-heatprotection-override-${profile.id}`}
+                        >
+                          ⚠ {heatStatus.overrideReason ? `Override: ${heatStatus.overrideReason}` : "Override aktiv"}
+                        </Badge>
+                      )}
                     </div>
                   );
                 })()}
