@@ -563,6 +563,7 @@ export async function registerRoutes(
           useHeater: "Heizregister nutzen (bei Kälte heizen)",
           heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–3)",
           heatProtectionEnabled: "Hitzeschutz aktivieren",
+          heatProtectionEnabled: "Hitzeschutz aktivieren",
           heatShutdownAbove: "Abschalten ab (°C)",
           co2OverrideThreshold: "Hitzeschutz-Override: CO₂-Grenzwert (ppm, Standard: 1000)",
           humidityOverrideThreshold: "Hitzeschutz-Override: Feuchte-Grenzwert (%, Standard: 65)",
