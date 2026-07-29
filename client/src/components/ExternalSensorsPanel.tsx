@@ -34,8 +34,29 @@ import {
 import {
   Plus, Trash2, Radio, Home, Thermometer, Droplets, Wind, Gauge,
   CloudRain, RefreshCw, Import, Scan, Pencil, Search, ToggleLeft,
-  GitMerge,
+  GitMerge, WifiOff,
 } from "lucide-react";
+
+// Must match STALE_SENSOR_THRESHOLD_MS in server/lib/automation.ts (default 30 min).
+// The server honours SENSOR_STALE_MINUTES env var; we default to the same value here.
+const STALE_THRESHOLD_MS = 30 * 60 * 1000;
+
+function isSensorStale(sensor: ExternalSensor): boolean {
+  if (!sensor.updatedAt) return true; // never synced
+  return Date.now() - new Date(sensor.updatedAt).getTime() > STALE_THRESHOLD_MS;
+}
+
+function formatLastSeen(updatedAt: Date | string | null): string {
+  if (!updatedAt) return "Noch nie aktualisiert";
+  const diffMs = Date.now() - new Date(updatedAt).getTime();
+  const diffMin = Math.round(diffMs / 60_000);
+  if (diffMin < 1) return "Gerade eben";
+  if (diffMin < 60) return `Vor ${diffMin} Min.`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `Vor ${diffH} Std.`;
+  const diffD = Math.round(diffH / 24);
+  return `Vor ${diffD} Tag${diffD !== 1 ? "en" : ""}`;
+}
 
 const sourceOptions = [
   { value: "homeassistant", label: "Home Assistant", icon: Home },
@@ -545,26 +566,43 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
             const sourceNames = sourceIds
               .map((id) => sensors.find((s) => s.id === id)?.name)
               .filter(Boolean);
+            const stale = sensor.lastValue !== null && isSensorStale(sensor);
 
             return (
-              <Card key={sensor.id} className="p-4" data-testid={`card-sensor-${sensor.id}`}>
+              <Card
+                key={sensor.id}
+                className={`p-4 transition-colors ${stale ? "border-amber-500/60 bg-amber-500/5" : ""}`}
+                data-testid={`card-sensor-${sensor.id}`}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`p-2 rounded-lg shrink-0 ${isVirtual ? "bg-primary/10" : "bg-muted"}`}>
-                      {isVirtual
-                        ? <GitMerge className="w-4 h-4 text-primary" />
-                        : <Radio className="w-4 h-4 text-muted-foreground" />
+                    <div className={`p-2 rounded-lg shrink-0 ${stale ? "bg-amber-500/15" : isVirtual ? "bg-primary/10" : "bg-muted"}`}>
+                      {stale
+                        ? <WifiOff className="w-4 h-4 text-amber-400" />
+                        : isVirtual
+                          ? <GitMerge className="w-4 h-4 text-primary" />
+                          : <Radio className="w-4 h-4 text-muted-foreground" />
                       }
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium">{sensor.name}</span>
+                        <span className={`font-medium ${stale ? "text-muted-foreground" : ""}`}>{sensor.name}</span>
                         <Badge variant={isVirtual ? "default" : "outline"} className="text-xs shrink-0">
                           {isVirtual ? "Mittelwert" : (sourceOptions.find((o) => o.value === sensor.sourceType)?.label ?? sensor.sourceType)}
                         </Badge>
                         <Badge variant="secondary" className="text-xs shrink-0">
                           <SensorTypeLabel type={sensor.sensorType} />
                         </Badge>
+                        {stale && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs shrink-0 border-amber-500/60 text-amber-400 bg-amber-500/10 gap-1"
+                            data-testid={`badge-stale-${sensor.id}`}
+                          >
+                            <WifiOff className="w-3 h-3" />
+                            Offline — {formatLastSeen(sensor.updatedAt)}
+                          </Badge>
+                        )}
                       </div>
                       {isVirtual && sourceNames.length > 0 ? (
                         <div className="text-xs text-muted-foreground mt-0.5">
@@ -578,10 +616,12 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
                         )
                       )}
                       {sensor.lastValue !== null && (
-                        <div className="text-xs font-mono mt-0.5 text-foreground/70">
+                        <div className={`text-xs font-mono mt-0.5 ${stale ? "text-muted-foreground/60" : "text-foreground/70"}`}>
                           {isVirtual ? "Mittelwert: " : "Letzter Wert: "}
-                          <span className="font-semibold">{sensor.lastValue} {sensor.unit}</span>
-                          {sensor.updatedAt && (
+                          <span className={`font-semibold ${stale ? "line-through decoration-amber-400/60" : ""}`}>
+                            {sensor.lastValue} {sensor.unit}
+                          </span>
+                          {sensor.updatedAt && !stale && (
                             <span className="text-muted-foreground ml-2">
                               {new Date(sensor.updatedAt).toLocaleString("de-DE")}
                             </span>
