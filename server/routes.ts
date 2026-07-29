@@ -561,9 +561,9 @@ export async function registerRoutes(
           useExternalSensors: "Externe Sensoren nutzen",
           useHeater: "Heizregister nutzen (bei Kälte heizen)",
           heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–3)",
-          heatShutdownAbove: "Hitzeschutz: Abschalten ab (°C, 0 = aus)",
-          co2OverrideThreshold: "Hitzeschutz-Override: CO₂-Grenzwert (ppm)",
-          humidityOverrideThreshold: "Hitzeschutz-Override: Feuchte-Grenzwert (%)",
+          heatShutdownAbove: "Hitzeschutz: Abschalten ab (°C, Standard: 32, 0 = aus)",
+          co2OverrideThreshold: "Hitzeschutz-Override: CO₂-Grenzwert (ppm, Standard: 1000)",
+          humidityOverrideThreshold: "Hitzeschutz-Override: Feuchte-Grenzwert (%, Standard: 65)",
         },
       },
     };
