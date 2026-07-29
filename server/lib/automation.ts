@@ -786,8 +786,32 @@ async function evaluateControlProfile(
       const deviceActualValue = actionReg?.lastValue !== undefined && actionReg.lastValue !== null
         ? Number(actionReg.lastValue)
         : undefined;
-      // Device has drifted from what automation last wrote → must re-write
-      const deviceDrifted = deviceActualValue !== undefined && deviceActualValue !== result.value;
+
+      // When a fan_speed action is required, also check whether the power coil
+      // is currently off (Hitzeschutz-Standby). Coil values are polled as the
+      // string "false" / "true", so Number("false") = NaN — we must match all
+      // falsy representations. If the unit is off, treat it as "drift" so the
+      // redundancy guard, hold-time, and isStandbyTransition check never block
+      // the wake-up write, even when the fan-speed register already shows the
+      // target value (which happens when the fan-speed was written during a
+      // prior partial wake-up but the coil write was skipped).
+      const powerCoilReg = (registers as any[]).find(
+        (r: any) => (r.tags ?? []).includes("power") && r.type === "coil"
+      );
+      const unitCurrentlyOff =
+        result.actionType === "fan_speed" &&
+        powerCoilReg != null &&
+        (powerCoilReg.lastValue === false ||
+          powerCoilReg.lastValue === "false" ||
+          powerCoilReg.lastValue === "0" ||
+          Number(powerCoilReg.lastValue) === 0);
+
+      // Device has drifted from what automation last wrote → must re-write.
+      // A powered-off unit needing fan_speed also counts as drift so that the
+      // wake-up coil write bypasses the redundancy guard and hold-time.
+      const deviceDrifted =
+        (deviceActualValue !== undefined && deviceActualValue !== result.value) ||
+        unitCurrentlyOff;
 
       if (last !== undefined && result.value === last.value && !deviceDrifted) {
         if (hysteresisSkip && hysteresisMeasured !== null && hysteresisSetpoint !== null) {
@@ -922,9 +946,17 @@ async function executeControlAction(
       const powerReg = registers.find(
         (r) => (r.tags ?? []).includes("power") && r.type === "coil"
       );
-      if (powerReg && Number(powerReg.lastValue) === 0) {
-        await client.writeSingleCoil(powerReg.address, true);
-        await storage.updateRegisterValue(powerReg.id, 1);
+      // Coil values are polled as the string "false"/"true", so
+      // Number("false") = NaN — check all falsy representations.
+      const coilIsOff =
+        powerReg != null &&
+        (powerReg.lastValue === false ||
+          powerReg.lastValue === "false" ||
+          powerReg.lastValue === "0" ||
+          Number(powerReg.lastValue) === 0);
+      if (coilIsOff) {
+        await client.writeSingleCoil(powerReg!.address, true);
+        await storage.updateRegisterValue(powerReg!.id, 1);
         messages.push("Anlage eingeschaltet (Hitzeschutz beendet)");
       }
 
