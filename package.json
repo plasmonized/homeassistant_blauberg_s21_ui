@@ -9,8 +9,9 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "test:wakeup": "tsx scripts/test-hitzeschutz-wakeup.ts",
-    "test:badge": "tsx scripts/test-heat-protection-badge.ts"
+    "test": "tsx scripts/test.ts",
+    "test:badge": "tsx scripts/test-heat-protection-badge.ts",
+    "test:wakeup": "tsx scripts/test-hitzeschutz-wakeup.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
