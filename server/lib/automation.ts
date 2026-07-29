@@ -44,6 +44,24 @@ function resolvePollIntervalMs(): number {
   return 10_000;
 }
 
+// How old an external sensor's last-synced value may be before it is
+// considered stale and the device register is used as a fallback instead.
+// Configurable via SENSOR_STALE_MINUTES env var (default: 30 minutes).
+function resolveStaleThresholdMs(): number {
+  const configured = Number(process.env.SENSOR_STALE_MINUTES);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured * 60_000;
+  }
+  return 30 * 60_000; // 30 minutes
+}
+
+const STALE_SENSOR_THRESHOLD_MS = resolveStaleThresholdMs();
+
+function isSensorFresh(sensor: { updatedAt: Date | null; name: string }): boolean {
+  if (!sensor.updatedAt) return false; // never synced → treat as stale
+  return Date.now() - sensor.updatedAt.getTime() < STALE_SENSOR_THRESHOLD_MS;
+}
+
 const POLL_INTERVAL_MS = resolvePollIntervalMs();
 let mqttInitialized = false;
 
@@ -74,32 +92,66 @@ async function getSensorValue(
   externalSensorId?: number | null
 ): Promise<number | null> {
   const findReg = (name: string) => registers.find((r) => r.name.includes(name));
-  const findExt = (type: string) => externalSensors?.find((s) => s.sensorType === type && s.lastValue !== null);
+
+  // findFreshExt returns the first matching external sensor only when it is
+  // within the staleness window.  warnIfStale emits a console warning when
+  // there IS a matching sensor with a value but it hasn't been updated
+  // recently — so the operator can see the fallback in HA add-on logs.
+  const findFreshExt = (type: string) =>
+    externalSensors?.find((s) => s.sensorType === type && s.lastValue !== null && isSensorFresh(s));
+
+  const warnIfStale = (type: string) => {
+    const stale = externalSensors?.find((s) => s.sensorType === type && s.lastValue !== null && !isSensorFresh(s));
+    if (stale) {
+      const ageMin = stale.updatedAt
+        ? Math.round((Date.now() - new Date(stale.updatedAt).getTime()) / 60_000)
+        : "unknown";
+      console.warn(
+        `[Automation] External sensor "${stale.name}" (type=${type}, id=${stale.id}) has not been ` +
+        `updated for ${ageMin} min (threshold=${Math.round(STALE_SENSOR_THRESHOLD_MS / 60_000)} min). ` +
+        `Falling back to device register.`
+      );
+    }
+  };
 
   // If a specific external sensor is linked, use it directly
   if (externalSensorId) {
     const sensor = externalSensors?.find((s) => s.id === externalSensorId);
     if (sensor && sensor.lastValue !== null) {
-      // Binary sensors (HA binary_sensor domain) report "on"/"off" - map to
-      // 1/0 so the existing numeric operator/threshold comparisons work.
-      if (sensor.sensorType === "binary") {
-        return sensor.lastValue === "on" ? 1 : 0;
+      if (!isSensorFresh(sensor)) {
+        const ageMin = sensor.updatedAt
+          ? Math.round((Date.now() - new Date(sensor.updatedAt).getTime()) / 60_000)
+          : "unknown";
+        console.warn(
+          `[Automation] External sensor "${sensor.name}" (id=${sensor.id}) has not been updated for ` +
+          `${ageMin} min (threshold=${Math.round(STALE_SENSOR_THRESHOLD_MS / 60_000)} min). ` +
+          `Falling back to device register.`
+        );
+        // Fall through to the register-based switch below
+      } else {
+        // Binary sensors (HA binary_sensor domain) report "on"/"off" - map to
+        // 1/0 so the existing numeric operator/threshold comparisons work.
+        if (sensor.sensorType === "binary") {
+          return sensor.lastValue === "on" ? 1 : 0;
+        }
+        return parseFloat(sensor.lastValue);
       }
-      return parseFloat(sensor.lastValue);
     }
   }
 
   switch (sensorType) {
     case "outdoor_temp": {
       // Prefer a dedicated outdoor sensor, fall back to a generic temperature sensor
-      const ext = findExt("outdoor_temp") || findExt("temperature");
+      const ext = findFreshExt("outdoor_temp") || findFreshExt("temperature");
       if (ext) return parseFloat(ext.lastValue);
+      warnIfStale("outdoor_temp");
       const reg = findReg("Outdoor");
       return reg?.lastValue != null ? parseFloat(reg.lastValue) : null;
     }
     case "indoor_temp": {
-      const ext = findExt("indoor_temp");
+      const ext = findFreshExt("indoor_temp");
       if (ext) return parseFloat(ext.lastValue);
+      warnIfStale("indoor_temp");
       // Otherwise use average of supply and extract as indoor temperature
       const supply = findReg("Supply");
       const extract = findReg("Extract");
@@ -109,8 +161,9 @@ async function getSensorValue(
       return sVal ?? eVal ?? null;
     }
     case "humidity": {
-      const ext = findExt("humidity") ?? findExt("indoor_humidity");
+      const ext = findFreshExt("humidity") ?? findFreshExt("indoor_humidity");
       if (ext) return parseFloat(ext.lastValue);
+      warnIfStale("humidity");
       // Prefer indoor humidity register for control; fall back to any humidity register
       const reg =
         registers.find((r) => (r.tags ?? []).includes("humidity") && (r.tags ?? []).includes("indoor")) ??
@@ -118,27 +171,32 @@ async function getSensorValue(
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
     case "indoor_humidity": {
-      const ext = findExt("indoor_humidity") ?? findExt("humidity");
+      const ext = findFreshExt("indoor_humidity") ?? findFreshExt("humidity");
       if (ext) return parseFloat(ext.lastValue);
+      warnIfStale("indoor_humidity");
       const reg = registers.find((r) => (r.tags ?? []).includes("humidity") && (r.tags ?? []).includes("indoor"))
         ?? findReg("Humidity");
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
     case "outdoor_humidity": {
-      const ext = findExt("outdoor_humidity");
+      const ext = findFreshExt("outdoor_humidity");
       if (ext) return parseFloat(ext.lastValue);
+      warnIfStale("outdoor_humidity");
       const reg = registers.find((r) => (r.tags ?? []).includes("humidity") && (r.tags ?? []).includes("outdoor"));
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
     case "co2": {
-      const ext = findExt("co2");
+      const ext = findFreshExt("co2");
       if (ext) return parseFloat(ext.lastValue);
+      warnIfStale("co2");
       const reg = findReg("CO2");
       return reg?.lastValue !== null ? parseFloat(reg.lastValue) : null;
     }
     case "forecast_temp": {
-      const ext = findExt("forecast_temp");
+      const ext = findFreshExt("forecast_temp");
       if (ext) return parseFloat(ext.lastValue);
+      // forecast_temp sensors are typically not backed by a device register;
+      // no register fallback and no stale warning here.
       return fetchForecastTemp();
     }
     default:
