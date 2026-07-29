@@ -10,8 +10,9 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "test": "tsx scripts/test.ts",
+    "test:wakeup": "tsx scripts/test-hitzeschutz-wakeup.ts",
     "test:badge": "tsx scripts/test-heat-protection-badge.ts",
-    "test:wakeup": "tsx scripts/test-hitzeschutz-wakeup.ts"
+    "test:hitzeschutz-persistence": "tsx scripts/test-hitzeschutz-persistence.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
