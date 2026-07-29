@@ -29,6 +29,7 @@ export function useControlLogs(deviceId: number, page = 1, pageSize = 25) {
         totalPages: number;
       }>;
     },
+    refetchInterval: 30_000,
   });
 }
 
