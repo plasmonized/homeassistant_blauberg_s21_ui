@@ -552,10 +552,40 @@ export async function startAutomationEngine() {
   // invocation has finished — two concurrent cycles both see
   // profileLastAction.get() === undefined and write the same fan speed
   // repeatedly, wasting Modbus bandwidth and defeating the skip/hold logic.
+  //
+  // Safety net: if a cycle hangs indefinitely (e.g. jsmodbus request waits
+  // forever for a response that never arrives because the S21 is frozen),
+  // the entire automation loop would stall because scheduleNextCycle's
+  // finally block only runs after the cycle resolves. A 60-second hard
+  // timeout breaks the deadlock: it force-closes all Modbus sockets (which
+  // makes the pending request throw immediately) and schedules the next
+  // cycle. Without this, one stuck TCP read could silence the automation
+  // for hours.
+  const CYCLE_TIMEOUT_MS = 60_000;
   async function scheduleNextCycle() {
     if (!automationRunning) return; // engine was stopped
     try {
-      await runAutomationCycle();
+      let timedOut = false;
+      const cycleTimeout = new Promise<void>((_, reject) =>
+        setTimeout(() => {
+          timedOut = true;
+          reject(new Error("Automation cycle timed out after 60 s"));
+        }, CYCLE_TIMEOUT_MS)
+      );
+      await Promise.race([runAutomationCycle(), cycleTimeout]);
+      if (timedOut) {
+        // Force-close all Modbus sockets so any in-flight jsmodbus requests
+        // throw immediately rather than continuing to hold up the lock chain.
+        const devices = await storage.getDevices();
+        for (const d of devices) closeConnection(d.id);
+      }
+    } catch (e: any) {
+      console.error("[Automation] Cycle error/timeout:", e.message);
+      // Force-close Modbus connections to unblock any hung requests.
+      try {
+        const devices = await storage.getDevices();
+        for (const d of devices) closeConnection(d.id);
+      } catch (_) {}
     } finally {
       if (automationRunning) {
         automationInterval = setTimeout(scheduleNextCycle, POLL_INTERVAL_MS);
@@ -640,6 +670,14 @@ async function evaluateControlProfile(
       default:
         break;
     }
+
+    // Diagnostic: always log what the profile computed so the HA add-on log
+    // shows exactly which values and decision path were taken each cycle.
+    console.log(
+      `[Control] Profile ${profile.id} (${controlType}): ` +
+      `outdoor=${outdoorTemp?.toFixed(1) ?? "null"}, indoor=${indoorTemp?.toFixed(1) ?? "null"}, ` +
+      `result=${result?.value ?? "null"}, last=${profileLastAction.get(profile.id)?.value ?? "—"}`
+    );
 
     if (result) {
       const holdMs = Math.max(0, (Number(params?.holdMinutes ?? 5)) * 60_000);

@@ -78,6 +78,13 @@ export async function getModbusClient(id: number, ip: string, port: number, slav
     socket.connect({ host: ip, port: port });
 
     socket.on("connect", () => {
+      // The connection-phase timeout (set below) must be cleared once the
+      // socket is alive. Leaving it active means any 5-second idle gap —
+      // e.g. between two Modbus requests inside a long poll cycle — would
+      // fire the handler, destroy the socket, and make all remaining
+      // register reads fail with "Offline / no connection to modbus server".
+      socket.setTimeout(0);
+
       const proxy = serializeClient(id, client);
       clients[id] = { socket, client, proxy };
 
