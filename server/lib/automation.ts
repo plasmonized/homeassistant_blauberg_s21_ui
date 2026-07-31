@@ -30,6 +30,23 @@ const PARTIAL_FAIL_THRESHOLD = 3;
 // Keyed by profile ID.
 const profileLastAction = new Map<number, { value: number; ts: number }>();
 
+// Tracks which devices are currently in Hitzeschutz standby.
+// Set to true when we write System State coil = false (standby).
+// Cleared to false only after we successfully write coil = true (wakeup).
+//
+// WHY this exists instead of relying on powerReg.lastValue from the DB:
+// The S21's System State coil (address 0) frequently times out on Modbus reads
+// — the firmware responds to writes but not reliably to reads. When a coil read
+// times out, the DB keeps the stale value from our last write (1 = on after a
+// wakeup attempt), so powerReg.lastValue shows "on" even though the unit is
+// physically in standby. The in-memory flag is set/cleared by WE-initiated writes
+// and is therefore always accurate regardless of read timeouts.
+//
+// Startup: the Map starts empty. On the first poll after a server restart, the
+// DB coil value (0 = false if standby was the last write) seeds the flag so that
+// a unit left in standby across a restart still gets the wakeup write.
+const hitzeschutzStandby = new Map<number, boolean>();
+
 // Timestamp of the last sensor history recording (ms). We record every 5 minutes.
 let lastSensorRecordedAt = 0;
 const SENSOR_RECORD_INTERVAL_MS = 5 * 60 * 1000;
@@ -795,16 +812,30 @@ async function evaluateControlProfile(
       // the wake-up write, even when the fan-speed register already shows the
       // target value (which happens when the fan-speed was written during a
       // prior partial wake-up but the coil write was skipped).
-      const powerCoilReg = (registers as any[]).find(
-        (r: any) => (r.tags ?? []).includes("power") && r.type === "coil"
-      );
-      const unitCurrentlyOff =
-        result.actionType === "fan_speed" &&
-        powerCoilReg != null &&
-        (powerCoilReg.lastValue === false ||
+      // Seed hitzeschutzStandby from DB on first encounter after a server restart
+      // (the Map starts empty, so we use the DB coil value as a one-time initialiser).
+      if (result.actionType === "fan_speed" && !hitzeschutzStandby.has(deviceId)) {
+        const powerCoilReg = (registers as any[]).find(
+          (r: any) => (r.tags ?? []).includes("power") && r.type === "coil"
+        );
+        const dbCoilIsOff = powerCoilReg != null && (
+          powerCoilReg.lastValue === false ||
           powerCoilReg.lastValue === "false" ||
           powerCoilReg.lastValue === "0" ||
-          Number(powerCoilReg.lastValue) === 0);
+          Number(powerCoilReg.lastValue) === 0
+        );
+        hitzeschutzStandby.set(deviceId, dbCoilIsOff);
+      }
+
+      // A unit is "currently off" if we put it into Hitzeschutz standby and
+      // haven't confirmed a successful wakeup yet. We use the in-memory flag
+      // rather than powerReg.lastValue because the S21's System State coil
+      // frequently times out on reads — the DB stays stale at "1" (on) after
+      // our wakeup write was acknowledged at protocol level but not physically
+      // executed, making powerReg.lastValue an unreliable signal.
+      const unitCurrentlyOff =
+        result.actionType === "fan_speed" &&
+        hitzeschutzStandby.get(deviceId) === true;
 
       // Device has drifted from what automation last wrote → must re-write.
       // A powered-off unit needing fan_speed also counts as drift so that the
@@ -933,6 +964,9 @@ async function executeControlAction(
       if (powerReg) {
         await client.writeSingleCoil(powerReg.address, false);
         await storage.updateRegisterValue(powerReg.id, 0);
+        // Mark this device as in standby so the fan_speed wakeup path
+        // doesn't rely on reading the coil back (which often times out on S21).
+        hitzeschutzStandby.set(deviceId, true);
         return { success: true, message: "Anlage auf Standby (Hitzeschutz aktiv)" };
       }
       return { success: false, message: "Power-Register (System State Coil) nicht gefunden" };
@@ -943,20 +977,17 @@ async function executeControlAction(
       // Wiederanlauf: wenn die Anlage durch Hitzeschutz-Standby ausgeschaltet wurde
       // und jetzt wieder Lüftung benötigt wird (CO₂/Feuchte-Override oder Außentemp.
       // gesunken), schalten wir die Anlage erst wieder ein, bevor wir die Stufe setzen.
+      // We use hitzeschutzStandby (in-memory) instead of powerReg.lastValue because
+      // System State coil reads time out frequently on the S21, leaving the DB stale.
       const powerReg = registers.find(
         (r) => (r.tags ?? []).includes("power") && r.type === "coil"
       );
-      // Coil values are polled as the string "false"/"true", so
-      // Number("false") = NaN — check all falsy representations.
-      const coilIsOff =
-        powerReg != null &&
-        (powerReg.lastValue === false ||
-          powerReg.lastValue === "false" ||
-          powerReg.lastValue === "0" ||
-          Number(powerReg.lastValue) === 0);
-      if (coilIsOff) {
-        await client.writeSingleCoil(powerReg!.address, true);
-        await storage.updateRegisterValue(powerReg!.id, 1);
+      const needsWakeup = hitzeschutzStandby.get(deviceId) === true;
+      if (needsWakeup && powerReg) {
+        await client.writeSingleCoil(powerReg.address, true);
+        await storage.updateRegisterValue(powerReg.id, 1);
+        // Clear the standby flag — the unit has been commanded to wake up.
+        hitzeschutzStandby.set(deviceId, false);
         messages.push("Anlage eingeschaltet (Hitzeschutz beendet)");
       }
 
