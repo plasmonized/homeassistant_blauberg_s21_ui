@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.6.2
+
+- **Hotfix: Anlage blieb dauerhaft im Hitzeschutz-Standby** — Der S21-Coil an Adresse 0 (System State) beantwortet Lesevorgänge zuverlässig mit einem Timeout (231 Timeouts in einem Session-Log). Nach einem Wakeup-Schreibvorgang (`coil=true`) wurde der DB-Wert auf 1 gesetzt, anschließende Lesevorgänge timten jedoch immer aus — der DB-Wert blieb daher dauerhaft auf 1 stehen, selbst wenn das Gerät physisch noch im Standby war. `unitCurrentlyOff` las diesen veralteten DB-Wert und kam zum Schluss, die Anlage laufe — weitere Wakeup-Versuche wurden unterdrückt. Fix: Standby-Zustand wird jetzt in einer In-Memory-Map (`hitzeschutzStandby`) getrackt, die ausschließlich durch eigene Schreibvorgänge (Standby-Befehl setzt `true`, Wakeup-Befehl löscht auf `false`) gesteuert wird. Coil-Lesetimeouts haben darauf keinen Einfluss mehr.
+
 ## 0.3.6.1
 
 - **Hotfix: Anlage blieb nach Schwellwert-Erhöhung ausgeschaltet** — Drei zusammenwirkende Fehler verhinderten den Wiederanlauf nach Hitzeschutz-Standby: (1) Fan-Speed-Register zeigte bereits den Zielwert → Automation wertete das als „nichts zu tun" und prüfte den Coil nie; (2) `isStandbyTransition`-Erkennung schlug fehl, sobald `profileLastAction.value` durch einen früheren Teil-Wakeup auf 1 gesetzt wurde; (3) Polling-Loop speichert Coil-Werte als String `"false"` — `Number("false")` ergibt `NaN`, nicht `0`, wodurch der Wake-up-Coil-Schreibvorgang stets still übersprungen wurde. Fix: eingeschaltete Anlage mit ausgeschaltetem Coil wird jetzt als „Drift" erkannt, was alle drei Schutzmechanismen (Redundanz-Skip, Haltezeit, Coil-Check) korrekt überbrückt.

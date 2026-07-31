@@ -1,6 +1,6 @@
 name: "Blauberg S21 Ventilation Controller"
 description: "Modbus TCP Steuerung und Automation für Blauberg S21 Lüftungsgeräte mit Home Assistant Integration"
-version: "0.3.6.1"
+version: "0.3.6.2"
 slug: blauberg_s21_ventilation
 init: false
 arch:
