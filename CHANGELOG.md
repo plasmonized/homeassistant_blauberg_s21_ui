@@ -2,6 +2,8 @@
 
 ## 0.3.7
 
+- **Home-Assistant-Store:** Eigenes Lüftungslogo als Store-Symbol (`icon.png`) und Logo auf der Add-on-Seite (`logo.png`) ergänzt.
+
 - **Grundprofil · Wetter + Raumluft:** Eine gemeinsame Regelung führt Wetterkompensierung, CO₂- und Feuchtebedarf zusammen. Die höchste angeforderte Lüfterstufe gewinnt. CO₂ und Feuchte können auch Hitzeschutz-Standby übersteuern. Sensoren für Innen-/Außentemperatur, CO₂ und Feuchte sind unabhängig intern oder extern wählbar. Einstellbare Schwellen und Hysterese; steigender Luftqualitätsbedarf umgeht die Haltezeit. Fehlende/veraltete benötigte Werte werden ausdrücklich gemeldet und verhindern Standby.
 - **Klare Priorität:** Ein aktives Grundprofil pausiert andere Regelungsprofile sowie einfache Lüfterstufen-/Modusregeln, ohne sie zu löschen. Boost- und Bypassregeln bleiben unabhängig. Bestehende Profile werden nicht automatisch umgestellt.
 - **Sollwerte übersichtlicher:** Das Grundprofil bleibt als zentraler Bereich direkt unter Sollwerte sichtbar, auch vor der Einrichtung oder wenn deaktiviert. Im Einstellungsdialog sind CO₂ und Luftfeuchte mit ihren jeweiligen Schwellen und Hysteresen getrennt gruppiert.
