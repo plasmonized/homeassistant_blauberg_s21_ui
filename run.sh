@@ -46,7 +46,7 @@ if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
 fi
 
 # Auto-detect MQTT if Mosquitto addon is installed
-if bashio::services.available "mqtt" 2>/dev/null; then
+if [ -z "$MQTT_HOST" ] && bashio::services.available "mqtt" 2>/dev/null; then
     bashio::log.info "MQTT Service gefunden, auto-konfiguriere..."
     export MQTT_HOST="$(bashio::services mqtt host)"
     export MQTT_PORT="$(bashio::services mqtt port)"

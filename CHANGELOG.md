@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.7
+
+- **Grundprofil · Wetter + Raumluft:** Eine gemeinsame Regelung führt Wetterkompensierung, CO₂- und Feuchtebedarf zusammen. Die höchste angeforderte Lüfterstufe gewinnt. CO₂ und Feuchte können auch Hitzeschutz-Standby übersteuern. Sensoren für Innen-/Außentemperatur, CO₂ und Feuchte sind unabhängig intern oder extern wählbar. Einstellbare Schwellen und Hysterese; steigender Luftqualitätsbedarf umgeht die Haltezeit. Fehlende/veraltete benötigte Werte werden ausdrücklich gemeldet und verhindern Standby.
+- **Klare Priorität:** Ein aktives Grundprofil pausiert andere Regelungsprofile sowie einfache Lüfterstufen-/Modusregeln, ohne sie zu löschen. Boost- und Bypassregeln bleiben unabhängig. Bestehende Profile werden nicht automatisch umgestellt.
+- **MQTT-Einstellungen in der Oberfläche:** Broker, Port, Benutzer, Passwort, TLS und Aktivierung unter Einstellungen; Änderungen werden dauerhaft gespeichert und verbinden ohne Add-on-Neustart neu. Rückkehr zur Add-on-Konfiguration möglich. Passwörter werden nicht an den Browser zurückgegeben.
+- **Home Assistant MQTT Discovery:** Erneute Discovery und Zustandsmeldung nach Brokerwechsel, Reconnect und Home-Assistant-Neustart. MQTT-Steuerbefehle mit `+`-Platzhalter werden korrekt verarbeitet; ungültige und gespeicherte Retain-Steuerbefehle werden verworfen. Enum-/Schalterwerte bleiben in der Datenbank numerisch. Last Will meldet Verbindungsabbrüche.
+- **Regelungsverlauf:** Automatisch auf die neuesten 750 Einträge pro Gerät begrenzt, einschließlich Bereinigung des bestehenden Verlaufs beim Start.
+
 ## 0.3.6.2
 
 - **Hotfix: Anlage blieb dauerhaft im Hitzeschutz-Standby** — Der S21-Coil an Adresse 0 (System State) beantwortet Lesevorgänge zuverlässig mit einem Timeout (231 Timeouts in einem Session-Log). Nach einem Wakeup-Schreibvorgang (`coil=true`) wurde der DB-Wert auf 1 gesetzt, anschließende Lesevorgänge timten jedoch immer aus — der DB-Wert blieb daher dauerhaft auf 1 stehen, selbst wenn das Gerät physisch noch im Standby war. `unitCurrentlyOff` las diesen veralteten DB-Wert und kam zum Schluss, die Anlage laufe — weitere Wakeup-Versuche wurden unterdrückt. Fix: Standby-Zustand wird jetzt in einer In-Memory-Map (`hitzeschutzStandby`) getrackt, die ausschließlich durch eigene Schreibvorgänge (Standby-Befehl setzt `true`, Wakeup-Befehl löscht auf `false`) gesteuert wird. Coil-Lesetimeouts haben darauf keinen Einfluss mehr.

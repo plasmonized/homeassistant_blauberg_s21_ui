@@ -30,7 +30,7 @@ import {
   type SensorReading,
   type InsertSensorReading,
 } from "@shared/schema";
-import { eq, and, desc, lt, gte, sql, not, like } from "drizzle-orm";
+import { eq, ne, and, desc, lt, gte, sql, not, like } from "drizzle-orm";
 
 export interface IStorage {
   // Devices
@@ -199,7 +199,7 @@ export class DatabaseStorage implements IStorage {
       .from(externalSensors)
       .where(and(
         eq(externalSensors.deviceId, deviceId),
-        eq(externalSensors.sensorType, sensorType)
+        eq(externalSensors.sensorType, sensorType as ExternalSensor["sensorType"])
       ))
       .limit(1);
     return sensor;
@@ -239,16 +239,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createControlProfile(profile: InsertControlProfile): Promise<ControlProfile> {
-    const [newProfile] = await db.insert(controlProfiles).values(profile).returning();
-    return newProfile;
+    return db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(751, ${profile.deviceId})`);
+      if (profile.schemaType === "base_profile" && profile.enabled !== false) {
+        await tx.update(controlProfiles).set({ enabled: false })
+          .where(and(eq(controlProfiles.deviceId, profile.deviceId), eq(controlProfiles.schemaType, "base_profile")));
+      }
+      const [newProfile] = await tx.insert(controlProfiles).values(profile).returning();
+      return newProfile;
+    });
   }
 
   async updateControlProfile(id: number, updates: UpdateControlProfileRequest): Promise<ControlProfile> {
-    const [updated] = await db.update(controlProfiles)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(controlProfiles.id, id))
-      .returning();
-    return updated;
+    return db.transaction(async tx => {
+      const [existing] = await tx.select().from(controlProfiles).where(eq(controlProfiles.id, id));
+      if (!existing) throw new Error("Regelungsprofil nicht gefunden.");
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(751, ${existing.deviceId})`);
+      if ((updates.schemaType ?? existing.schemaType) === "base_profile" && (updates.enabled ?? existing.enabled)) {
+        await tx.update(controlProfiles).set({ enabled: false })
+          .where(and(eq(controlProfiles.deviceId, existing.deviceId), eq(controlProfiles.schemaType, "base_profile"), ne(controlProfiles.id, id)));
+      }
+      const [updated] = await tx.update(controlProfiles)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(controlProfiles.id, id)).returning();
+      return updated;
+    });
   }
 
   async deleteControlProfile(id: number): Promise<void> {
@@ -259,7 +274,7 @@ export class DatabaseStorage implements IStorage {
   async getControlLogs(deviceId: number, limit = 25, offset = 0): Promise<ControlLog[]> {
     return await db.select().from(controlLogs)
       .where(eq(controlLogs.deviceId, deviceId))
-      .orderBy(desc(controlLogs.timestamp))
+      .orderBy(desc(controlLogs.timestamp), desc(controlLogs.id))
       .limit(limit)
       .offset(offset);
   }
@@ -273,8 +288,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createControlLog(log: InsertControlLog): Promise<ControlLog> {
-    const [newLog] = await db.insert(controlLogs).values(log).returning();
-    return newLog;
+    return db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(750, ${log.deviceId})`);
+      const [newLog] = await tx.insert(controlLogs).values(log).returning();
+      await tx.execute(sql`
+        DELETE FROM control_logs WHERE id IN (
+          SELECT id FROM control_logs WHERE device_id = ${log.deviceId}
+          ORDER BY timestamp DESC NULLS LAST, id DESC OFFSET 750
+        )
+      `);
+      return newLog;
+    });
+  }
+
+  async pruneControlLogs(): Promise<void> {
+    await db.execute(sql`
+      DELETE FROM control_logs WHERE id IN (
+        SELECT id FROM (
+          SELECT id, row_number() OVER (
+            PARTITION BY device_id ORDER BY timestamp DESC NULLS LAST, id DESC
+          ) AS position FROM control_logs
+        ) ranked WHERE position > 750
+      )
+    `);
   }
 
   async getLastSuccessfulControlAction(profileId: number): Promise<ControlLog | undefined> {

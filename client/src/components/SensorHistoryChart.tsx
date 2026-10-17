@@ -63,7 +63,7 @@ export function SensorHistoryChart({ deviceId }: Props) {
   // Pivot: { t, [regId]: value, ... }[]
   const chartData = useMemo(() => {
     if (!history) return [];
-    const byTime = new Map<string, Record<string, number>>();
+    const byTime = new Map<string, { t: string; [key: string]: string | number }>();
     for (const pt of history) {
       if (!relevantIds.has(pt.registerId)) continue;
       if (!byTime.has(pt.t)) byTime.set(pt.t, { t: pt.t } as any);

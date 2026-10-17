@@ -47,3 +47,10 @@ Add a new suite by creating `scripts/test-<name>.ts` and registering it in `pack
 - Changelog and version bump on every release pushed to GitHub
 - German UI language throughout
 - Log format: `[Control] Profile X (type): outdoor=Y, indoor=Z, co2=W, humidity=V, result=actionType=value, last=prev`
+
+## Grundprofil and MQTT
+
+- `base_profile` combines weather regulation with independent CO₂ and indoor-humidity demand. Highest requested fan stage wins, including over heat standby. Each measurement has its own internal/external source; missing or stale required sensors prevent standby.
+- An enabled base profile exclusively owns fan/mode control. Other profiles and simple fan/mode rules pause without deletion; explicit boost/bypass rules remain independent. Existing installations are not automatically converted.
+- UI MQTT settings override add-on/service defaults and persist under `$DATA_DIR/s21-settings` (`/data` in HA); development uses `.local/s21-settings`. The settings file contains broker credentials, is owner-only, and must never be logged, committed, or sent back through the settings API.
+- `npm run test:base-profile` tests arbitration and source selection. `npm run test:mqtt` uses a private test broker and Modbus server, never the user's broker. `npm run test:log-retention` checks the 750-entry per-device limit with isolated temporary log IDs.

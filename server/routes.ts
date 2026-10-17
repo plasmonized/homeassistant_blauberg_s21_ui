@@ -9,7 +9,11 @@ import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulat
 import { startAutomationEngine, stopAutomationEngine } from "./lib/automation";
 import { discoverHomeAssistantSensors, getHomeAssistantState, isHomeAssistantAvailable } from "./lib/ha-client";
 import { reconcileS21Registers, reconcileAllS21Devices } from "./lib/s21-register-map";
-import { isMqttConnected } from "./lib/mqtt-client";
+import { isMqttConnected, getMqttError, reconnectMqtt } from "./lib/mqtt-client";
+import { getPublicMqttSettings, loadMqttSettings, saveMqttSettings, resetMqttSettings } from "./lib/mqtt-settings";
+import { BASE_DEFAULTS, baseParametersSchema } from "./lib/base-profile";
+import { compatibleInternal, compatibleExternal, MEASUREMENTS } from "./lib/base-sensors";
+import { insertControlProfileSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -19,9 +23,10 @@ export async function registerRoutes(
   // Bring every device's register map in line with the real S21 hardware
   // BEFORE the automation engine starts polling/writing.
   await reconcileAllS21Devices();
+  await loadMqttSettings();
 
   // Start automation engine on server start
-  startAutomationEngine();
+  void startAutomationEngine().catch(error => console.error("[Automation] Start fehlgeschlagen:", error.message));
 
   // Devices
   app.get(api.devices.list.path, async (req, res) => {
@@ -365,6 +370,23 @@ export async function registerRoutes(
   });
 
   // === Control Profiles (Regulation Schemas) ===
+  async function validateBaseParameters(deviceId: number, parameters: unknown) {
+    const p = baseParametersSchema.parse(parameters);
+    const [registers, sensors] = await Promise.all([
+      storage.getRegisters(deviceId), storage.getExternalSensors(deviceId),
+    ]);
+    for (const type of MEASUREMENTS) {
+      const source = p.sensorSources[type] || "internal";
+      if (source === "internal") continue;
+      const [kind, id] = source.split(":");
+      const valid = kind === "internal"
+        ? registers.some(r => r.id === Number(id) && compatibleInternal(r, type))
+        : sensors.some(s => s.id === Number(id) && compatibleExternal(s, type));
+      if (!valid) throw new z.ZodError([{ code: "custom", path: ["sensorSources", type], message: "Sensor gehört nicht zu diesem Gerät oder passt nicht zum Messwert." }]);
+    }
+    return p;
+  }
+
   // List control profiles for a device
   app.get('/api/devices/:id/control-profiles', async (req, res) => {
     const profiles = await storage.getControlProfiles(Number(req.params.id));
@@ -377,11 +399,13 @@ export async function registerRoutes(
       const body = req.body;
       // Derive schemaType from controlType if not provided
       const schemaType = body.schemaType || body.controlType || "temperature_control";
-      const profile = await storage.createControlProfile(clampProfileFanSpeedParams({
+      const parsed = insertControlProfileSchema.parse(clampProfileFanSpeedParams({
         ...body,
         schemaType,
         deviceId: Number(req.params.id),
       }));
+      if (schemaType === "base_profile") parsed.parameters = await validateBaseParameters(parsed.deviceId, parsed.parameters);
+      const profile = await storage.createControlProfile(parsed);
       res.status(201).json(profile);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -393,8 +417,20 @@ export async function registerRoutes(
 
   // Update a control profile
   app.put('/api/control-profiles/:id', async (req, res) => {
-    const profile = await storage.updateControlProfile(Number(req.params.id), clampProfileFanSpeedParams(req.body));
-    res.json(profile);
+    try {
+      const id = Number(req.params.id);
+      const existing = await storage.getControlProfile(id);
+      if (!existing) return res.status(404).json({ message: "Profil nicht gefunden." });
+      const updates = insertControlProfileSchema.omit({ deviceId: true }).partial().parse(clampProfileFanSpeedParams(req.body));
+      if ((updates.schemaType ?? existing.schemaType) === "base_profile") {
+        updates.parameters = await validateBaseParameters(existing.deviceId, updates.parameters ?? existing.parameters);
+      }
+      const profile = await storage.updateControlProfile(id, updates);
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: error.errors[0].message });
+      res.status(500).json({ message: "Profil konnte nicht gespeichert werden." });
+    }
   });
 
   // Delete a control profile
@@ -406,6 +442,33 @@ export async function registerRoutes(
   // Control profile templates (pre-built schemas)
   app.get('/api/control-profiles/templates', async (req, res) => {
     const templates = {
+      base_profile: {
+        name: "Grundprofil · Wetter + Raumluft",
+        description: "Eine gemeinsame Regelung: Wetter bestimmt die Grundanforderung, CO₂ und Feuchte erhöhen bei Bedarf. Höchste Lüfterstufe gewinnt; andere Profile pausieren.",
+        defaultParams: BASE_DEFAULTS,
+        paramLabels: {
+          roomSetpoint: "Raum-Sollwert (°C)",
+          comfortBand: "Toleranzband um Sollwert (±°C)",
+          minOutdoorDelta: "Min. Differenz Außen/Innen (°C)",
+          boostThreshold: "Abweichung für max. Lüftung (°C)",
+          baseFanSpeed: "Grundlüftung (Stufe 1–3)",
+          activeFanSpeed: "Lüftung beim Regeln (Stufe 1–3)",
+          maxFanSpeed: "Max. temperaturbedingte Lüftung (Stufe 1–3)",
+          holdMinutes: "Mindesthaltedauer (Min.)",
+          useHeater: "Heizregister nutzen",
+          heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–3)",
+          heatProtectionEnabled: "Hitzeschutz aktivieren",
+          heatShutdownAbove: "Abschalten ab (°C)",
+          co2ControlEnabled: "CO₂-Regelung aktiv",
+          co2Setpoint: "CO₂ ab Stufe 2 (ppm)",
+          co2BoostThreshold: "CO₂ ab Stufe 3 (ppm)",
+          co2Hysteresis: "CO₂-Hysterese (ppm)",
+          humidityControlEnabled: "Feuchteregelung aktiv",
+          humiditySetpoint: "Feuchte ab Stufe 2 (%)",
+          humidityBoostThreshold: "Feuchte ab Stufe 3 (%)",
+          humidityHysteresis: "Feuchte-Hysterese (%)",
+        },
+      },
       temperature_control: {
         name: "Temperaturregelung",
         description: "PID-Regelung der Raumtemperatur über Lüfterstufe",
@@ -563,7 +626,6 @@ export async function registerRoutes(
           useHeater: "Heizregister nutzen (bei Kälte heizen)",
           heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–3)",
           heatProtectionEnabled: "Hitzeschutz aktivieren",
-          heatProtectionEnabled: "Hitzeschutz aktivieren",
           heatShutdownAbove: "Abschalten ab (°C)",
           co2OverrideThreshold: "Hitzeschutz-Override: CO₂-Grenzwert (ppm, Standard: 1000)",
           humidityOverrideThreshold: "Hitzeschutz-Override: Feuchte-Grenzwert (%, Standard: 65)",
@@ -624,6 +686,36 @@ export async function registerRoutes(
   app.get('/api/status', async (_req, res) => {
     res.json({ mqtt: isMqttConnected() });
   });
+
+  const mqttPublicStatus = () => ({
+    ...getPublicMqttSettings(), connected: isMqttConnected(), lastError: getMqttError(),
+  });
+  // Settings inherit the add-on's trusted Ingress/LAN access boundary.
+  // Reject cross-site browser writes; never return or log broker credentials.
+  app.use("/api/mqtt", (req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (req.method !== "GET" && req.headers["sec-fetch-site"] === "cross-site") {
+      return res.status(403).json({ message: "MQTT-Einstellungen nur innerhalb der Anwendung ändern." });
+    }
+    next();
+  });
+  app.get("/api/mqtt/settings", (_req, res) => res.json(mqttPublicStatus()));
+  let mqttUpdating = false;
+  const mqttUpdate = (reset: boolean) => async (req: import("express").Request, res: import("express").Response) => {
+    if (mqttUpdating) return res.status(409).json({ message: "Verbindungswechsel läuft bereits." });
+    mqttUpdating = true;
+    try {
+      if (reset) await resetMqttSettings();
+      else await saveMqttSettings(req.body);
+      await reconnectMqtt();
+      res.json(mqttPublicStatus());
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: error.errors[0].message });
+      res.status(500).json({ message: "MQTT-Einstellungen konnten nicht gespeichert werden." });
+    } finally { mqttUpdating = false; }
+  };
+  app.put("/api/mqtt/settings", mqttUpdate(false));
+  app.post("/api/mqtt/reset", mqttUpdate(true));
 
   return httpServer;
 }

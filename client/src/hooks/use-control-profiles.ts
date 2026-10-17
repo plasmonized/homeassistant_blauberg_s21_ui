@@ -82,12 +82,18 @@ export function useUpdateControlProfile(deviceId: number) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update profile");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Profil konnte nicht gespeichert werden.");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/devices", deviceId, "control-profiles"] });
       toast({ title: "Regelschema aktualisiert" });
+    },
+    onError: (err) => {
+      toast({ variant: "destructive", title: "Fehler", description: err.message });
     },
   });
 }

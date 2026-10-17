@@ -155,6 +155,7 @@ export const controlProfiles = pgTable("control_profiles", {
     "co2_control",
     "summer_winter",
     "night_setback",
+    "base_profile",
     "weather_compensated"
   ] }).notNull(),
   parameters: jsonb("parameters").notNull(),
@@ -178,6 +179,7 @@ export const controlLogs = pgTable("control_logs", {
     "co2_control",
     "summer_winter",
     "night_setback",
+    "base_profile",
     "weather_compensated"
   ] }),
   measuredValue: real("measured_value"),

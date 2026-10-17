@@ -1,6 +1,6 @@
 {
   "name": "rest-express",
-  "version": "0.3.6.2",
+  "version": "0.3.7",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -10,6 +10,9 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "test": "tsx scripts/test.ts",
+    "test:base-profile": "tsx scripts/test-base-profile.ts",
+    "test:mqtt": "tsx scripts/test-mqtt.ts",
+    "test:log-retention": "tsx scripts/test-log-retention.ts",
     "test:wakeup": "tsx scripts/test-hitzeschutz-wakeup.ts",
     "test:badge": "tsx scripts/test-heat-protection-badge.ts",
     "test:hitzeschutz-persistence": "tsx scripts/test-hitzeschutz-persistence.ts"

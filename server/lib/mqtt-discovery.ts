@@ -8,7 +8,7 @@
  * Select: Operation Mode, Bypass Control
  */
 
-import { connectMqtt, publish, subscribe, isMqttConnected, getMqttClient } from "./mqtt-client";
+import { connectMqtt, publish, subscribe, isMqttConnected, onMqttConnected } from "./mqtt-client";
 import { storage } from "../storage";
 
 const DEVICE_NAME = "Blauberg S21";
@@ -21,6 +21,22 @@ const DISCOVERY_PREFIX = "homeassistant";
 
 // Track which devices have been discovered
 const discoveredDevices = new Set<number>();
+
+// A new broker/session must receive discovery and commands even if this process
+// previously discovered the device on a different connection.
+onMqttConnected(async () => {
+  await republishDiscovery();
+  await setupCommandHandlers();
+});
+
+async function republishDiscovery(): Promise<void> {
+  discoveredDevices.clear();
+  for (const device of await storage.getDevices()) {
+    await discoverDevice(device.id);
+    if (device.isConnected) await publishRegisterStates(device.id);
+    else publishAvailability(false);
+  }
+}
 
 function getDeviceInfo() {
   return {
@@ -221,7 +237,8 @@ export async function publishRegisterStates(deviceId: number): Promise<void> {
     let value = reg.lastValue ?? "unavailable";
 
     // Format switch / binary states (System State, Boost Switch, Boost Active)
-    if (reg.name.includes("System State") || reg.name.includes("Boost")) {
+    if (reg.lastValue === null) continue;
+    if (reg.dataType === "bool") {
       value = value === "1" || value === "true" ? "ON" : "OFF";
     }
 
@@ -254,7 +271,7 @@ export async function setupCommandHandlers(): Promise<void> {
   // Subscribe to all command topics
   subscribe(`blauberg/${DEVICE_ID}/+/set`, async (topic, message) => {
     const payload = message.toString();
-    const regex = new RegExp(`blauberg/${DEVICE_ID}/([a-z]+)_(\\d+)/set`);
+    const regex = new RegExp(`^blauberg/${DEVICE_ID}/([a-z]+)_(\\d+)/set$`);
     const match = topic.match(regex);
     if (!match) return;
 
@@ -273,29 +290,33 @@ export async function setupCommandHandlers(): Promise<void> {
       // Parse payload based on register type
       let value: any;
       if (reg.dataType === "bool") {
+        if (!["ON", "OFF"].includes(payload)) continue;
         value = payload === "ON" ? 1 : 0;
       } else if (reg.options) {
         // Reverse lookup option value
         const optionMap = reg.options as Record<string, string>;
         const entry = Object.entries(optionMap).find(([_, label]) => label === payload);
-        value = entry ? parseInt(entry[0], 10) : parseInt(payload, 10);
+        if (!entry && !Object.hasOwn(optionMap, payload)) continue;
+        value = entry ? Number(entry[0]) : Number(payload);
       } else {
-        value = parseInt(payload, 10);
+        value = payload.trim() === "" ? NaN : Number(payload);
       }
+      if (!Number.isFinite(value)) continue;
 
       // Hardware only supports fan speed levels 1-3 (Blauberg S21). Clamp any
       // incoming MQTT command for the Fan Speed register so a manual/scripted
       // publish of 0, 4, or 5 can never reach Modbus.
-      let storedPayload = payload;
-      if (reg.name.includes("Fan Speed")) {
+      if ((reg.tags ?? []).includes("fan")) {
         const clamped = Math.max(1, Math.min(3, Math.round(Number(value))));
         value = clamped;
-        storedPayload = String(clamped);
       }
+      if ((reg.tags ?? []).includes("setpoint") && (value < 15 || value > 30)) continue;
+      const storedValue = value;
 
       if (reg.scale && reg.scale !== 1) {
         value = value * reg.scale;
       }
+      if (!Number.isInteger(value) || value < 0 || value > 65535) continue;
 
       try {
         const { getModbusClient } = await import("./modbus");
@@ -305,16 +326,25 @@ export async function setupCommandHandlers(): Promise<void> {
         } else {
           await client.writeSingleRegister(address, value);
         }
-        await storage.updateRegisterValue(reg.id, storedPayload);
-        publishState(uniqueId, storedPayload);
+        // Store canonical numeric values, not HA enum labels or "ON"/"OFF";
+        // automation drift checks read these same database values.
+        await storage.updateRegisterValue(reg.id, String(storedValue));
+        await publishRegisterStates(device.id);
         console.log(`[MQTT] Wrote ${value} to ${reg.type} register ${address}`);
       } catch (err) {
         console.error(`[MQTT] Failed to write to ${reg.type} register ${address}:`, err);
       }
     }
   });
+  subscribe("homeassistant/status", async (_topic, message) => {
+    if (message.toString() === "online") await republishDiscovery();
+  });
 
   console.log("[MQTT-Discovery] Command handlers set up");
+}
+
+export function publishDeviceUnavailable(): void {
+  if (isMqttConnected()) publishAvailability(false);
 }
 
 export async function cleanupDiscovery(deviceId: number): Promise<void> {

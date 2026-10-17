@@ -46,6 +46,7 @@ interface ControlProfilesPanelProps {
 }
 
 const controlTypeIcons: Record<string, any> = {
+  base_profile: Gauge,
   temperature_control: Thermometer,
   humidity_control: Droplets,
   co2_control: Wind,
@@ -79,6 +80,7 @@ const compatibleSensorTypes: Record<string, string[]> = {
 };
 
 const controlTypeLabels: Record<string, string> = {
+  base_profile: "Grundprofil · Wetter + Raumluft",
   temperature_control: "Temperaturregelung",
   humidity_control: "Feuchtigkeitsregelung",
   co2_control: "CO2-Regelung",
@@ -97,6 +99,7 @@ const controlTypeUnits: Record<string, string> = {
 };
 
 const controlTypeSetpointKeys: Record<string, string[]> = {
+  base_profile: ["roomSetpoint"],
   temperature_control: ["setpoint"],
   humidity_control: ["setpoint"],
   co2_control: ["setpoint"],
@@ -202,6 +205,36 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const [showExpert, setShowExpert] = useState(false);
   // sensorMappings: { [measurementKey]: sensorId-as-string } — persisted in params.sensorMappings as numbers
   const [sensorMappings, setSensorMappings] = useState<Record<string, string>>({});
+  const baseSensorMeasurements = [
+    { key: "indoor_temp", label: "Innentemperatur", unit: "°C", tags: ["temperature"], location: "indoor" },
+    { key: "outdoor_temp", label: "Außentemperatur", unit: "°C", tags: ["temperature"], location: "outdoor" },
+    { key: "co2", label: "CO₂", unit: "ppm", tags: ["co2"], location: null },
+    { key: "humidity", label: "Luftfeuchtigkeit", unit: "%", tags: ["indoor_humidity", "humidity"], location: "indoor" },
+  ];
+  const isBaseProfile = selectedTemplate === "base_profile";
+  const baseProfile = (profiles as any[] | undefined)?.find((p) =>
+    p.enabled && (p.schemaType || p.controlType) === "base_profile"
+  );
+  const registerForBaseMeasurement = (measurement: typeof baseSensorMeasurements[number]) =>
+    ((registers as any[]) || []).find((register: any) => {
+      const tags = register.tags || [];
+      const typeMatch = measurement.tags.some((tag) => tags.includes(tag));
+      const locationMatch = !measurement.location || tags.includes(measurement.location) ||
+        (measurement.location === "indoor" && tags.includes("extract"));
+      return typeMatch && locationMatch && !register.isWritable;
+    });
+  const measurementValue = (source: string, measurement: typeof baseSensorMeasurements[number]) => {
+    if (source.startsWith("external:")) {
+      const sensor = ((externalSensors as any[]) || []).find((s: any) => String(s.id) === source.slice(9));
+      return sensor?.lastValue;
+    }
+    if (source.startsWith("internal:")) {
+      const register = ((registers as any[]) || []).find((r: any) => String(r.id) === source.slice(9));
+      return register?.lastValue ?? register?.value;
+    }
+    const register = registerForBaseMeasurement(measurement);
+    return register?.lastValue ?? register?.value;
+  };
 
   const hasExternalSensor = (type: string) => {
     return externalSensors?.some((s: any) => s.sensorType === type) ?? false;
@@ -232,7 +265,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedTemplate && !editingProfile) return;
 
     const schemaType = editingProfile
@@ -244,10 +277,17 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     for (const [type, id] of Object.entries(sensorMappings)) {
       if (id && id !== "none") numericMappings[type] = Number(id);
     }
-    const finalParams = {
-      ...params,
-      sensorMappings: Object.keys(numericMappings).length > 0 ? numericMappings : undefined,
-    };
+    const paramsWithoutLegacyMappings = { ...params };
+    delete paramsWithoutLegacyMappings.sensorMappings;
+    const finalParams = schemaType === "base_profile"
+      ? {
+          ...paramsWithoutLegacyMappings,
+          sensorSources: params.sensorSources || Object.fromEntries(baseSensorMeasurements.map(({ key }) => [key, "internal"])),
+        }
+      : {
+          ...params,
+          sensorMappings: Object.keys(numericMappings).length > 0 ? numericMappings : undefined,
+        };
 
     const data = {
       name,
@@ -258,11 +298,13 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
       deviceId,
     };
 
-    if (editingProfile) {
-      updateProfile.mutate({ id: editingProfile.id, data: { name, parameters: finalParams } });
-    } else {
-      createProfile.mutate(data as any);
-    }
+    try {
+      if (editingProfile) {
+        await updateProfile.mutateAsync({ id: editingProfile.id, data: { name, parameters: finalParams } });
+      } else {
+        await createProfile.mutateAsync(data as any);
+      }
+    } catch { return; } // Keep edits open when validation or persistence failed.
 
     setDialogOpen(false);
     setEditingProfile(null);
@@ -442,18 +484,21 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   };
 
   const currentTemplate = selectedTemplate && templates ? templates[selectedTemplate] : null;
+  const templateEntries = currentTemplate ? Object.entries(currentTemplate.paramLabels || {}) : [];
 
   // Split params into setpoint and expert for dialog
-  const dialogParamEntries = currentTemplate
-    ? Object.entries(currentTemplate.paramLabels || {})
-    : [];
+  const dialogParamEntries = templateEntries;
   // Keys rendered in dedicated sections are excluded from both generic lists.
   const DEDICATED_KEYS = new Set([
     "useExternalSensors", "useHeater", "heatProtectionEnabled",
     "heatShutdownAbove", "co2OverrideThreshold", "humidityOverrideThreshold",
   ]);
-  const setpointEntries = dialogParamEntries.filter(([key]) => !isExpertParam(key) && !DEDICATED_KEYS.has(key));
-  const expertEntries   = dialogParamEntries.filter(([key]) => isExpertParam(key)  && !DEDICATED_KEYS.has(key));
+  const setpointEntries = dialogParamEntries.filter(([key]) =>
+    !isExpertParam(key) && !DEDICATED_KEYS.has(key) &&
+    !(isBaseProfile && ["co2ControlEnabled", "humidityControlEnabled", "co2Setpoint", "co2BoostThreshold", "humiditySetpoint", "humidityBoostThreshold", "co2Hysteresis", "humidityHysteresis"].includes(key))
+  );
+  const expertEntries   = dialogParamEntries.filter(([key]) => isExpertParam(key) && !DEDICATED_KEYS.has(key) &&
+    !(isBaseProfile && ["co2Hysteresis", "humidityHysteresis"].includes(key)));
 
   return (
     <div className="space-y-6">
@@ -495,7 +540,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   <Label>Regelungstyp</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {templates &&
-                      Object.entries(templates).map(([key, t]: [string, any]) => {
+                      Object.entries(templates).sort(([a], [b]) => a === "base_profile" ? -1 : b === "base_profile" ? 1 : 0).map(([key, t]: [string, any]) => {
                         const Icon = controlTypeIcons[key] || Bot;
                         const active = selectedTemplate === key;
                         return (
@@ -534,6 +579,87 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                     {currentTemplate.description}
                   </p>
 
+                  {isBaseProfile && (
+                    <>
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                        <div className="font-medium text-primary">Priorität des Basisprofils</div>
+                        <p className="mt-1 text-muted-foreground">
+                          Wetterregelung und Raumluftanforderungen laufen gemeinsam. Die höchste angeforderte Lüfterstufe gilt; CO₂ und Feuchte dürfen auch den Hitzeschutz-Standby übersteuern.
+                          Während dieses Profil aktiv ist, pausieren alle anderen Profile sowie ältere Lüfter- und Modusregeln. Sie bleiben gespeichert.
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold">Raumluftregelung</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {(["co2ControlEnabled", "humidityControlEnabled"] as const).map((key) => (
+                            <div key={key} className="flex items-center justify-between rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                              <Label className="text-sm">{key === "co2ControlEnabled" ? "CO₂-Regelung" : "Feuchteregelung"}</Label>
+                              <Switch checked={!!params[key]} onCheckedChange={(value) => handleParamChange(key, value)} data-testid={`switch-param-${key}`} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {[
+                            ["co2Setpoint", "CO₂-Sollwert", "ppm"], ["co2BoostThreshold", "CO₂-Boost ab", "ppm"],
+                            ["co2Hysteresis", "CO₂-Hysterese", "ppm"], ["humiditySetpoint", "Feuchte-Sollwert", "%"],
+                            ["humidityBoostThreshold", "Feuchte-Boost ab", "%"], ["humidityHysteresis", "Feuchte-Hysterese", "%"],
+                          ].map(([key, label, unit]) => (
+                            <div key={key} className="space-y-1.5">
+                              <Label className="text-xs">{label} ({unit})</Label>
+                              <Input type="number" value={params[key] ?? (currentTemplate.defaultParams || {})[key] ?? ""} onChange={(e) => handleParamChange(key, e.target.value === "" ? null : Number(e.target.value))} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-3 rounded-lg border border-border/50 p-3">
+                        <div>
+                          <h4 className="text-sm font-semibold">Messquellen</h4>
+                          <p className="text-xs text-muted-foreground mt-1">Jede Messung kann unabhängig intern oder extern bezogen werden. Aktuelle Werte werden angezeigt.</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {baseSensorMeasurements.map((measurement) => {
+                            const allRegs = ((registers as any[]) || []).filter((r: any) => {
+                              const tags = r.tags || [];
+                              return !r.isWritable && measurement.tags.some((tag) => tags.includes(tag)) &&
+                                (!measurement.location || tags.includes(measurement.location) || (measurement.location === "indoor" && tags.includes("extract")));
+                            });
+                            const allowedExternal = ((externalSensors as any[]) || []).filter((s: any) => {
+                              if (measurement.key === "humidity") return ["humidity", "indoor_humidity"].includes(s.sensorType);
+                              return compatibleSensorTypes[measurement.key].includes(s.sensorType);
+                            });
+                            const source = params.sensorSources?.[measurement.key] || "internal";
+                            const current = measurementValue(source, measurement);
+                            return <div key={measurement.key} className="space-y-1.5">
+                              <Label className="text-xs">{measurement.label}</Label>
+                              <Select value={source} onValueChange={(v) => handleParamChange("sensorSources", { ...(params.sensorSources || {}), [measurement.key]: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="internal">Intern — automatisch</SelectItem>
+                                  {allRegs.map((r: any) => <SelectItem key={`reg-${r.id}`} value={`internal:${r.id}`}>Intern — {r.name}</SelectItem>)}
+                                  {allowedExternal.map((s: any) => <SelectItem key={`ext-${s.id}`} value={`external:${s.id}`}>Extern — {s.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <p className={`text-xs ${current === null || current === undefined ? "text-amber-400" : "text-muted-foreground"}`}>
+                                Aktuell: {current === null || current === undefined || current === "" ? "nicht verfügbar" : `${current} ${measurement.unit}`}
+                              </p>
+                            </div>;
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {isBaseProfile && (
+                    <div className="space-y-3 rounded-lg border border-border/50 p-3">
+                      <h4 className="text-sm font-semibold">Hitzeschutz und Heizung</h4>
+                      {renderParamInput("heatProtectionEnabled", params.heatProtectionEnabled, "Hitzeschutz aktivieren")}
+                      <div className={params.heatProtectionEnabled === false ? "opacity-50 pointer-events-none" : ""}>
+                        {renderParamInput("heatShutdownAbove", params.heatShutdownAbove, "Standby ab Außentemperatur (°C)")}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Bei erhöhtem CO₂ oder erhöhter Feuchte bleibt die notwendige Lüftung aktiv. Bei fehlenden/veralteten benötigten Sensorwerten wird kein Standby ausgelöst.</p>
+                      {renderParamInput("useHeater", params.useHeater, "Heizregister nutzen")}
+                    </div>
+                  )}
                   {/* Setpoint params */}
                   {setpointEntries.length > 0 && (
                     <div className="space-y-3">
@@ -547,7 +673,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   )}
 
                   {/* External sensor toggle + per-type sensor pickers */}
-                  {dialogParamEntries.some(([key]) => key === "useExternalSensors") && (
+                  {!isBaseProfile && dialogParamEntries.some(([key]) => key === "useExternalSensors") && (
                     <div className="space-y-3">
                       <h4 className="text-sm font-semibold">Externe Sensoren</h4>
                       <div className="grid grid-cols-1 gap-4">
@@ -625,7 +751,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   )}
 
                   {/* Heater toggle */}
-                  {dialogParamEntries.some(([key]) => key === "useHeater") && (
+                  {!isBaseProfile && dialogParamEntries.some(([key]) => key === "useHeater") && (
                     <div className="space-y-3">
                       <h4 className="text-sm font-semibold">Heizung</h4>
                       <div className="grid grid-cols-1 gap-4">
@@ -642,7 +768,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   )}
 
                   {/* Hitzeschutz toggle + threshold + override thresholds */}
-                  {dialogParamEntries.some(([key]) => key === "heatProtectionEnabled") && (
+                  {!isBaseProfile && dialogParamEntries.some(([key]) => key === "heatProtectionEnabled") && (
                     <div className="space-y-3">
                       <h4 className="text-sm font-semibold">Hitzeschutz</h4>
                       {renderParamInput("heatProtectionEnabled", params["heatProtectionEnabled"], "Hitzeschutz aktivieren")}
@@ -752,7 +878,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                 </Button>
                 <Button
                   onClick={handleSave}
-                  disabled={(!selectedTemplate && !editingProfile) || !name}
+                  disabled={(!selectedTemplate && !editingProfile) || !name || createProfile.isPending || updateProfile.isPending}
                   data-testid="button-save-control-profile"
                 >
                   {editingProfile ? "Speichern" : "Erstellen"}
@@ -764,6 +890,14 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
       </div>
 
       {/* Active Profiles — Setpoint Cards */}
+      {baseProfile && (
+        <div className="rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm" data-testid="base-profile-priority">
+          <div className="flex items-center gap-2 font-medium text-primary"><Gauge className="h-4 w-4" />Basisprofil hat Vorrang</div>
+          <p className="mt-1 text-muted-foreground">
+            Wetter-, CO₂- und Feuchteanforderungen werden zusammengeführt; die höchste angeforderte Lüfterstufe gewinnt. CO₂ und Feuchte können den Hitzeschutz-Standby übersteuern. Andere Profile sowie ältere Lüfter- und Modusregeln sind pausiert, nicht gelöscht.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {profilesLoading ? (
           <>
@@ -779,11 +913,12 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             const setpoint = getSetpointValue(controlType, profile.parameters || {});
             const setpointLabel = getSetpointLabel(controlType, profile.parameters || {});
             const enabled = profile.enabled;
+            const pausedByBase = enabled && !!baseProfile && controlType !== "base_profile";
 
             return (
               <Card
                 key={profile.id}
-                className={`p-4 border-border/40 transition-opacity ${!enabled ? "opacity-60" : ""}`}
+                className={`p-4 border-border/40 transition-opacity ${!enabled || pausedByBase ? "opacity-60" : ""}`}
                 data-testid={`card-control-profile-${profile.id}`}
               >
                 <div className="flex items-start justify-between mb-3">
@@ -795,10 +930,10 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                       <div className="flex items-center gap-2">
                         <h4 className="font-medium text-sm">{profile.name}</h4>
                         <Badge
-                          variant={enabled ? "default" : "secondary"}
+                          variant={enabled && !pausedByBase ? "default" : "secondary"}
                           className="text-[10px] px-1.5 py-0"
                         >
-                          {enabled ? "Aktiv" : "Inaktiv"}
+                          {!enabled ? "Inaktiv" : pausedByBase ? "Pausiert" : "Aktiv"}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -833,8 +968,14 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   </div>
                 </div>
 
+                {pausedByBase && (
+                  <p className="mb-3 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-300">
+                    Pausiert, solange das Basisprofil aktiv ist. Einstellungen bleiben gespeichert.
+                  </p>
+                )}
+
                 {/* Setpoint quick edit */}
-                {setpoint !== null && (
+                {setpoint !== null && controlType !== "base_profile" && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">{setpointLabel}</Label>
@@ -877,7 +1018,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                 })()}
 
                 {/* Heat-protection status badges */}
-                {enabled && controlType === "weather_compensated" && (() => {
+                {enabled && !pausedByBase && ["weather_compensated", "base_profile"].includes(controlType) && (() => {
                   const heatStatus = getHeatProtectionStatus(logs || [], profile.id);
                   if (!heatStatus.standby && !heatStatus.override) return null;
                   return (
@@ -943,6 +1084,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             <div className="flex items-center gap-2">
               <History className="h-4 w-4" />
               <span>Regelungsverlauf</span>
+              <span className="text-xs font-normal text-muted-foreground">Neueste 750 Einträge pro Gerät</span>
               {logTotal > 0 && (
                 <Badge variant="outline" className="text-xs">{logTotal}</Badge>
               )}

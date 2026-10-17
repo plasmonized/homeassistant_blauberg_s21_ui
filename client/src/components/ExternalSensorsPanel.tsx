@@ -571,7 +571,7 @@ export function ExternalSensorsPanel({ deviceId }: { deviceId: number }) {
             const isVirtual = sensor.sourceType === "virtual_avg";
             const sourceIds = ((sensor.config as { sourceIds?: number[] } | null)?.sourceIds) ?? [];
             const sourceNames = sourceIds
-              .map((id) => sensors.find((s) => s.id === id)?.name)
+              .map((id) => sensors.find((s: ExternalSensor) => s.id === id)?.name)
               .filter(Boolean);
             const stale = sensor.lastValue !== null && isSensorStale(sensor);
 

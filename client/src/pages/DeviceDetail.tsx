@@ -16,6 +16,7 @@ import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 import { SensorHistoryChart } from "@/components/SensorHistoryChart";
 import { AutomationPanel } from "@/components/AutomationPanel";
 import { ExternalSensorsPanel } from "@/components/ExternalSensorsPanel";
+import { MqttSettings } from "@/components/MqttSettings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { useControlProfiles } from "@/hooks/use-control-profiles";
@@ -59,6 +60,7 @@ function ExternalSensorValueCard({ sensor }: { sensor: ExternalSensor }) {
 }
 
 const schemaTypeLabel: Record<string, string> = {
+  base_profile: "Grundprofil · Wetter + Raumluft",
   temperature_control: "Temperaturregelung",
   humidity_control: "Feuchtigkeitsregelung",
   co2_control: "CO₂-Regelung",
@@ -68,6 +70,7 @@ const schemaTypeLabel: Record<string, string> = {
 };
 
 const schemaTypeIcon: Record<string, JSX.Element> = {
+  base_profile: <Wind className="w-4 h-4 text-cyan-400" />,
   temperature_control: <Thermometer className="w-4 h-4 text-orange-400" />,
   humidity_control: <Droplets className="w-4 h-4 text-blue-400" />,
   co2_control: <Wind className="w-4 h-4 text-green-400" />,
@@ -132,7 +135,9 @@ export default function DeviceDetail() {
   const { data: externalSensors } = useExternalSensors(deviceId);
 
   const { data: profiles } = useControlProfiles(deviceId);
-  const activeProfiles: ControlProfile[] = (profiles ?? []).filter((p: ControlProfile) => p.enabled);
+  const enabledProfiles: ControlProfile[] = (profiles ?? []).filter((p: ControlProfile) => p.enabled);
+  const activeBase = enabledProfiles.find(p => p.schemaType === "base_profile");
+  const activeProfiles = activeBase ? [activeBase] : enabledProfiles;
 
   const { data: appStatus } = useAppStatus();
   const connectMutation = useConnectDevice();
@@ -203,8 +208,8 @@ export default function DeviceDetail() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold tracking-tight">{device.name}</h1>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-2xl font-bold tracking-tight break-all">{device.name}</h1>
                   <Badge variant={device.isConnected ? "success" : "destructive"}>
                     {device.isConnected ? "Online" : "Offline"}
                   </Badge>
@@ -290,8 +295,8 @@ export default function DeviceDetail() {
         )}
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <TabsList className="bg-muted/40 p-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+            <TabsList className="bg-muted/40 p-1 grid grid-cols-2 h-auto w-full sm:inline-flex sm:w-auto">
               <TabsTrigger value="overview" className="gap-2">
                 <LayoutDashboard className="w-4 h-4" /> Übersicht
               </TabsTrigger>
@@ -451,6 +456,8 @@ export default function DeviceDetail() {
           </TabsContent>
 
           <TabsContent value="einstellungen" className="space-y-8">
+            <MqttSettings />
+            <Separator />
             {/* Externe Sensoren */}
             <ExternalSensorsPanel deviceId={deviceId} />
 

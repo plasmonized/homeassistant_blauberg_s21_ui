@@ -3,8 +3,10 @@ import type { InsertSensorReading } from "@shared/schema";
 import { getModbusClient, closeConnection } from "./modbus";
 import { pollDeviceRegisters } from "./poll";
 import { getHomeAssistantState } from "./ha-client";
+import { effectiveProfiles, runBaseProfile, type AirDemand } from "./base-profile";
+import { resolveBaseSensor } from "./base-sensors";
 import { connectMqtt, isMqttConnected } from "./mqtt-client";
-import { discoverDevice, publishRegisterStates, setupCommandHandlers } from "./mqtt-discovery";
+import { discoverDevice, publishRegisterStates, setupCommandHandlers, publishDeviceUnavailable } from "./mqtt-discovery";
 import {
   runTemperatureControl,
   runHumidityControl,
@@ -29,6 +31,7 @@ const PARTIAL_FAIL_THRESHOLD = 3;
 // Used to enforce hold-time (Mindesthaltedauer) and skip redundant writes.
 // Keyed by profile ID.
 const profileLastAction = new Map<number, { value: number; ts: number }>();
+const baseAirDemand = new Map<number, AirDemand>();
 
 // Tracks which devices are currently in Hitzeschutz standby.
 // Set to true when we write System State coil = false (standby).
@@ -354,6 +357,7 @@ async function runAutomationCycle() {
         // Full failure (TCP connect failed or all registers offline).
         // poll.ts already called closeConnection; reset watchdog counter.
         consecutivePartialFailures[device.id] = 0;
+        publishDeviceUnavailable();
         continue;
       }
 
@@ -427,8 +431,9 @@ async function runAutomationCycle() {
 
       // Run control profiles (regulation schemas) — fresh sensors include HA + virtual avg values
       const profiles = await storage.getControlProfiles(device.id);
-      for (const profile of profiles) {
-        if (!profile.enabled) continue;
+      const selectedProfiles = effectiveProfiles(profiles);
+      const hasBaseProfile = selectedProfiles.some(p => p.schemaType === "base_profile");
+      for (const profile of selectedProfiles) {
         await evaluateControlProfile(device.id, profile, registers, freshSensors);
       }
 
@@ -464,6 +469,9 @@ async function runAutomationCycle() {
 
       for (const rule of rules) {
         if (!rule.enabled) continue;
+        // Only the base profile may own fan speed and operation mode.
+        // Explicit boost timers and bypass rules remain independent.
+        if (hasBaseProfile && ["fan_speed", "mode"].includes(rule.actionType)) continue;
         if (!isSeasonMatch(rule.season)) continue;
         if (!isInTimeRange(rule.timeFrom, rule.timeTo)) continue;
 
@@ -607,6 +615,7 @@ export async function startAutomationEngine() {
   // profileLastAction — a profile that was last set 2 min ago will continue
   // to respect its holdMinutes window instead of firing immediately.
   await seedProfileLastActionFromDb();
+  await storage.pruneControlLogs();
 
   // Initialize MQTT connection and discovery
   try {
@@ -703,13 +712,26 @@ async function evaluateControlProfile(
     const mappings: Record<string, number> = (useExt && params?.sensorMappings) ? params.sensorMappings : {};
     const pinned = (type: string): number | undefined => mappings[type] || undefined;
 
-    const indoorTemp = await getSensorValue(registers, "indoor_temp", extSensors, pinned("indoor_temp"));
-    const outdoorTemp = await getSensorValue(registers, "outdoor_temp", extSensors, pinned("outdoor_temp"));
-    const humidity = await getSensorValue(registers, "humidity", extSensors, pinned("humidity"));
-    const co2 = await getSensorValue(registers, "co2", extSensors, pinned("co2"));
+    const valueFor = async (type: "indoor_temp" | "outdoor_temp" | "humidity" | "co2") =>
+      controlType === "base_profile"
+        ? resolveBaseSensor(type, params?.sensorSources?.[type], registers, externalSensors, STALE_SENSOR_THRESHOLD_MS)
+        : getSensorValue(registers, type, extSensors, pinned(type));
+    const indoorTemp = await valueFor("indoor_temp");
+    const outdoorTemp = await valueFor("outdoor_temp");
+    const humidity = await valueFor("humidity");
+    const co2 = await valueFor("co2");
+    let airQualityIncrease = false;
 
     // Evaluate based on control type
     switch (controlType) {
+      case "base_profile": {
+        const evaluated = await runBaseProfile(profile.id, deviceId, params, indoorTemp, outdoorTemp, co2, humidity, baseAirDemand.get(profile.id));
+        result = evaluated.result;
+        baseAirDemand.set(profile.id, evaluated.demand);
+        airQualityIncrease = Math.max(evaluated.demand.co2, evaluated.demand.humidity) > (profileLastAction.get(profile.id)?.value ?? 0);
+        if (result.reason.includes("WARNUNG:")) console.warn(`[Control] ${result.reason}`);
+        break;
+      }
       case "temperature_control": {
         if (indoorTemp !== null) {
           result = await runTemperatureControl(profile.id, deviceId, params, indoorTemp);
@@ -878,14 +900,14 @@ async function evaluateControlProfile(
       const isStandbyTransition =
         result.actionType === "standby" ||            // entering standby
         (last !== undefined && last.value === 0 && result.actionType === "fan_speed"); // waking up
-      if (!deviceDrifted && !isStandbyTransition && last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
+      if (!deviceDrifted && !isStandbyTransition && !airQualityIncrease && last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
         const remainingMin = Math.ceil((holdMs - (now - last.ts)) / 60_000);
         await storage.createControlLog({
           profileId: profile.id,
           deviceId: deviceId,
           controlType: controlType,
           measuredValue: result.actionType === "fan_speed" ? (indoorTemp ?? 0) : (outdoorTemp ?? 0),
-          setpointValue: params?.setpoint || 0,
+          setpointValue: params?.roomSetpoint ?? params?.setpoint ?? 0,
           actionTaken: `${result.actionType}=⏸`,
           success: true,
           message: `Haltezeit aktiv – noch ${remainingMin} Min. bis nächste Änderung (Stufe ${last.value} → ${result.value} angefordert)`,
@@ -909,7 +931,7 @@ async function evaluateControlProfile(
         deviceId: deviceId,
         controlType: controlType,
         measuredValue: result.actionType === "fan_speed" ? (indoorTemp ?? 0) : (outdoorTemp ?? 0),
-        setpointValue: params?.setpoint || 0,
+        setpointValue: params?.roomSetpoint ?? params?.setpoint ?? 0,
         actionTaken: `${result.actionType}=${result.value}`,
         success: actionResult.success,
         message: `${result.reason} → ${actionResult.message}`,
@@ -925,7 +947,7 @@ async function evaluateControlProfile(
         });
         try {
           const mqttClient = await import("./mqtt-client");
-          const mqttClientInstance = await mqttClient.connectMqtt();
+          const mqttClientInstance = mqttClient.getMqttClient();
           if (mqttClientInstance) {
             mqttClientInstance.publish(topic, payload, { qos: 1, retain: false });
           }
