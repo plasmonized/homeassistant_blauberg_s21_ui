@@ -21,7 +21,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Accordion,
@@ -190,7 +189,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
   const logs = logsData?.logs;
   const logTotal = logsData?.total ?? 0;
   const logTotalPages = logsData?.totalPages ?? 1;
-  const { data: templates } = useControlProfileTemplates();
+  const { data: templates, isLoading: templatesLoading } = useControlProfileTemplates();
   const { data: registers } = useRegisters(deviceId);
   const { data: externalSensors } = useExternalSensors(deviceId);
   const createProfile = useCreateControlProfile(deviceId);
@@ -212,9 +211,10 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
     { key: "humidity", label: "Luftfeuchtigkeit", unit: "%", tags: ["indoor_humidity", "humidity"], location: "indoor" },
   ];
   const isBaseProfile = selectedTemplate === "base_profile";
-  const baseProfile = (profiles as any[] | undefined)?.find((p) =>
-    p.enabled && (p.schemaType || p.controlType) === "base_profile"
+  const baseProfiles = ((profiles as any[] | undefined) || []).filter((p) =>
+    (p.schemaType || p.controlType) === "base_profile"
   );
+  const baseProfile = baseProfiles.find((p) => p.enabled) || baseProfiles[0];
   const registerForBaseMeasurement = (measurement: typeof baseSensorMeasurements[number]) =>
     ((registers as any[]) || []).find((register: any) => {
       const tags = register.tags || [];
@@ -263,6 +263,22 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
       setName(t.name);
       setParams(t.defaultParams || {});
     }
+  };
+
+  const openCreateProfile = (templateKey?: string) => {
+    setEditingProfile(null);
+    setSelectedTemplate("");
+    setParams({});
+    setName("");
+    setShowExpert(false);
+    setSensorMappings({});
+    if (templateKey && templates?.[templateKey]) {
+      const template = templates[templateKey];
+      setSelectedTemplate(templateKey);
+      setName(template.name);
+      setParams({ ...(template.defaultParams || {}) });
+    }
+    setDialogOpen(true);
   };
 
   const handleSave = async () => {
@@ -371,6 +387,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
         <div key={key} className="col-span-full">
           <button
             type="button"
+            aria-pressed={on}
+            aria-label="Heizregister nutzen"
             onClick={() => handleParamChange(key, !on)}
             data-testid="switch-param-useHeater"
             className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
@@ -403,6 +421,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
         <div key={key} className="col-span-full">
           <button
             type="button"
+            aria-pressed={on}
+            aria-label="Hitzeschutz aktivieren"
             onClick={() => handleParamChange(key, !on)}
             data-testid="switch-param-heatProtectionEnabled"
             className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
@@ -511,23 +531,14 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              size="sm"
-              onClick={() => {
-                setEditingProfile(null);
-                setSelectedTemplate("");
-                setParams({});
-                setName("");
-                setShowExpert(false);
-                setSensorMappings({});
-              }}
-              data-testid="button-add-control-profile"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Sollwert hinzufügen
-            </Button>
-          </DialogTrigger>
+          <Button
+            size="sm"
+            onClick={() => openCreateProfile()}
+            data-testid="button-add-control-profile"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Weitere Regelung
+          </Button>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -546,6 +557,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                         return (
                           <button
                             key={key}
+                            type="button"
+                            aria-pressed={active}
                             onClick={() => handleTemplateChange(key)}
                             className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors text-left ${
                               active
@@ -582,34 +595,69 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   {isBaseProfile && (
                     <>
                       <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-                        <div className="font-medium text-primary">Priorität des Basisprofils</div>
+                        <div className="font-medium text-primary">Priorität des Grundprofils</div>
                         <p className="mt-1 text-muted-foreground">
                           Wetterregelung und Raumluftanforderungen laufen gemeinsam. Die höchste angeforderte Lüfterstufe gilt; CO₂ und Feuchte dürfen auch den Hitzeschutz-Standby übersteuern.
                           Während dieses Profil aktiv ist, pausieren alle anderen Profile sowie ältere Lüfter- und Modusregeln. Sie bleiben gespeichert.
                         </p>
                       </div>
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-semibold">Raumluftregelung</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {(["co2ControlEnabled", "humidityControlEnabled"] as const).map((key) => (
-                            <div key={key} className="flex items-center justify-between rounded-md border border-border/50 bg-muted/20 px-3 py-2">
-                              <Label className="text-sm">{key === "co2ControlEnabled" ? "CO₂-Regelung" : "Feuchteregelung"}</Label>
-                              <Switch checked={!!params[key]} onCheckedChange={(value) => handleParamChange(key, value)} data-testid={`switch-param-${key}`} />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {[
-                            ["co2Setpoint", "CO₂-Sollwert", "ppm"], ["co2BoostThreshold", "CO₂-Boost ab", "ppm"],
-                            ["co2Hysteresis", "CO₂-Hysterese", "ppm"], ["humiditySetpoint", "Feuchte-Sollwert", "%"],
-                            ["humidityBoostThreshold", "Feuchte-Boost ab", "%"], ["humidityHysteresis", "Feuchte-Hysterese", "%"],
-                          ].map(([key, label, unit]) => (
-                            <div key={key} className="space-y-1.5">
-                              <Label className="text-xs">{label} ({unit})</Label>
-                              <Input type="number" value={params[key] ?? (currentTemplate.defaultParams || {})[key] ?? ""} onChange={(e) => handleParamChange(key, e.target.value === "" ? null : Number(e.target.value))} />
-                            </div>
-                          ))}
-                        </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                          {
+                            title: "CO₂",
+                            enabledKey: "co2ControlEnabled",
+                            fields: [
+                              ["co2Setpoint", "Sollwert", "ppm"],
+                              ["co2BoostThreshold", "Boost ab", "ppm"],
+                              ["co2Hysteresis", "Hysterese", "ppm"],
+                            ],
+                          },
+                          {
+                            title: "Luftfeuchte",
+                            enabledKey: "humidityControlEnabled",
+                            fields: [
+                              ["humiditySetpoint", "Sollwert", "%"],
+                              ["humidityBoostThreshold", "Boost ab", "%"],
+                              ["humidityHysteresis", "Hysterese", "%"],
+                            ],
+                          },
+                        ].map(({ title, enabledKey, fields }) => {
+                          const enabled = !!params[enabledKey];
+                          return (
+                            <section key={enabledKey} className="space-y-3 rounded-lg border border-border/50 bg-muted/10 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <h4 className="text-sm font-semibold">{title}</h4>
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`switch-${enabledKey}`} className="text-xs text-muted-foreground">
+                                    {enabled ? "Aktiv" : "Inaktiv"}
+                                  </Label>
+                                  <Switch
+                                    id={`switch-${enabledKey}`}
+                                    aria-label={`${title}-Regelung aktivieren`}
+                                    checked={enabled}
+                                    onCheckedChange={(value) => handleParamChange(enabledKey, value)}
+                                    data-testid={`switch-param-${enabledKey}`}
+                                  />
+                                </div>
+                              </div>
+                              <div className={`space-y-3 ${enabled ? "" : "opacity-50"}`}>
+                                {fields.map(([key, label, unit]) => (
+                                  <div key={key} className="space-y-1.5">
+                                    <Label htmlFor={`input-${key}`} className="text-xs">{label} ({unit})</Label>
+                                    <Input
+                                      id={`input-${key}`}
+                                      type="number"
+                                      disabled={!enabled}
+                                      value={params[key] ?? (currentTemplate.defaultParams || {})[key] ?? ""}
+                                      onChange={(e) => handleParamChange(key, e.target.value === "" ? null : Number(e.target.value))}
+                                      data-testid={`input-param-${key}`}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          );
+                        })}
                       </div>
                       <div className="space-y-3 rounded-lg border border-border/50 p-3">
                         <div>
@@ -850,6 +898,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                   {expertEntries.length > 0 && (
                     <div className="border rounded-lg">
                       <button
+                        type="button"
+                        aria-expanded={showExpert}
                         onClick={() => setShowExpert((s) => !s)}
                         className="w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 rounded-lg"
                         data-testid="button-toggle-expert"
@@ -889,31 +939,171 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
         </Dialog>
       </div>
 
-      {/* Active Profiles — Setpoint Cards */}
-      {baseProfile && (
-        <div className="rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm" data-testid="base-profile-priority">
-          <div className="flex items-center gap-2 font-medium text-primary"><Gauge className="h-4 w-4" />Basisprofil hat Vorrang</div>
-          <p className="mt-1 text-muted-foreground">
-            Wetter-, CO₂- und Feuchteanforderungen werden zusammengeführt; die höchste angeforderte Lüfterstufe gewinnt. CO₂ und Feuchte können den Hitzeschutz-Standby übersteuern. Andere Profile sowie ältere Lüfter- und Modusregeln sind pausiert, nicht gelöscht.
-          </p>
+      {/* Grundprofil is always the primary configuration, never an equal legacy card. */}
+      <section
+        className="rounded-xl border-2 border-primary/30 bg-primary/[0.04] p-4 sm:p-5"
+        data-testid="primary-base-profile"
+        aria-labelledby="base-profile-heading"
+      >
+        {profilesLoading ? (
+          <div className="space-y-3" aria-label="Grundprofil wird geladen">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        ) : baseProfile ? (
+          <>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
+                  <Gauge className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 id="base-profile-heading" className="text-base font-semibold">Grundprofil</h4>
+                    <Badge variant={baseProfile.enabled ? "default" : "secondary"}>
+                      {baseProfile.enabled ? "Aktiv" : "Inaktiv"}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">{baseProfile.name}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Zentrale Regelung für Wetter, Temperatur und Raumluft. Wenn aktiviert, werden andere Regelungen pausiert.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 sm:self-start">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`base-profile-enabled-${baseProfile.id}`} className="text-sm">
+                    {baseProfile.enabled ? "Aktiviert" : "Deaktiviert"}
+                  </Label>
+                  <Switch
+                    id={`base-profile-enabled-${baseProfile.id}`}
+                    aria-label="Grundprofil aktivieren"
+                    checked={!!baseProfile.enabled}
+                    onCheckedChange={() => handleToggle(baseProfile)}
+                    data-testid={`switch-profile-enabled-${baseProfile.id}`}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEdit(baseProfile)}
+                  aria-label="Grundprofil bearbeiten"
+                  data-testid={`button-edit-profile-${baseProfile.id}`}
+                >
+                  <Settings2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Einstellungen
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Grundprofil löschen"
+                  disabled={deleteProfile.isPending}
+                  onClick={() => {
+                    if (window.confirm("Grundprofil wirklich löschen? Andere aktive Regelungen übernehmen anschließend wieder die Steuerung.")) {
+                      deleteProfile.mutate(baseProfile.id);
+                    }
+                  }}
+                  data-testid={`button-delete-profile-${baseProfile.id}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 rounded-lg border border-primary/20 bg-background/60 p-3 text-sm" data-testid="base-profile-priority">
+              <div className="flex items-center gap-2 font-medium text-primary">
+                <Gauge className="h-4 w-4" aria-hidden="true" />
+                {baseProfile.enabled ? "Grundprofil hat Vorrang" : "Zentrale Regelung"}
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                Wetter-, CO₂- und Feuchteanforderungen werden zusammengeführt; die höchste angeforderte Lüfterstufe gewinnt. CO₂ und Feuchte können den Hitzeschutz-Standby übersteuern.
+                {baseProfile.enabled
+                  ? " Weitere Regelungen sowie ältere Lüfter- und Modusregeln sind pausiert, nicht gelöscht."
+                  : " Weitere Regelungen bleiben verfügbar, solange das Grundprofil deaktiviert ist."}
+              </p>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="Grundprofil-Sollwerte">
+              {[
+                ["Raum-Soll", baseProfile.parameters?.roomSetpoint, "°C"],
+                ["CO₂-Soll", baseProfile.parameters?.co2Setpoint, "ppm"],
+                ["Feuchte-Soll", baseProfile.parameters?.humiditySetpoint, "%"],
+              ].map(([label, value, unit]) => (
+                <div key={label as string} className="text-muted-foreground">
+                  <span>{label}: </span>
+                  <span className="font-medium tabular-nums text-foreground">
+                    {value === undefined || value === null ? "nicht festgelegt" : `${value} ${unit}`}
+                  </span>
+                </div>
+              ))}
+              <span className="text-muted-foreground">
+                Raumluft: {baseProfile.parameters?.co2ControlEnabled ? "CO₂ aktiv" : "CO₂ aus"} · {baseProfile.parameters?.humidityControlEnabled ? "Feuchte aktiv" : "Feuchte aus"}
+              </span>
+            </div>
+            {baseProfile.enabled && (() => {
+              const heat = getHeatProtectionStatus(logs || [], baseProfile.id);
+              const hold = getHoldStatus(logs || [], baseProfile.id);
+              return (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {heat.standby && <Badge variant="outline" data-testid={`badge-heatprotection-${baseProfile.id}`}>Hitzeschutz aktiv</Badge>}
+                  {heat.override && <Badge variant="outline" title={heat.overrideReason || undefined}>Hitzeschutz übersteuert</Badge>}
+                  {hold.active && <Badge variant="outline">Haltezeit{hold.remainingMin !== null ? ` – noch ${hold.remainingMin} Min.` : ""}</Badge>}
+                </div>
+              );
+            })()}
+          </>
+        ) : (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
+                <Gauge className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h4 id="base-profile-heading" className="text-base font-semibold">Grundprofil</h4>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Richten Sie hier die zentrale Regelung für Wetter, Temperatur und Raumluft ein. Weitere Regelungen bleiben separat verfügbar.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => openCreateProfile("base_profile")}
+              disabled={templatesLoading || !templates?.base_profile}
+              aria-label="Grundprofil einrichten"
+              data-testid="button-setup-base-profile"
+            >
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {templatesLoading ? "Vorlage wird geladen …" : "Grundprofil einrichten"}
+            </Button>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3" aria-labelledby="other-profiles-heading">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h4 id="other-profiles-heading" className="text-base font-semibold">Weitere Regelungen</h4>
+            <p className="text-sm text-muted-foreground">
+              Zusätzliche Profile und ältere Regelungsarten.
+            </p>
+          </div>
+          {baseProfile?.enabled && (
+            <p className="text-xs text-muted-foreground">Pausiert, solange das Grundprofil aktiv ist.</p>
+          )}
         </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {profilesLoading ? (
           <>
             <Skeleton className="h-40" />
             <Skeleton className="h-40" />
             <Skeleton className="h-40" />
           </>
-        ) : profiles && profiles.length > 0 ? (
-          profiles.map((profile: any) => {
+        ) : profiles && profiles.some((profile: any) => (profile.schemaType || profile.controlType) !== "base_profile") ? (
+          profiles.filter((profile: any) => (profile.schemaType || profile.controlType) !== "base_profile").map((profile: any) => {
             const controlType = profile.schemaType || profile.controlType;
             const Icon = controlTypeIcons[controlType] || Bot;
             const unit = controlTypeUnits[controlType] || "";
             const setpoint = getSetpointValue(controlType, profile.parameters || {});
             const setpointLabel = getSetpointLabel(controlType, profile.parameters || {});
             const enabled = profile.enabled;
-            const pausedByBase = enabled && !!baseProfile && controlType !== "base_profile";
+            const pausedByBase = enabled && !!baseProfile?.enabled;
 
             return (
               <Card
@@ -945,6 +1135,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                     <Switch
                       checked={enabled}
                       onCheckedChange={() => handleToggle(profile)}
+                      aria-label={`${profile.name} ${enabled ? "deaktivieren" : "aktivieren"}`}
                       data-testid={`switch-profile-enabled-${profile.id}`}
                     />
                     <Button
@@ -952,6 +1143,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => handleEdit(profile)}
+                      aria-label={`${profile.name} bearbeiten`}
                       data-testid={`button-edit-profile-${profile.id}`}
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -961,6 +1153,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => deleteProfile.mutate(profile.id)}
+                      aria-label={`${profile.name} löschen`}
                       data-testid={`button-delete-profile-${profile.id}`}
                     >
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -970,7 +1163,7 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
 
                 {pausedByBase && (
                   <p className="mb-3 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-300">
-                    Pausiert, solange das Basisprofil aktiv ist. Einstellungen bleiben gespeichert.
+                    Pausiert, solange das Grundprofil aktiv ist. Einstellungen bleiben gespeichert.
                   </p>
                 )}
 
@@ -1048,8 +1241,8 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
                 {/* Status indicators */}
                 {enabled && (
                   <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Power className="h-3 w-3 text-green-500" />
-                    <span>Regelung aktiv</span>
+                    <Power className={`h-3 w-3 ${pausedByBase ? "text-amber-500" : "text-green-500"}`} />
+                    <span>{pausedByBase ? "Regelung pausiert" : "Regelung aktiv"}</span>
                     {profile.parameters?.useHeater && (
                       <Badge variant="outline" className="ml-1 gap-1 text-[10px] px-1.5 py-0 border-orange-500/50 text-orange-400">
                         <Flame className="h-2.5 w-2.5" />
@@ -1067,15 +1260,16 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
             );
           })
         ) : (
-          <div className="col-span-full text-center py-12 border border-dashed rounded-xl opacity-60">
-            <Bot className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <p>Noch keine Sollwerte eingerichtet</p>
-            <p className="text-sm mt-1">
-              Fügen Sie einen Regelungstyp hinzu und legen Sie den gewünschten Wert fest.
+          <div className="col-span-full rounded-xl border border-dashed py-8 text-center">
+            <Bot className="mx-auto mb-2 h-7 w-7 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm font-medium">Noch keine weiteren Regelungen</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Das Grundprofil bleibt Ihre zentrale Regelung. Zusätzliche Profile können Sie hier jederzeit ergänzen.
             </p>
           </div>
         )}
-      </div>
+        </div>
+      </section>
 
       {/* Regulation Logs */}
       <Accordion type="single" collapsible>
