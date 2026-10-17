@@ -267,7 +267,11 @@ export async function runWeatherCompensated(
   indoorTemp: number,
   co2?: number | null,
   humidity?: number | null,
+  options: { heatingRaisesFanSpeed?: boolean } = {},
 ): Promise<ControlResult> {
+  // Legacy weather profiles retain their behavior; the combined base profile
+  // separates the required air volume from permission to heat that air.
+  const heatingRaisesFanSpeed = options.heatingRaisesFanSpeed ?? true;
   const {
     roomSetpoint = 21,            // Raum-Sollwert (°C)
     comfortBand = 0.5,            // Toleranzband um den Sollwert (±°C) → nur Grundlüftung
@@ -358,11 +362,15 @@ export async function runWeatherCompensated(
 
   // Raum ist ZU KALT → Erwärmung gewünscht. Lüften hilft nur, wenn die Außenluft wärmer ist.
   if (outdoorTemp >= indoorTemp + minOutdoorDelta) {
-    const fanSpeed = clampFanSpeed(Math.abs(dev) >= boostThreshold ? maxFanSpeed : activeFanSpeed);
+    const fanSpeed = clampFanSpeed(heatingRaisesFanSpeed
+      ? (Math.abs(dev) >= boostThreshold ? maxFanSpeed : activeFanSpeed)
+      : baseFanSpeed);
     return withMode({
       actionType: "fan_speed",
       value: fanSpeed,
-      reason: `Erwärmen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C wärmer → kostenlose Wärme von außen, Stufe ${fanSpeed}`,
+      reason: heatingRaisesFanSpeed
+        ? `Erwärmen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C wärmer → kostenlose Wärme von außen, Stufe ${fanSpeed}`
+        : `Innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C wärmer → kein zusätzlicher Lüftungsbedarf, Grundlüftung Stufe ${fanSpeed}, Heizregister aus`,
     }, false);
   }
 
@@ -371,19 +379,23 @@ export async function runWeatherCompensated(
     // Integriertes Heizregister übernimmt: Anlage auf Heizung stellen und mit Luftstrom
     // betreiben, damit die Zuluft erwärmt wird. Die Firmware moduliert das Heizregister
     // selbstständig auf den Raum-Sollwert (HR_SetTEMP).
-    const fanSpeed = clampFanSpeed(Math.abs(dev) >= boostThreshold ? maxFanSpeed : heaterFanSpeed);
+    const fanSpeed = clampFanSpeed(heatingRaisesFanSpeed
+      ? (Math.abs(dev) >= boostThreshold ? maxFanSpeed : heaterFanSpeed)
+      : baseFanSpeed);
     return withMode({
       actionType: "fan_speed",
       value: fanSpeed,
-      reason: `Heizen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C kälter → Heizregister an, Stufe ${fanSpeed}`,
+      reason: heatingRaisesFanSpeed
+        ? `Heizen: innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C kälter → Heizregister an, Stufe ${fanSpeed}`
+        : `Innen ${indoorStr}°C < Soll ${roomSetpoint}°C, außen ${outdoorStr}°C → Grundlüftung Stufe ${fanSpeed}; Heizregister für Zuluft freigegeben, kein zusätzlicher Lüftungsbedarf durch Heizen`,
     }, true);
   }
   // Kein Heizregister aktiviert → nur Grundlüftung, damit der Raum nicht weiter
   // auskühlt. Power = manuell, daher kein automatisches Abschalten.
   return {
     actionType: "fan_speed",
-    value: 1,
-    reason: `Minimale Lüftung (Stufe 1): Raum ${indoorStr}°C bereits zu kalt und außen ${outdoorStr}°C nicht wärmer – stärkeres Lüften würde abkühlen (Heizregister nicht aktiviert)`,
+    value: heatingRaisesFanSpeed ? 1 : clampFanSpeed(baseFanSpeed),
+    reason: `Grundlüftung (Stufe ${heatingRaisesFanSpeed ? 1 : clampFanSpeed(baseFanSpeed)}): Raum ${indoorStr}°C bereits zu kalt und außen ${outdoorStr}°C nicht wärmer – stärkeres Lüften würde abkühlen (Heizregister nicht aktiviert)`,
   };
 }
 

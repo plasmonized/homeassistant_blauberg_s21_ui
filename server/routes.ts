@@ -444,19 +444,18 @@ export async function registerRoutes(
     const templates = {
       base_profile: {
         name: "Grundprofil · Wetter + Raumluft",
-        description: "Eine gemeinsame Regelung: Wetter bestimmt die Grundanforderung, CO₂ und Feuchte erhöhen bei Bedarf. Höchste Lüfterstufe gewinnt; andere Profile pausieren.",
+        description: "Grundlüftung mit bedarfsgerechter Kühlung, CO₂ und Feuchte. Höchste Lüfterstufe gewinnt; Heizbedarf erhöht die Lüfterstufe nicht. Andere Profile pausieren.",
         defaultParams: BASE_DEFAULTS,
         paramLabels: {
           roomSetpoint: "Raum-Sollwert (°C)",
           comfortBand: "Toleranzband um Sollwert (±°C)",
           minOutdoorDelta: "Min. Differenz Außen/Innen (°C)",
-          boostThreshold: "Abweichung für max. Lüftung (°C)",
+          boostThreshold: "Kühlabweichung für max. Lüftung (°C)",
           baseFanSpeed: "Grundlüftung (Stufe 1–3)",
-          activeFanSpeed: "Lüftung beim Regeln (Stufe 1–3)",
-          maxFanSpeed: "Max. temperaturbedingte Lüftung (Stufe 1–3)",
+          activeFanSpeed: "Lüftung beim Kühlen (Stufe 1–3)",
+          maxFanSpeed: "Max. Kühl-Lüfterstufe (Stufe 1–3)",
           holdMinutes: "Mindesthaltedauer (Min.)",
           useHeater: "Heizregister nutzen",
-          heaterFanSpeed: "Lüfterstufe beim Heizen (Stufe 1–3)",
           heatProtectionEnabled: "Hitzeschutz aktivieren",
           heatShutdownAbove: "Abschalten ab (°C)",
           co2ControlEnabled: "CO₂-Regelung aktiv",

@@ -404,7 +404,9 @@ export function ControlProfilesPanel({ deviceId }: ControlProfilesPanelProps) {
               <div className="font-medium text-sm text-foreground">Heizregister nutzen</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 {on
-                  ? "Elektro-Heizregister wird bei Kältebedarf zugeschaltet"
+                  ? (isBaseProfile
+                    ? "Erwärmt bei Bedarf die Zuluft – erhöht nicht die Lüfterstufe"
+                    : "Elektro-Heizregister wird bei Kältebedarf zugeschaltet")
                   : "Nur Lüftung – kein Heizen"}
               </div>
             </div>

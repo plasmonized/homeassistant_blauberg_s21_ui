@@ -92,7 +92,8 @@ export async function runBaseProfile(
       ...(p.useHeater ? { mode: 0, setpointTemp: p.roomSetpoint } : {}) };
   } else {
     // The base profile owns air-quality arbitration, including standby overrides.
-    base = await runWeatherCompensated(profileId, deviceId, p, outdoor, indoor, null, null);
+    base = await runWeatherCompensated(profileId, deviceId, p, outdoor, indoor, null, null,
+      { heatingRaisesFanSpeed: false });
     if (base.actionType === "standby") {
       base = { ...base, reason: `Hitzeschutz: außen ${outdoor.toFixed(1)}°C ≥ ${p.heatShutdownAbove}°C → Standby angefordert` };
     }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.8
+
+- **Grundprofil: Heizbedarf erhöht die Lüfterstufe nicht mehr.** Das freigegebene Heizregister erwärmt bei Bedarf die ohnehin benötigte Zuluft. Ein Raum-Sollwert oberhalb der Isttemperatur fordert weder Heizlüfterstufe noch Lüfter-Boost an, auch nicht bei wärmerer Außenluft. CO₂-/Feuchtebedarf und Kühlung bestimmen weiterhin höhere Lüfterstufen. Bestehende eigenständige wetterkompensierte Profile bleiben unverändert. Protokoll und Hinweis am Heizregister-Schalter erläutern die Trennung.
+
 ## 0.3.7
 
 - **Home-Assistant-Store:** Eigenes Lüftungslogo als Store-Symbol (`icon.png`) und Logo auf der Add-on-Seite (`logo.png`) ergänzt.

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { runBaseProfile, demandLevel, effectiveProfiles, baseParametersSchema, BASE_DEFAULTS } from "../server/lib/base-profile";
 import { resolveBaseSensor } from "../server/lib/base-sensors";
+import { runWeatherCompensated } from "../server/lib/control-engine";
 
 const compute = (indoor: number | null, outdoor: number | null, co2: number | null, humidity: number | null, extra = {}) =>
   runBaseProfile(99999, 99999, { ...BASE_DEFAULTS, ...extra }, indoor, outdoor, co2, humidity);
@@ -21,6 +22,65 @@ assert.equal((await compute(null, null, null, null)).result.value, 1, "fail expl
 assert.match((await compute(null, null, null, null)).result.reason, /WARNUNG/);
 assert.equal((await compute(27, 34, 1700, 80, { co2ControlEnabled: false, humidityControlEnabled: false })).result.actionType, "standby", "disabled IAQ makes no demand");
 assert.equal((await compute(27, 34, 500, 40, { heatProtectionEnabled: false })).result.actionType, "fan_speed");
+
+// A room below its target may authorize supply-air heating, never extra airflow.
+for (const roomSetpoint of [23, 24, 30]) {
+  const { result } = await compute(21.6, 11.7, 765, 53, {
+    roomSetpoint, useHeater: true, heaterFanSpeed: 3,
+  });
+  assert.equal(result.actionType, "fan_speed");
+  assert.equal(result.value, 1, `target ${roomSetpoint}: no heating fan demand or boost`);
+  assert.equal(result.mode, 1, "heater remains authorized for the required supply air");
+  assert.equal(result.setpointTemp, roomSetpoint);
+  assert.match(result.reason, /kein zusätzlicher Lüftungsbedarf durch Heizen/);
+}
+for (const [co2, humidity, expected] of [
+  [1200, 53, 2], [1600, 53, 3], [765, 65, 2], [765, 75, 3], [1200, 75, 3],
+]) {
+  const { result } = await compute(21.6, 11.7, co2, humidity, {
+    roomSetpoint: 24, useHeater: true,
+  });
+  assert.equal(result.value, expected, "IAQ alone sets the higher airflow while heating");
+  assert.equal(result.mode, 1, "IAQ increase retains supply-air heating");
+}
+assert.equal((await compute(21.6, 11.7, 765, 53, {
+  roomSetpoint: 24, useHeater: true, baseFanSpeed: 2, heaterFanSpeed: 3,
+})).result.value, 2, "respect configured base airflow instead of forcing stage 1");
+const noHeater = (await compute(21.6, 11.7, 765, 53, {
+  roomSetpoint: 24, useHeater: false, baseFanSpeed: 2,
+})).result;
+assert.equal(noHeater.value, 2);
+assert.equal(noHeater.mode, undefined, "disabled heater is not authorized");
+const warmOutside = (await compute(18, 24, 765, 53, {
+  roomSetpoint: 24, useHeater: true,
+})).result;
+assert.equal(warmOutside.value, 1, "even passive warming must not request extra airflow");
+assert.equal(warmOutside.mode, 0, "no heater needed with warmer outside air");
+const cooling = (await compute(21.6, 12.1, 765, 53, {
+  roomSetpoint: 21, useHeater: true,
+})).result;
+assert.equal(cooling.value, 2, "user's cooling example is unchanged");
+assert.equal(cooling.mode, 0, "no heating during cooling");
+assert.equal((await compute(27, 23, 765, 53, { useHeater: true })).result.value, 3,
+  "cooling boost is unchanged");
+assert.equal((await compute(23, 11.7, 765, 53, {
+  roomSetpoint: 23, useHeater: true,
+})).result.mode, 0, "heater authorization ends in the comfort band");
+assert.equal((await compute(null, 11.7, 1200, 53, {
+  roomSetpoint: 24, useHeater: true,
+})).result.mode, 0, "missing temperature must not authorize heating");
+const hysteresis = await runBaseProfile(99999, 99999, {
+  ...BASE_DEFAULTS, roomSetpoint: 24, useHeater: true,
+}, 21.6, 11.7, 980, 53, { co2: 2, humidity: 0 });
+assert.equal(hysteresis.result.value, 2, "IAQ hysteresis is retained while heating");
+const released = await runBaseProfile(99999, 99999, {
+  ...BASE_DEFAULTS, roomSetpoint: 24, useHeater: true,
+}, 21.6, 11.7, 950, 53, hysteresis.demand);
+assert.equal(released.result.value, 1, "heating does not prolong a released IAQ demand");
+assert.equal(released.result.mode, 1);
+assert.equal((await runWeatherCompensated(99999, 99999, {
+  ...BASE_DEFAULTS, roomSetpoint: 24, useHeater: true,
+}, 11.7, 21.6)).value, 3, "standalone legacy weather profiles remain unchanged");
 assert.equal(demandLevel(1000, 1000, 1500, 50, 0), 2);
 assert.equal(demandLevel(980, 1000, 1500, 50, 2), 2);
 assert.equal(demandLevel(950, 1000, 1500, 50, 2), 0);
