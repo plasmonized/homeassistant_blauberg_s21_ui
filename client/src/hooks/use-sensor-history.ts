@@ -10,7 +10,9 @@ export function useSensorHistory(deviceId: number, hours = 48) {
   return useQuery<SensorHistoryPoint[]>({
     queryKey: ["/api/devices", deviceId, "sensor-history", hours],
     queryFn: async () => {
-      const res = await fetch(`/api/devices/${deviceId}/sensor-history?hours=${hours}`);
+      const res = await fetch(`/api/devices/${deviceId}/sensor-history?hours=${hours}`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch sensor history");
       return res.json();
     },

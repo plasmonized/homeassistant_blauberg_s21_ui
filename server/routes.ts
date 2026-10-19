@@ -14,6 +14,7 @@ import { getPublicMqttSettings, loadMqttSettings, saveMqttSettings, resetMqttSet
 import { BASE_DEFAULTS, baseParametersSchema } from "./lib/base-profile";
 import { compatibleInternal, compatibleExternal, MEASUREMENTS } from "./lib/base-sensors";
 import { insertControlProfileSchema } from "@shared/schema";
+import { bucketBaseHistory, describeBaseSources } from "./lib/base-profile-history";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -679,6 +680,27 @@ export async function registerRoutes(
     }
     result.sort((a, b) => a.t.localeCompare(b.t));
     res.json(result);
+  });
+
+  app.get('/api/devices/:id/base-profile-history', async (req, res, next) => {
+    try {
+      const deviceId = Number(req.params.id);
+      if (!Number.isInteger(deviceId) || deviceId <= 0) return res.status(400).json({ message: "Ungültige Geräte-ID" });
+      if (!await storage.getDevice(deviceId)) return res.status(404).json({ message: "Gerät nicht gefunden" });
+      const hours = Math.min(48, Math.max(1, Number(req.query.hours) || 48));
+      const profiles = await storage.getControlProfiles(deviceId);
+      const profile = profiles.find(p => p.schemaType === "base_profile" && p.enabled)
+        ?? profiles.find(p => p.schemaType === "base_profile");
+      const [registers, externals] = await Promise.all([
+        storage.getRegisters(deviceId), storage.getExternalSensors(deviceId),
+      ]);
+      res.json({
+        profile: profile ? { id: profile.id, name: profile.name, enabled: !!profile.enabled } : null,
+        sources: describeBaseSources(profile?.parameters, registers, externals),
+        points: profile ? bucketBaseHistory(await storage.getBaseProfileHistory(deviceId, profile.id, hours)) : [],
+        recordingIntervalMinutes: 5,
+      });
+    } catch (error) { next(error); }
   });
 
   // Global status (MQTT, HA)

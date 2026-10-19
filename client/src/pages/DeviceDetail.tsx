@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useDevice, useConnectDevice, usePollDevice, useReconnectDevice, useDevices, useDeleteDevice } from "@/hooks/use-devices";
 import { useRegisters } from "@/hooks/use-registers";
@@ -14,6 +14,7 @@ import { AddDeviceDialog } from "@/components/AddDeviceDialog";
 import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 import { SensorHistoryChart } from "@/components/SensorHistoryChart";
+import { BaseProfileHistoryChart } from "@/components/BaseProfileHistoryChart";
 import { AutomationPanel } from "@/components/AutomationPanel";
 import { ExternalSensorsPanel } from "@/components/ExternalSensorsPanel";
 import { MqttSettings } from "@/components/MqttSettings";
@@ -127,6 +128,7 @@ function ActiveProfileCard({ profile }: { profile: ControlProfile }) {
 }
 
 export default function DeviceDetail() {
+  const [historyWindowEnd, setHistoryWindowEnd] = useState(() => Date.now());
   const { id } = useParams();
   const deviceId = Number(id);
   
@@ -147,6 +149,11 @@ export default function DeviceDetail() {
   const deleteDevice = useDeleteDevice();
   const [, navigate] = useLocation();
   const otherDevices = (allDevices ?? []).filter(d => d.id !== deviceId);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setHistoryWindowEnd(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!isDeviceLoading && !device) {
@@ -322,7 +329,19 @@ export default function DeviceDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Verlauf (48 h)</span>
               </div>
-              <SensorHistoryChart deviceId={deviceId} />
+              <SensorHistoryChart deviceId={deviceId} windowEnd={historyWindowEnd} />
+            </div>
+
+            <div>
+              <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Grundprofil-Eingänge (48 h)</span>
+                {activeBase && (
+                  <Badge variant="outline" className="max-w-full truncate text-[10px] text-muted-foreground">
+                    {activeBase.name}
+                  </Badge>
+                )}
+              </div>
+              <BaseProfileHistoryChart deviceId={deviceId} windowEnd={historyWindowEnd} />
             </div>
 
             {/* Aktive Automatisierungen */}

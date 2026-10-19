@@ -5,6 +5,7 @@ import { pollDeviceRegisters } from "./poll";
 import { getHomeAssistantState } from "./ha-client";
 import { effectiveProfiles, runBaseProfile, type AirDemand } from "./base-profile";
 import { resolveBaseSensor } from "./base-sensors";
+import { createBaseHistoryReading } from "./base-profile-history";
 import { connectMqtt, isMqttConnected } from "./mqtt-client";
 import { discoverDevice, publishRegisterStates, setupCommandHandlers, publishDeviceUnavailable } from "./mqtt-discovery";
 import {
@@ -51,7 +52,7 @@ const baseAirDemand = new Map<number, AirDemand>();
 const hitzeschutzStandby = new Map<number, boolean>();
 
 // Timestamp of the last sensor history recording (ms). We record every 5 minutes.
-let lastSensorRecordedAt = 0;
+const lastSensorRecordedAt = new Map<number, number>();
 const SENSOR_RECORD_INTERVAL_MS = 5 * 60 * 1000;
 
 // Honor the addon's configured `poll_interval` (seconds, forwarded via the
@@ -439,10 +440,11 @@ async function runAutomationCycle() {
 
       // Record sensor readings every 5 minutes for history charts
       const nowMs = Date.now();
-      if (nowMs - lastSensorRecordedAt >= SENSOR_RECORD_INTERVAL_MS) {
-        lastSensorRecordedAt = nowMs;
+      if (nowMs - (lastSensorRecordedAt.get(device.id) ?? 0) >= SENSOR_RECORD_INTERVAL_MS) {
+        // Re-read after regulation writes so both histories show the applied fan stage.
+        const actualRegisters = await storage.getRegisters(device.id);
         const readings: InsertSensorReading[] = [];
-        for (const reg of registers) {
+        for (const reg of actualRegisters) {
           if (reg.lastValue !== null && reg.lastValue !== undefined) {
             const num = parseFloat(String(reg.lastValue));
             if (!Number.isNaN(num)) {
@@ -453,7 +455,17 @@ async function runAutomationCycle() {
         if (readings.length > 0) {
           await storage.addSensorReadings(readings);
         }
+        const baseProfile = profiles.find(p => p.schemaType === "base_profile" && p.enabled)
+          ?? profiles.find(p => p.schemaType === "base_profile");
+        if (baseProfile?.enabled) {
+          await storage.addBaseProfileReading(createBaseHistoryReading(
+            device.id, baseProfile, registers, freshSensors, actualRegisters,
+            STALE_SENSOR_THRESHOLD_MS, hitzeschutzStandby.get(device.id) === true, nowMs,
+          ));
+        }
         await storage.pruneOldSensorReadings(50);
+        await storage.pruneOldBaseProfileReadings(50);
+        lastSensorRecordedAt.set(device.id, nowMs);
       }
 
       if (rules.length === 0) continue;

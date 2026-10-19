@@ -8,6 +8,9 @@ import {
   controlProfiles,
   controlLogs,
   sensorReadings,
+  baseProfileReadings,
+  type BaseProfileReading,
+  type InsertBaseProfileReading,
   type Device,
   type InsertDevice,
   type Register,
@@ -83,6 +86,9 @@ export interface IStorage {
   addSensorReadings(readings: InsertSensorReading[]): Promise<void>;
   getSensorHistory(deviceId: number, hours?: number): Promise<{ registerId: number; value: number; recordedAt: Date }[]>;
   pruneOldSensorReadings(olderThanHours?: number): Promise<void>;
+  addBaseProfileReading(reading: InsertBaseProfileReading): Promise<void>;
+  getBaseProfileHistory(deviceId: number, profileId: number, hours?: number): Promise<BaseProfileReading[]>;
+  pruneOldBaseProfileReadings(olderThanHours?: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -345,6 +351,22 @@ export class DatabaseStorage implements IStorage {
   async pruneOldSensorReadings(olderThanHours = 50): Promise<void> {
     const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
     await db.delete(sensorReadings).where(lt(sensorReadings.recordedAt, cutoff));
+  }
+
+  async addBaseProfileReading(reading: InsertBaseProfileReading): Promise<void> {
+    await db.insert(baseProfileReadings).values(reading);
+  }
+
+  async getBaseProfileHistory(deviceId: number, profileId: number, hours = 48): Promise<BaseProfileReading[]> {
+    return db.select().from(baseProfileReadings)
+      .where(and(eq(baseProfileReadings.deviceId, deviceId), eq(baseProfileReadings.profileId, profileId),
+        gte(baseProfileReadings.recordedAt, new Date(Date.now() - hours * 3_600_000))))
+      .orderBy(baseProfileReadings.recordedAt, baseProfileReadings.id);
+  }
+
+  async pruneOldBaseProfileReadings(olderThanHours = 50): Promise<void> {
+    await db.delete(baseProfileReadings)
+      .where(lt(baseProfileReadings.recordedAt, new Date(Date.now() - olderThanHours * 3_600_000)));
   }
 }
 

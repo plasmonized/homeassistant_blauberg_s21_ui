@@ -220,6 +220,24 @@ export const insertSensorReadingSchema = createInsertSchema(sensorReadings).omit
 export type SensorReading = typeof sensorReadings.$inferSelect;
 export type InsertSensorReading = z.infer<typeof insertSensorReadingSchema>;
 
+// Snapshots of the selected base-profile inputs, not inferred from control logs.
+export const baseProfileReadings = pgTable("base_profile_readings", {
+  id: serial("id").primaryKey(),
+  deviceId: integer("device_id").notNull(),
+  profileId: integer("profile_id").notNull(),
+  indoorTemp: real("indoor_temp"),
+  outdoorTemp: real("outdoor_temp"),
+  co2: real("co2"),
+  humidity: real("humidity"),
+  fanSpeed: integer("fan_speed"),
+  sensorSources: jsonb("sensor_sources").$type<Record<string, { label: string; source: string }>>().notNull(),
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+}, (t) => [
+  index("bpr_device_profile_recorded_idx").on(t.deviceId, t.profileId, t.recordedAt),
+]);
+export type BaseProfileReading = typeof baseProfileReadings.$inferSelect;
+export type InsertBaseProfileReading = typeof baseProfileReadings.$inferInsert;
+
 export const automationLogs = pgTable("automation_logs", {
   id: serial("id").primaryKey(),
   ruleId: integer("rule_id").notNull(),

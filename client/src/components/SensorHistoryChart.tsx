@@ -11,15 +11,19 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp } from "lucide-react";
+import { withHistoryGaps } from "@/lib/history-chart";
 
 interface Props {
   deviceId: number;
+  windowEnd: number;
 }
 
+const CHART_MARGIN = { top: 4, right: 36, left: 0, bottom: 4 };
+const CHART_TICK = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
 // Colors and labels match TemperatureDiagram.tsx exactly
 const TEMP_SERIES: Record<string, { label: string; color: string }> = {
   Outdoor: { label: "Außenluft", color: "#60a5fa" }, // blue-400
@@ -36,14 +40,14 @@ function getSeriesInfo(regName: string): { label: string; color: string } {
   return { label: regName.replace(/^Temperature - /, ""), color: "#94a3b8" };
 }
 
-export function SensorHistoryChart({ deviceId }: Props) {
+export function SensorHistoryChart({ deviceId, windowEnd }: Props) {
   const { data: history, isLoading: histLoading } = useSensorHistory(deviceId, 48);
   const { data: registers } = useRegisters(deviceId);
 
   // Identify which registers to show
   const tempRegs = useMemo(() =>
     (registers ?? []).filter(r =>
-      (r.tags ?? []).includes("temperature") && r.lastValue !== null
+      (r.tags ?? []).includes("temperature")
     ).slice(0, 4),
     [registers]
   );
@@ -63,30 +67,37 @@ export function SensorHistoryChart({ deviceId }: Props) {
   // Pivot: { t, [regId]: value, ... }[]
   const chartData = useMemo(() => {
     if (!history) return [];
-    const byTime = new Map<string, { t: string; [key: string]: string | number }>();
+    const byTime = new Map<number, { t: number; [key: string]: string | number }>();
     for (const pt of history) {
       if (!relevantIds.has(pt.registerId)) continue;
-      if (!byTime.has(pt.t)) byTime.set(pt.t, { t: pt.t } as any);
-      byTime.get(pt.t)![`r_${pt.registerId}`] = pt.value;
+      const timestamp = new Date(pt.t).getTime();
+      if (!Number.isFinite(timestamp)) continue;
+      if (!byTime.has(timestamp)) byTime.set(timestamp, { t: timestamp });
+      byTime.get(timestamp)![`r_${pt.registerId}`] = pt.value;
     }
     return Array.from(byTime.values()).sort((a, b) =>
-      (a.t as string).localeCompare(b.t as string)
+      a.t - b.t
     );
   }, [history, relevantIds]);
 
-  const formatTick = (iso: string) => {
+  const windowStart = windowEnd - 48 * 60 * 60 * 1000;
+  const visibleChartData = withHistoryGaps(
+    chartData.filter(point => point.t >= windowStart && point.t <= windowEnd), t => ({ t }),
+  );
+
+  const formatTick = (timestamp: number) => {
     try {
-      return format(parseISO(iso), "HH:mm", { locale: de });
+      return format(new Date(timestamp), "HH:mm", { locale: de });
     } catch {
-      return iso;
+      return String(timestamp);
     }
   };
 
-  const formatTooltipLabel = (iso: string) => {
+  const formatTooltipLabel = (timestamp: number) => {
     try {
-      return format(parseISO(iso), "EEE, dd.MM. HH:mm", { locale: de });
+      return format(new Date(timestamp), "EEE, dd.MM. HH:mm", { locale: de });
     } catch {
-      return iso;
+      return String(timestamp);
     }
   };
 
@@ -94,7 +105,7 @@ export function SensorHistoryChart({ deviceId }: Props) {
     return <Skeleton className="h-56 w-full rounded-xl" />;
   }
 
-  if (chartData.length === 0) {
+  if (visibleChartData.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 h-40 text-muted-foreground text-sm rounded-xl border border-dashed border-border/40">
         <TrendingUp className="w-5 h-5 opacity-40" />
@@ -106,31 +117,36 @@ export function SensorHistoryChart({ deviceId }: Props) {
   return (
     <div className="w-full" data-testid="sensor-history-chart">
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+        <LineChart data={visibleChartData} margin={CHART_MARGIN}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/40)" />
           <XAxis
+            type="number"
             dataKey="t"
+            scale="time"
+            domain={[windowStart, windowEnd]}
+            ticks={Array.from({ length: 7 }, (_, index) => windowStart + index * 8 * 60 * 60 * 1000)}
             tickFormatter={formatTick}
-            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-            minTickGap={40}
+            tick={CHART_TICK}
+            minTickGap={20}
+            allowDataOverflow
           />
           <YAxis
             yAxisId="temp"
             unit="°C"
-            width={46}
-            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+            width={42}
+            tick={CHART_TICK}
             domain={["auto", "auto"]}
           />
-          {fanReg && (
-            <YAxis
-              yAxisId="fan"
-              orientation="right"
-              domain={[0.5, 3.5]}
-              ticks={[1, 2, 3]}
-              width={28}
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-            />
-          )}
+          <YAxis
+            yAxisId="fan"
+            orientation="right"
+            domain={[0.5, 3.5]}
+            ticks={[1, 2, 3]}
+            width={36}
+            tick={fanReg ? CHART_TICK : false}
+            axisLine={Boolean(fanReg)}
+            tickLine={Boolean(fanReg)}
+          />
           <Tooltip
             labelFormatter={formatTooltipLabel}
             contentStyle={{
@@ -158,6 +174,7 @@ export function SensorHistoryChart({ deviceId }: Props) {
                 dataKey={`r_${reg.id}`}
                 name={label}
                 stroke={color}
+                isAnimationActive={false}
                 dot={false}
                 strokeWidth={1.5}
                 connectNulls={false}
@@ -171,6 +188,7 @@ export function SensorHistoryChart({ deviceId }: Props) {
               dataKey={`r_${fanReg.id}`}
               name="Lüfterstufe"
               stroke={FAN_COLOR}
+              isAnimationActive={false}
               dot={false}
               strokeWidth={1.5}
               strokeDasharray="4 2"

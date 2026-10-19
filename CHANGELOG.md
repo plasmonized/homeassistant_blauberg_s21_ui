@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.9
+
+- **Grundprofil-Verlauf auf der Startseite:** Zweites Diagramm unter dem Temperaturverlauf mit derselben rollierenden 48-Stunden-Zeitachse und ausgerichteter Zeichenfläche. Zeigt die tatsächlich ausgewählten internen oder externen Eingänge für Innen-/Außentemperatur, CO₂ und Luftfeuchte sowie die angewendete Lüfterstufe als gestrichelte Stufenlinie. Eigene Skalen und Einheiten; fehlende/veraltete Eingänge bleiben Lücken.
+- **Dauerhafte Messhistorie:** Grundprofil-Eingänge und ihre Quellen werden alle fünf Minuten separat gespeichert und nach 50 Stunden bereinigt, unabhängig vom auf 750 Einträge begrenzten Regelungsprotokoll. Die Aufzeichnung beginnt mit diesem Update; keine erfundenen rückwirkenden externen Messwerte. Verlaufsaufzeichnung läuft pro Gerät statt nur für das erste Gerät.
+
 ## 0.3.8
 
 - **Grundprofil: Heizbedarf erhöht die Lüfterstufe nicht mehr.** Das freigegebene Heizregister erwärmt bei Bedarf die ohnehin benötigte Zuluft. Ein Raum-Sollwert oberhalb der Isttemperatur fordert weder Heizlüfterstufe noch Lüfter-Boost an, auch nicht bei wärmerer Außenluft. CO₂-/Feuchtebedarf und Kühlung bestimmen weiterhin höhere Lüfterstufen. Bestehende eigenständige wetterkompensierte Profile bleiben unverändert. Protokoll und Hinweis am Heizregister-Schalter erläutern die Trennung.
