@@ -1,6 +1,6 @@
 {
   "name": "rest-express",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -12,6 +12,7 @@
     "test": "tsx scripts/test.ts",
     "test:base-profile": "tsx scripts/test-base-profile.ts",
     "test:base-history": "tsx scripts/test-base-history.ts",
+    "test:device-connection": "tsx scripts/test-device-connection.ts",
     "test:mqtt": "tsx scripts/test-mqtt.ts",
     "test:log-retention": "tsx scripts/test-log-retention.ts",
     "test:wakeup": "tsx scripts/test-hitzeschutz-wakeup.ts",

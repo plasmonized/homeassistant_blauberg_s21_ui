@@ -1,5 +1,5 @@
 import { storage } from "../storage";
-import { getModbusClient, closeConnection } from "./modbus";
+import { getModbusClient, closeConnection, isModbusTargetCurrent } from "./modbus";
 
 // Per-request timeout: if a single Modbus register read does not resolve
 // within this many milliseconds it is aborted and counted as a failure.
@@ -78,6 +78,9 @@ export async function pollDeviceRegisters(
           value = value / reg.scale;
         }
 
+        if (!isModbusTargetCurrent(device.id, device.ip, device.port, device.slaveId)) {
+          return { success: false, message: "Verbindungswechsel – veralteter Poll verworfen" };
+        }
         await storage.updateRegisterValue(reg.id, value);
       } catch (e) {
         console.error(`Failed to read register ${reg.name}:`, e);
@@ -85,6 +88,9 @@ export async function pollDeviceRegisters(
       }
     }
 
+    if (!isModbusTargetCurrent(device.id, device.ip, device.port, device.slaveId)) {
+      return { success: false, message: "Verbindungswechsel – veralteter Poll verworfen" };
+    }
     // If every single register read failed the Modbus client is effectively
     // dead (zombie socket). Force-close it now so the next poll cycle opens a
     // fresh TCP connection instead of repeating the same failed reads forever.
@@ -98,6 +104,9 @@ export async function pollDeviceRegisters(
     await storage.updateDevice(device.id, { isConnected: true, lastSeen: new Date() });
     return { success: true, failedCount };
   } catch (error: any) {
+    if (!isModbusTargetCurrent(device.id, device.ip, device.port, device.slaveId)) {
+      return { success: false, message: "Verbindungswechsel – veralteter Poll verworfen" };
+    }
     // TCP connect itself failed.
     closeConnection(device.id);
     await storage.updateDevice(device.id, { isConnected: false });

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { insertDeviceSchema, insertRegisterSchema, modbusCommandSchema, devices, registers } from './schema';
+import { deviceConnectionSchema } from "./device-connection";
 
 export const errorSchemas = {
   validation: z.object({
@@ -43,7 +44,7 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/devices/:id',
-      input: insertDeviceSchema.partial(),
+      input: deviceConnectionSchema.partial().extend({ name: z.string().trim().min(1).max(200).optional() }).strict(),
       responses: {
         200: z.custom<typeof devices.$inferSelect>(),
         404: errorSchemas.notFound,

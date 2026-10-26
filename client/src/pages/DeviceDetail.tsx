@@ -18,6 +18,7 @@ import { BaseProfileHistoryChart } from "@/components/BaseProfileHistoryChart";
 import { AutomationPanel } from "@/components/AutomationPanel";
 import { ExternalSensorsPanel } from "@/components/ExternalSensorsPanel";
 import { MqttSettings } from "@/components/MqttSettings";
+import { DeviceConnectionSettings } from "@/components/DeviceConnectionSettings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { useControlProfiles } from "@/hooks/use-control-profiles";
@@ -129,6 +130,7 @@ function ActiveProfileCard({ profile }: { profile: ControlProfile }) {
 
 export default function DeviceDetail() {
   const [historyWindowEnd, setHistoryWindowEnd] = useState(() => Date.now());
+  const [activeTab, setActiveTab] = useState("overview");
   const { id } = useParams();
   const deviceId = Number(id);
   
@@ -284,24 +286,38 @@ export default function DeviceDetail() {
           <Alert variant="destructive" className="mb-6 bg-red-950/20 border-red-900/50">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Verbindung unterbrochen</AlertTitle>
-            <AlertDescription className="flex items-center justify-between gap-4">
-              <span>Die Anlage ist derzeit nicht erreichbar. Klicke auf „Neu verbinden" oder prüfe die Netzwerkverbindung.</span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleReconnect}
-                disabled={reconnectMutation.isPending}
-                data-testid="button-reconnect-alert"
-                className="shrink-0"
-              >
-                <RotateCcw className={`w-4 h-4 mr-2 ${reconnectMutation.isPending ? "animate-spin" : ""}`} />
-                {reconnectMutation.isPending ? "Verbinde…" : "Neu verbinden"}
-              </Button>
+            <AlertDescription className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+              <span>Die Anlage ist derzeit nicht erreichbar. Prüfe die Netzwerkverbindung oder ändere die Adresse.</span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setActiveTab("einstellungen");
+                    window.setTimeout(() => document.getElementById("device-connection-editor")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+                  }}
+                  className="shrink-0 border-destructive/40"
+                  data-testid="button-change-device-address"
+                >
+                  Adresse ändern
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleReconnect}
+                  disabled={reconnectMutation.isPending}
+                  data-testid="button-reconnect-alert"
+                  className="shrink-0"
+                >
+                  <RotateCcw className={`w-4 h-4 mr-2 ${reconnectMutation.isPending ? "animate-spin" : ""}`} />
+                  {reconnectMutation.isPending ? "Verbinde…" : "Neu verbinden"}
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         )}
 
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <TabsList className="bg-muted/40 p-1 grid grid-cols-2 h-auto w-full sm:inline-flex sm:w-auto">
               <TabsTrigger value="overview" className="gap-2">
@@ -475,33 +491,13 @@ export default function DeviceDetail() {
           </TabsContent>
 
           <TabsContent value="einstellungen" className="space-y-8">
+            <DeviceConnectionSettings device={device} deviceId={deviceId} />
+            <Separator />
             <MqttSettings />
             <Separator />
             {/* Externe Sensoren */}
             <ExternalSensorsPanel deviceId={deviceId} />
 
-            <Separator />
-
-            {/* Geräte-Konfiguration */}
-            <div>
-              <h3 className="text-base font-semibold mb-4">Geräte-Konfiguration</h3>
-              <div className="bg-card rounded-xl border p-6">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">IP-Adresse:</span>
-                    <div className="font-mono mt-1 p-2 bg-muted rounded">{device.ip}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Port:</span>
-                    <div className="font-mono mt-1 p-2 bg-muted rounded">{device.port}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Slave ID:</span>
-                    <div className="font-mono mt-1 p-2 bg-muted rounded">{device.slaveId}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
             <Separator />
 
             {/* Anlage wechseln (nur bei mehreren Anlagen) */}

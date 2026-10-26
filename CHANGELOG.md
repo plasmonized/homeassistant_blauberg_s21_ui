@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.10
+
+- **Netzwerkwechsel ohne Neueinrichtung:** IP-Adresse oder Hostname, Modbus-Port und Slave-ID sind unter Einstellungen an der bestehenden Anlage änderbar. Profile, Sensorzuordnungen, Register, MQTT-Identität und Verläufe bleiben der gleichen Geräte-ID zugeordnet. Ein schreibfreier Verbindungstest prüft die neue Adresse, ohne die gespeicherte Verbindung zu verändern.
+- **Sauberer Verbindungswechsel:** Speichern beendet alte und noch im Aufbau befindliche Verbindungen und prüft die neue Adresse. Eine unerreichbare Adresse wird ausdrücklich als „gespeichert, aber offline“ angezeigt; die vorherige Adresse lässt sich während derselben Sitzung wiederherstellen. Alte Polls oder wartende Modbus-Befehle dürfen die vorherige Adresse nicht erneut öffnen oder den neuen Verbindungsstatus überschreiben. Der Offline-Hinweis führt direkt zur Adressänderung.
+
 ## 0.3.9
 
 - **Grundprofil-Verlauf auf der Startseite:** Zweites Diagramm unter dem Temperaturverlauf mit derselben rollierenden 48-Stunden-Zeitachse und ausgerichteter Zeichenfläche. Zeigt die tatsächlich ausgewählten internen oder externen Eingänge für Innen-/Außentemperatur, CO₂ und Luftfeuchte sowie die angewendete Lüfterstufe als gestrichelte Stufenlinie. Eigene Skalen und Einheiten; fehlende/veraltete Eingänge bleiben Lücken.

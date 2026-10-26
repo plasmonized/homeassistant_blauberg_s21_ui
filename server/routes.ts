@@ -15,6 +15,9 @@ import { BASE_DEFAULTS, baseParametersSchema } from "./lib/base-profile";
 import { compatibleInternal, compatibleExternal, MEASUREMENTS } from "./lib/base-sensors";
 import { insertControlProfileSchema } from "@shared/schema";
 import { bucketBaseHistory, describeBaseSources } from "./lib/base-profile-history";
+import { deviceConnectionSchema } from "@shared/device-connection";
+import { saveDeviceConnection, ConnectionChangeBusy } from "./lib/device-connection";
+import { probeDeviceConnection } from "./lib/connection-probe";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -61,9 +64,41 @@ export async function registerRoutes(
     res.json(device);
   });
 
-  app.put(api.devices.update.path, async (req, res) => {
-    const device = await storage.updateDevice(Number(req.params.id), req.body);
-    res.json(device);
+  app.put(api.devices.update.path, async (req, res, next) => {
+    try {
+      const input = api.devices.update.input.parse(req.body);
+      const result = await saveDeviceConnection(Number(req.params.id), input, false);
+      if (!result) return res.status(404).json({ message: "Gerät nicht gefunden" });
+      res.json(result.device);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: error.errors[0].message, field: error.errors[0].path.join(".") });
+      if (error instanceof ConnectionChangeBusy) return res.status(409).json({ message: error.message });
+      next(error);
+    }
+  });
+
+  app.post('/api/devices/:id/connection-test', async (req, res, next) => {
+    try {
+      if (!await storage.getDevice(Number(req.params.id))) return res.status(404).json({ message: "Gerät nicht gefunden" });
+      const target = deviceConnectionSchema.parse(req.body);
+      res.json(await probeDeviceConnection(target));
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: error.errors[0].message, field: error.errors[0].path.join(".") });
+      next(error);
+    }
+  });
+
+  app.put('/api/devices/:id/connection', async (req, res, next) => {
+    try {
+      const target = deviceConnectionSchema.parse(req.body);
+      const result = await saveDeviceConnection(Number(req.params.id), target, true);
+      if (!result) return res.status(404).json({ message: "Gerät nicht gefunden" });
+      res.json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: error.errors[0].message, field: error.errors[0].path.join(".") });
+      if (error instanceof ConnectionChangeBusy) return res.status(409).json({ message: error.message });
+      next(error);
+    }
   });
 
   app.delete(api.devices.delete.path, async (req, res) => {
