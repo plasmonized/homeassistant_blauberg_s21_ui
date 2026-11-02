@@ -14,6 +14,7 @@
     "test:base-history": "tsx scripts/test-base-history.ts",
     "test:base-references": "tsx scripts/test-base-references.ts",
     "test:history-loading": "tsx scripts/test-history-loading.ts",
+    "test:history-comparison": "tsx scripts/test-history-comparison.ts",
     "test:device-connection": "tsx scripts/test-device-connection.ts",
     "test:mqtt": "tsx scripts/test-mqtt.ts",
     "test:log-retention": "tsx scripts/test-log-retention.ts",

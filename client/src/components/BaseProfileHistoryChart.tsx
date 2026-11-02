@@ -9,7 +9,7 @@ import {
   LineChart,
   ReferenceLine,
   ResponsiveContainer,
-  Tooltip,
+  Customized,
   XAxis,
   YAxis,
 } from "recharts";
@@ -18,8 +18,10 @@ import { Button } from "@/components/ui/button";
 import { withHistoryGaps } from "@/lib/history-chart";
 import { baseProfileReferenceLines } from "@/lib/base-profile-reference-lines";
 import { Switch } from "@/components/ui/switch";
+import { nearestHistoryPoint, type HistoryComparisonProps } from "@/lib/history-comparison";
+import { HistoryComparisonReadout, HistoryComparisonTarget } from "@/components/HistoryComparison";
 
-interface Props {
+interface Props extends HistoryComparisonProps {
   deviceId: number;
   windowEnd: number;
 }
@@ -35,8 +37,6 @@ const SERIES = [
 ] as const;
 
 const formatTick = (value: number) => format(new Date(value), "HH:mm", { locale: de });
-const formatTooltipTime = (value: number) =>
-  format(new Date(value), "EEE, dd.MM. HH:mm", { locale: de });
 const formatValue = (value: number, key: string) => value.toLocaleString("de-DE", {
   maximumFractionDigits: key === "co2" || key === "fanSpeed" ? 0 : 1,
 });
@@ -45,16 +45,17 @@ function SourceNote({ label, source }: { label: string; source: string }) {
   return <span title={`${label}: aktuell konfiguriert — ${source}`} className="truncate">{label}: {source}</span>;
 }
 
-export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
+export function BaseProfileHistoryChart({ deviceId, windowEnd, comparisonTime, onComparisonTimeChange }: Props) {
   const [showReferences, setShowReferences] = useState(false);
   const referenceSwitchId = useId();
   const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useBaseProfileHistory(deviceId, 48);
   const referenceLines = showReferences ? baseProfileReferenceLines(data?.currentSettings) : [];
   const windowStart = windowEnd - 48 * 60 * 60 * 1000;
-  const points = withHistoryGaps((data?.points ?? [])
+  const recordedPoints = (data?.points ?? [])
     .map((point) => ({ ...point, t: new Date(point.t).getTime() }))
     .filter((point) => Number.isFinite(point.t) && point.t >= windowStart && point.t <= windowEnd)
-    .sort((a, b) => a.t - b.t), t => ({
+    .sort((a, b) => a.t - b.t);
+  const points = withHistoryGaps(recordedPoints, t => ({
       t, indoorTemp: null, outdoorTemp: null, co2: null, humidity: null, fanSpeed: null,
     }));
 
@@ -178,16 +179,6 @@ export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
           <YAxis yAxisId="temp" orientation="right" width={36} domain={["auto", "auto"]} tick={AXIS_TICK} tickFormatter={(value) => `${value}°`} />
           <YAxis yAxisId="humidity" orientation="right" width={36} domain={["auto", "auto"]} tick={AXIS_TICK} tickFormatter={(value) => `${value}%`} hide={!showReferences} />
           <YAxis yAxisId="fan" orientation="right" width={36} domain={[-0.25, 3.25]} ticks={[0, 1, 2, 3]} tick={AXIS_TICK} hide />
-          <Tooltip
-            labelFormatter={(value) => formatTooltipTime(Number(value))}
-            contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
-            formatter={(value, name) => {
-              const series = SERIES.find((entry) => entry.label === name);
-              if (value === null || value === undefined) return ["Keine Messung", name];
-              const formatted = formatValue(Number(value), series?.key ?? "");
-              return [series?.key === "fanSpeed" ? `Stufe ${formatted}` : `${formatted}${series?.unit ? ` ${series.unit}` : ""}`, name];
-            }}
-          />
           {activeSeries.map((series) => (
             <Line
               key={series.key}
@@ -215,8 +206,18 @@ export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
               ifOverflow="extendDomain"
             />
           ))}
+          {comparisonTime !== null && (
+            <ReferenceLine x={comparisonTime} yAxisId="co2" stroke="hsl(var(--foreground))" strokeDasharray="3 3" />
+          )}
+          <Customized component={<HistoryComparisonTarget windowStart={windowStart} windowEnd={windowEnd} onComparisonTimeChange={onComparisonTimeChange} />} />
         </LineChart>
       </ResponsiveContainer>
+      {comparisonTime !== null && (
+        <HistoryComparisonReadout time={comparisonTime} readings={SERIES.map(series => {
+          const point = nearestHistoryPoint(recordedPoints, comparisonTime);
+          return { ...series, value: point?.[series.key], measuredAt: point?.t };
+        })} />
+      )}
       <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border/30 px-1 pt-2 text-[10px] text-muted-foreground">
         {sourceEntries.map(([label, source]) => (
           <SourceNote key={label} label={label} source={[source.label, source.source].filter(Boolean).join(" · ") || "nicht konfiguriert"} />

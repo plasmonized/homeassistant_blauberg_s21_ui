@@ -133,6 +133,11 @@ export default function DeviceDetail() {
   const [activeTab, setActiveTab] = useState("overview");
   const { id } = useParams();
   const deviceId = Number(id);
+  const [historyComparison, setHistoryComparison] = useState<{ deviceId: number; time: number } | null>(null);
+  const comparisonTime = historyComparison?.deviceId === deviceId
+    && historyComparison.time >= historyWindowEnd - 48 * 60 * 60 * 1000
+    && historyComparison.time <= historyWindowEnd ? historyComparison.time : null;
+  const onComparisonTimeChange = (time: number) => setHistoryComparison({ deviceId, time });
   
   const { data: device, isLoading: isDeviceLoading } = useDevice(deviceId);
   const { data: registers, isLoading: isRegistersLoading } = useRegisters(deviceId);
@@ -345,7 +350,15 @@ export default function DeviceDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Verlauf (48 h)</span>
               </div>
-              <SensorHistoryChart deviceId={deviceId} windowEnd={historyWindowEnd} />
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>Zum Vergleichen über eines der Diagramme fahren oder einen Zeitpunkt antippen. Messungen im Umkreis von ±2½ Minuten, ohne Interpolation; Messzeiten können abweichen.</span>
+                {comparisonTime !== null && (
+                  <Button size="sm" variant="outline" onClick={() => setHistoryComparison(null)} data-testid="clear-history-comparison">
+                    Vergleich beenden
+                  </Button>
+                )}
+              </div>
+              <SensorHistoryChart deviceId={deviceId} windowEnd={historyWindowEnd} comparisonTime={comparisonTime} onComparisonTimeChange={onComparisonTimeChange} />
             </div>
 
             <div>
@@ -357,7 +370,7 @@ export default function DeviceDetail() {
                   </Badge>
                 )}
               </div>
-              <BaseProfileHistoryChart deviceId={deviceId} windowEnd={historyWindowEnd} />
+              <BaseProfileHistoryChart deviceId={deviceId} windowEnd={historyWindowEnd} comparisonTime={comparisonTime} onComparisonTimeChange={onComparisonTimeChange} />
             </div>
 
             {/* Aktive Automatisierungen */}

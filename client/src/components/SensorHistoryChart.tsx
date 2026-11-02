@@ -7,7 +7,8 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Customized,
+  ReferenceLine,
   Legend,
   ResponsiveContainer,
 } from "recharts";
@@ -16,8 +17,10 @@ import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp } from "lucide-react";
 import { withHistoryGaps } from "@/lib/history-chart";
+import { nearestHistoryPoint, type HistoryComparisonProps } from "@/lib/history-comparison";
+import { HistoryComparisonReadout, HistoryComparisonTarget } from "@/components/HistoryComparison";
 
-interface Props {
+interface Props extends HistoryComparisonProps {
   deviceId: number;
   windowEnd: number;
 }
@@ -40,7 +43,7 @@ function getSeriesInfo(regName: string): { label: string; color: string } {
   return { label: regName.replace(/^Temperature - /, ""), color: "#94a3b8" };
 }
 
-export function SensorHistoryChart({ deviceId, windowEnd }: Props) {
+export function SensorHistoryChart({ deviceId, windowEnd, comparisonTime, onComparisonTimeChange }: Props) {
   const { data: history, isLoading: histLoading } = useSensorHistory(deviceId, 48);
   const { data: registers } = useRegisters(deviceId);
 
@@ -81,21 +84,21 @@ export function SensorHistoryChart({ deviceId, windowEnd }: Props) {
   }, [history, relevantIds]);
 
   const windowStart = windowEnd - 48 * 60 * 60 * 1000;
-  const visibleChartData = withHistoryGaps(
-    chartData.filter(point => point.t >= windowStart && point.t <= windowEnd), t => ({ t }),
-  );
+  const visiblePoints = chartData.filter(point => point.t >= windowStart && point.t <= windowEnd);
+  const visibleChartData = withHistoryGaps(visiblePoints, t => ({ t }));
+  const comparisonSeries = [
+    ...tempRegs.map(reg => ({ key: `r_${reg.id}`, ...getSeriesInfo(reg.name), unit: "°C" })),
+    ...(fanReg ? [{ key: `r_${fanReg.id}`, label: "Lüfterstufe", color: FAN_COLOR, unit: "" }] : []),
+  ];
+  const readings = comparisonTime === null ? [] : comparisonSeries.map(series => {
+    // Register samples may have distinct timestamps even within one poll.
+    const point = nearestHistoryPoint(visiblePoints.filter(point => point[series.key] !== undefined), comparisonTime);
+    return { ...series, value: point ? Number(point[series.key]) : null, measuredAt: point?.t };
+  });
 
   const formatTick = (timestamp: number) => {
     try {
       return format(new Date(timestamp), "HH:mm", { locale: de });
-    } catch {
-      return String(timestamp);
-    }
-  };
-
-  const formatTooltipLabel = (timestamp: number) => {
-    try {
-      return format(new Date(timestamp), "EEE, dd.MM. HH:mm", { locale: de });
     } catch {
       return String(timestamp);
     }
@@ -147,19 +150,6 @@ export function SensorHistoryChart({ deviceId, windowEnd }: Props) {
             axisLine={Boolean(fanReg)}
             tickLine={Boolean(fanReg)}
           />
-          <Tooltip
-            labelFormatter={formatTooltipLabel}
-            contentStyle={{
-              backgroundColor: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
-              borderRadius: "8px",
-              fontSize: 12,
-            }}
-            formatter={(val: number, name: string) => {
-              const isTemp = !name.includes("Lüfterstufe");
-              return [`${val}${isTemp ? " °C" : ""}`, name];
-            }}
-          />
           <Legend
             wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
             formatter={(val) => <span style={{ color: "hsl(var(--muted-foreground))" }}>{val}</span>}
@@ -195,8 +185,13 @@ export function SensorHistoryChart({ deviceId, windowEnd }: Props) {
               connectNulls={false}
             />
           )}
+          {comparisonTime !== null && (
+            <ReferenceLine x={comparisonTime} yAxisId="temp" stroke="hsl(var(--foreground))" strokeDasharray="3 3" />
+          )}
+          <Customized component={<HistoryComparisonTarget windowStart={windowStart} windowEnd={windowEnd} onComparisonTimeChange={onComparisonTimeChange} />} />
         </LineChart>
       </ResponsiveContainer>
+      {comparisonTime !== null && <HistoryComparisonReadout time={comparisonTime} readings={readings} />}
     </div>
   );
 }

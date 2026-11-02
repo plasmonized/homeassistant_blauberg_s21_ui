@@ -54,10 +54,14 @@ try {
   assert.equal(client.getQueryState(queryKey)?.status, "error");
   const { BaseProfileHistoryChart } = await import("../client/src/components/BaseProfileHistoryChart");
   const chart = renderToStaticMarkup(React.createElement(QueryClientProvider, { client },
-    React.createElement(BaseProfileHistoryChart, { deviceId: 42, windowEnd: now })));
+    React.createElement(BaseProfileHistoryChart, {
+      deviceId: 42, windowEnd: now, comparisonTime: now, onComparisonTimeChange: () => {},
+    })));
   assert.match(chart, /data-testid="base-profile-history-chart"/, "cached chart stays mounted after failed refresh");
   assert.match(chart, /Aktualisierung fehlgeschlagen/, "stale data is explicitly marked");
   assert.match(chart, /zuletzt geladene Daten bleiben sichtbar/);
+  assert.match(chart, /data-testid="history-comparison-readout"/, "comparison remains visible with cached history");
+  assert.match(chart, /765 ppm/, "comparison shows actual recorded CO₂ with its unit");
 
   const emptyClient = makeClient();
   requests = 0;
