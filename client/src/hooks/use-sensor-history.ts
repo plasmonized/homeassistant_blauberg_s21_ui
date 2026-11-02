@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { fetchHistoryJson, historyQueryPolicy } from "@/lib/history-query";
 
 export interface SensorHistoryPoint {
   t: string;
@@ -9,14 +10,9 @@ export interface SensorHistoryPoint {
 export function useSensorHistory(deviceId: number, hours = 48) {
   return useQuery<SensorHistoryPoint[]>({
     queryKey: ["/api/devices", deviceId, "sensor-history", hours],
-    queryFn: async () => {
-      const res = await fetch(`/api/devices/${deviceId}/sensor-history?hours=${hours}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch sensor history");
-      return res.json();
-    },
-    refetchInterval: 60_000,
+    queryFn: ({ signal }) =>
+      fetchHistoryJson<SensorHistoryPoint[]>(`/api/devices/${deviceId}/sensor-history?hours=${hours}`, signal),
+    ...historyQueryPolicy,
     enabled: !!deviceId,
   });
 }

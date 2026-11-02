@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { fetchHistoryJson, historyQueryPolicy } from "@/lib/history-query";
 
 export interface BaseProfileSource {
   label: string;
@@ -29,16 +30,9 @@ export interface BaseProfileHistory {
 export function useBaseProfileHistory(deviceId: number, hours = 48) {
   return useQuery<BaseProfileHistory>({
     queryKey: ["/api/devices", deviceId, "base-profile-history", hours],
-    queryFn: async () => {
-      const response = await fetch(`/api/devices/${deviceId}/base-profile-history?hours=${hours}`, {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error(`Verlauf konnte nicht geladen werden (${response.status})`);
-      }
-      return response.json() as Promise<BaseProfileHistory>;
-    },
-    refetchInterval: 60_000,
+    queryFn: ({ signal }) =>
+      fetchHistoryJson<BaseProfileHistory>(`/api/devices/${deviceId}/base-profile-history?hours=${hours}`, signal),
+    ...historyQueryPolicy,
     enabled: Number.isFinite(deviceId) && deviceId > 0,
   });
 }

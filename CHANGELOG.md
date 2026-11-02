@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.11
+
+- **Verlaufsdiagramme laden robuster:** Beide Abfragen berücksichtigen den Home-Assistant-Ingress-Pfad, brechen hängende Anfragen nach 15 Sekunden ab und wiederholen kurzzeitige Netzwerk-/Serverfehler bis zu zweimal automatisch. Fehlgeschlagene Abfragen können beim erneuten Öffnen wieder laden.
+- **Grundprofil-Verlauf bleibt sichtbar:** Ein fehlgeschlagenes Nachladen ersetzt bereits geladene Messdaten nicht mehr durch die Fehleransicht. Stattdessen bleibt das Diagramm mit einem Hinweis auf den letzten erfolgreichen Abruf sichtbar. Dauerhafte Fehler ohne vorhandene Daten werden weiterhin ausdrücklich angezeigt.
+
 ## 0.3.10
 
 - **Netzwerkwechsel ohne Neueinrichtung:** IP-Adresse oder Hostname, Modbus-Port und Slave-ID sind unter Einstellungen an der bestehenden Anlage änderbar. Profile, Sensorzuordnungen, Register, MQTT-Identität und Verläufe bleiben der gleichen Geräte-ID zugeordnet. Ein schreibfreier Verbindungstest prüft die neue Adresse, ohne die gespeicherte Verbindung zu verändern.

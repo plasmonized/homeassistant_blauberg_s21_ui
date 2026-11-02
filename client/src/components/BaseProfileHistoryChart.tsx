@@ -42,7 +42,7 @@ function SourceNote({ label, source }: { label: string; source: string }) {
 }
 
 export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
-  const { data, isLoading, isError, error, refetch, isFetching } = useBaseProfileHistory(deviceId, 48);
+  const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useBaseProfileHistory(deviceId, 48);
   const windowStart = windowEnd - 48 * 60 * 60 * 1000;
   const points = withHistoryGaps((data?.points ?? [])
     .map((point) => ({ ...point, t: new Date(point.t).getTime() }))
@@ -53,7 +53,7 @@ export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
 
   if (isLoading) return <Skeleton className="h-[270px] w-full rounded-xl" />;
 
-  if (isError) {
+  if (isError && !data) {
     return (
       <div className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 text-center">
         <AlertCircle className="h-5 w-5 text-destructive" />
@@ -100,6 +100,20 @@ export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
 
   return (
     <div className="space-y-2" data-testid="base-profile-history-chart">
+      {isError && (
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">
+            Aktualisierung fehlgeschlagen – zuletzt geladene Daten bleiben sichtbar
+            {dataUpdatedAt ? ` (geladen ${format(new Date(dataUpdatedAt), "dd.MM. HH:mm")})` : ""}.
+            {" "}Ein erneuter Versuch erfolgt automatisch.
+          </span>
+          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RotateCw className={`mr-2 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            Aktualisieren
+          </Button>
+        </div>
+      )}
       {!data.profile.enabled && (
         <p className="text-xs text-muted-foreground">Grundprofil deaktiviert – Aufzeichnung pausiert. Vorhandener Verlauf bleibt sichtbar.</p>
       )}
