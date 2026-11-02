@@ -1,5 +1,20 @@
 import { compatibleExternal, compatibleInternal, resolveBaseSensor, type Measurement } from "./base-sensors";
 import type { BaseProfileReading, InsertBaseProfileReading } from "@shared/schema";
+import type { BaseProfileReferenceSettings } from "@shared/base-profile-history";
+import { baseParametersSchema } from "./base-profile";
+
+export function currentBaseReferenceSettings(parameters: unknown): BaseProfileReferenceSettings {
+  const p = baseParametersSchema.parse(parameters ?? {});
+  return {
+    roomSetpoint: p.roomSetpoint,
+    co2ControlEnabled: p.co2ControlEnabled,
+    co2Setpoint: p.co2Setpoint,
+    co2BoostThreshold: p.co2BoostThreshold,
+    humidityControlEnabled: p.humidityControlEnabled,
+    humiditySetpoint: p.humiditySetpoint,
+    humidityBoostThreshold: p.humidityBoostThreshold,
+  };
+}
 
 const KEYS = { indoorTemp: "indoor_temp", outdoorTemp: "outdoor_temp", co2: "co2", humidity: "humidity" } as const;
 

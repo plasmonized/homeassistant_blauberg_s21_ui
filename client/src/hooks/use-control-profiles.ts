@@ -64,6 +64,7 @@ export function useCreateControlProfile(deviceId: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/devices", deviceId, "control-profiles"] });
       toast({ title: "Regelschema erstellt", description: "Kontrollprofil wurde gespeichert" });
+      queryClient.invalidateQueries({ queryKey: ["/api/devices", deviceId, "base-profile-history"] });
     },
     onError: (err) => {
       toast({ variant: "destructive", title: "Fehler", description: err.message });
@@ -91,6 +92,7 @@ export function useUpdateControlProfile(deviceId: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/devices", deviceId, "control-profiles"] });
       toast({ title: "Regelschema aktualisiert" });
+      queryClient.invalidateQueries({ queryKey: ["/api/devices", deviceId, "base-profile-history"] });
     },
     onError: (err) => {
       toast({ variant: "destructive", title: "Fehler", description: err.message });
@@ -110,6 +112,7 @@ export function useDeleteControlProfile(deviceId: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/devices", deviceId, "control-profiles"] });
       toast({ title: "Regelschema gelöscht" });
+      queryClient.invalidateQueries({ queryKey: ["/api/devices", deviceId, "base-profile-history"] });
     },
   });
 }

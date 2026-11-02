@@ -1,4 +1,5 @@
 import { useBaseProfileHistory } from "@/hooks/use-base-profile-history";
+import { useId, useState } from "react";
 import { AlertCircle, History, RotateCw } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -6,6 +7,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,6 +16,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { withHistoryGaps } from "@/lib/history-chart";
+import { baseProfileReferenceLines } from "@/lib/base-profile-reference-lines";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   deviceId: number;
@@ -42,7 +46,10 @@ function SourceNote({ label, source }: { label: string; source: string }) {
 }
 
 export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
+  const [showReferences, setShowReferences] = useState(false);
+  const referenceSwitchId = useId();
   const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useBaseProfileHistory(deviceId, 48);
+  const referenceLines = showReferences ? baseProfileReferenceLines(data?.currentSettings) : [];
   const windowStart = windowEnd - 48 * 60 * 60 * 1000;
   const points = withHistoryGaps((data?.points ?? [])
     .map((point) => ({ ...point, t: new Date(point.t).getTime() }))
@@ -117,6 +124,26 @@ export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
       {!data.profile.enabled && (
         <p className="text-xs text-muted-foreground">Grundprofil deaktiviert – Aufzeichnung pausiert. Vorhandener Verlauf bleibt sichtbar.</p>
       )}
+      <div className="flex items-center gap-2 px-1">
+        <Switch id={referenceSwitchId} checked={showReferences} onCheckedChange={setShowReferences} data-testid="toggle-base-profile-references" />
+        <label htmlFor={referenceSwitchId} className="cursor-pointer text-xs">Aktuelle Soll- und Schwellenwerte einblenden</label>
+      </div>
+      {showReferences && (
+        <div className="space-y-1 px-1 text-[10px] text-muted-foreground" data-testid="base-profile-reference-legend">
+          <p>Referenzlinien: aktuell eingestellte Werte – keine historische Konfiguration. Sie gelten zum Vergleich für den gesamten Verlauf.</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {referenceLines.map(line => (
+              <span key={line.key} className="inline-flex items-center gap-1.5">
+                <svg width="20" height="6" aria-hidden="true"><line x1="0" x2="20" y1="3" y2="3" stroke={line.color} strokeWidth="2" strokeDasharray={line.dash} /></svg>
+                {line.label} aktuell: {formatValue(line.value, line.axis)} {line.unit}
+              </span>
+            ))}
+          </div>
+          {!data.currentSettings && <p>Aktuelle Soll- und Schwellenwerte sind nicht verfügbar.</p>}
+          {data.currentSettings && !data.currentSettings.co2ControlEnabled && <p>CO₂-Regelung deaktiviert – keine CO₂-Referenzlinien.</p>}
+          {data.currentSettings && !data.currentSettings.humidityControlEnabled && <p>Feuchteregelung deaktiviert – keine Feuchte-Referenzlinien.</p>}
+        </div>
+      )}
       <div className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[10px] text-muted-foreground">
         {activeSeries.map((series) => {
           const values = points.map((point) => point[series.key]).filter((value): value is number => value !== null);
@@ -149,7 +176,7 @@ export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
           />
           <YAxis yAxisId="co2" orientation="left" width={42} domain={["auto", "auto"]} tick={AXIS_TICK} tickFormatter={(value) => `${value}`} />
           <YAxis yAxisId="temp" orientation="right" width={36} domain={["auto", "auto"]} tick={AXIS_TICK} tickFormatter={(value) => `${value}°`} />
-          <YAxis yAxisId="humidity" orientation="right" width={36} domain={["auto", "auto"]} tick={AXIS_TICK} tickFormatter={(value) => `${value}%`} hide />
+          <YAxis yAxisId="humidity" orientation="right" width={36} domain={["auto", "auto"]} tick={AXIS_TICK} tickFormatter={(value) => `${value}%`} hide={!showReferences} />
           <YAxis yAxisId="fan" orientation="right" width={36} domain={[-0.25, 3.25]} ticks={[0, 1, 2, 3]} tick={AXIS_TICK} hide />
           <Tooltip
             labelFormatter={(value) => formatTooltipTime(Number(value))}
@@ -175,6 +202,17 @@ export function BaseProfileHistoryChart({ deviceId, windowEnd }: Props) {
               strokeDasharray={series.key === "fanSpeed" ? "5 3" : undefined}
               connectNulls={false}
               isAnimationActive={false}
+            />
+          ))}
+          {referenceLines.map(line => (
+            <ReferenceLine
+              key={line.key}
+              yAxisId={line.axis}
+              y={line.value}
+              stroke={line.color}
+              strokeWidth={1.5}
+              strokeDasharray={line.dash}
+              ifOverflow="extendDomain"
             />
           ))}
         </LineChart>

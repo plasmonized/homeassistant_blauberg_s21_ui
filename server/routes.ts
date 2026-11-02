@@ -14,7 +14,7 @@ import { getPublicMqttSettings, loadMqttSettings, saveMqttSettings, resetMqttSet
 import { BASE_DEFAULTS, baseParametersSchema } from "./lib/base-profile";
 import { compatibleInternal, compatibleExternal, MEASUREMENTS } from "./lib/base-sensors";
 import { insertControlProfileSchema } from "@shared/schema";
-import { bucketBaseHistory, describeBaseSources } from "./lib/base-profile-history";
+import { bucketBaseHistory, describeBaseSources, currentBaseReferenceSettings } from "./lib/base-profile-history";
 import { deviceConnectionSchema } from "@shared/device-connection";
 import { saveDeviceConnection, ConnectionChangeBusy } from "./lib/device-connection";
 import { probeDeviceConnection } from "./lib/connection-probe";
@@ -731,6 +731,7 @@ export async function registerRoutes(
       ]);
       res.json({
         profile: profile ? { id: profile.id, name: profile.name, enabled: !!profile.enabled } : null,
+        currentSettings: profile ? currentBaseReferenceSettings(profile.parameters) : null,
         sources: describeBaseSources(profile?.parameters, registers, externals),
         points: profile ? bucketBaseHistory(await storage.getBaseProfileHistory(deviceId, profile.id, hours)) : [],
         recordingIntervalMinutes: 5,

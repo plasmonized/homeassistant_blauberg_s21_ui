@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchHistoryJson, historyQueryPolicy } from "@/lib/history-query";
+import type { BaseProfileReferenceSettings } from "@shared/base-profile-history";
 
 export interface BaseProfileSource {
   label: string;
@@ -17,6 +18,7 @@ export interface BaseProfileHistoryPoint {
 
 export interface BaseProfileHistory {
   profile: { id: number; name: string; enabled: boolean } | null;
+  currentSettings: BaseProfileReferenceSettings | null;
   sources: {
     indoorTemp: BaseProfileSource;
     outdoorTemp: BaseProfileSource;
