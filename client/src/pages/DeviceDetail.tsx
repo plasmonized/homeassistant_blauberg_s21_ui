@@ -15,6 +15,7 @@ import { RegisterCard } from "@/components/RegisterCard";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 import { SensorHistoryChart } from "@/components/SensorHistoryChart";
 import { BaseProfileHistoryChart } from "@/components/BaseProfileHistoryChart";
+import { isHistoryTime } from "@/lib/history-comparison";
 import { AutomationPanel } from "@/components/AutomationPanel";
 import { ExternalSensorsPanel } from "@/components/ExternalSensorsPanel";
 import { MqttSettings } from "@/components/MqttSettings";
@@ -135,9 +136,12 @@ export default function DeviceDetail() {
   const deviceId = Number(id);
   const [historyComparison, setHistoryComparison] = useState<{ deviceId: number; time: number } | null>(null);
   const comparisonTime = historyComparison?.deviceId === deviceId
+    && isHistoryTime(historyComparison.time)
     && historyComparison.time >= historyWindowEnd - 48 * 60 * 60 * 1000
     && historyComparison.time <= historyWindowEnd ? historyComparison.time : null;
-  const onComparisonTimeChange = (time: number) => setHistoryComparison({ deviceId, time });
+  const onComparisonTimeChange = (time: number) => {
+    if (isHistoryTime(time)) setHistoryComparison({ deviceId, time });
+  };
   
   const { data: device, isLoading: isDeviceLoading } = useDevice(deviceId);
   const { data: registers, isLoading: isRegistersLoading } = useRegisters(deviceId);

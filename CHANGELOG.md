@@ -2,6 +2,8 @@
 
 ## 0.3.11
 
+- **Diagrammvergleich ohne Datumsabsturz:** Fehlende oder ungültige Vergleichszeitpunkte werden nicht mehr formatiert. Ungültige Messzeitstempel werden als fehlende Messung behandelt; beide Diagramme bleiben benutzbar.
+
 - **Verlaufsdiagramme laden robuster:** Beide Abfragen berücksichtigen den Home-Assistant-Ingress-Pfad, brechen hängende Anfragen nach 15 Sekunden ab und wiederholen kurzzeitige Netzwerk-/Serverfehler bis zu zweimal automatisch. Fehlgeschlagene Abfragen können beim erneuten Öffnen wieder laden.
 - **Grundprofil-Verlauf bleibt sichtbar:** Ein fehlgeschlagenes Nachladen ersetzt bereits geladene Messdaten nicht mehr durch die Fehleransicht. Stattdessen bleibt das Diagramm mit einem Hinweis auf den letzten erfolgreichen Abruf sichtbar. Dauerhafte Fehler ohne vorhandene Daten werden weiterhin ausdrücklich angezeigt.
 

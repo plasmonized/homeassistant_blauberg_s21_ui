@@ -1,10 +1,10 @@
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import type { PointerEvent } from "react";
-import { historyTimeAtPosition, type HistoryComparisonProps } from "@/lib/history-comparison";
+import { historyTimeAtPosition, isHistoryTime, type HistoryComparisonProps } from "@/lib/history-comparison";
 
 export const formatComparisonTime = (time: number) =>
-  format(new Date(time), "EEE, dd.MM. HH:mm:ss", { locale: de });
+  isHistoryTime(time) ? format(new Date(time), "EEE, dd.MM. HH:mm:ss", { locale: de }) : "Ungültiger Zeitpunkt";
 
 // Recharts supplies the real plot offset to Customized, including all visible
 // axes. Mapping pointer positions here also works when the axis layout changes.
@@ -43,6 +43,7 @@ export interface ComparisonReading {
 }
 
 export function HistoryComparisonReadout({ time, readings }: { time: number; readings: ComparisonReading[] }) {
+  if (!isHistoryTime(time)) return null;
   return (
     <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs" data-testid="history-comparison-readout">
       <p className="mb-1 font-medium">Vergleich: {formatComparisonTime(time)}</p>
@@ -50,7 +51,7 @@ export function HistoryComparisonReadout({ time, readings }: { time: number; rea
         {readings.map(reading => (
           <div key={reading.key}>
             <span style={{ color: reading.color }}>{reading.label}: </span>
-            {typeof reading.value === "number" && Number.isFinite(reading.value) && reading.measuredAt !== undefined ? (
+            {typeof reading.value === "number" && Number.isFinite(reading.value) && isHistoryTime(reading.measuredAt) ? (
               <>
                 <span className="font-mono">{reading.value.toLocaleString("de-DE", { maximumFractionDigits: 2 })}{reading.unit ? ` ${reading.unit}` : ""}</span>
                 <span className="ml-1 text-muted-foreground">(Messung {formatComparisonTime(reading.measuredAt)})</span>

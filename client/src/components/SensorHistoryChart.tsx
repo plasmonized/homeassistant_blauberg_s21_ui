@@ -17,7 +17,7 @@ import { de } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp } from "lucide-react";
 import { withHistoryGaps } from "@/lib/history-chart";
-import { nearestHistoryPoint, type HistoryComparisonProps } from "@/lib/history-comparison";
+import { isHistoryTime, nearestHistoryPoint, type HistoryComparisonProps } from "@/lib/history-comparison";
 import { HistoryComparisonReadout, HistoryComparisonTarget } from "@/components/HistoryComparison";
 
 interface Props extends HistoryComparisonProps {
@@ -43,7 +43,8 @@ function getSeriesInfo(regName: string): { label: string; color: string } {
   return { label: regName.replace(/^Temperature - /, ""), color: "#94a3b8" };
 }
 
-export function SensorHistoryChart({ deviceId, windowEnd, comparisonTime, onComparisonTimeChange }: Props) {
+export function SensorHistoryChart({ deviceId, windowEnd, comparisonTime: requestedComparisonTime, onComparisonTimeChange }: Props) {
+  const comparisonTime = isHistoryTime(requestedComparisonTime) ? requestedComparisonTime : null;
   const { data: history, isLoading: histLoading } = useSensorHistory(deviceId, 48);
   const { data: registers } = useRegisters(deviceId);
 

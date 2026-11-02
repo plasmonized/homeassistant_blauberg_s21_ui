@@ -2,6 +2,12 @@
 // carry a measurement through an outage just to populate the comparison.
 export const HISTORY_COMPARISON_TOLERANCE = 150_000;
 
+// Only epoch milliseconds represent a selection. In particular, undefined
+// during a component update is not the same thing as a selected timestamp.
+export function isHistoryTime(time: unknown): time is number {
+  return typeof time === "number" && Number.isFinite(time) && Math.abs(time) <= 8_640_000_000_000_000;
+}
+
 export interface HistoryComparisonProps {
   comparisonTime: number | null;
   onComparisonTimeChange: (time: number) => void;
@@ -10,7 +16,7 @@ export interface HistoryComparisonProps {
 export function nearestHistoryPoint<T extends { t: number }>(
   points: readonly T[], time: number, tolerance = HISTORY_COMPARISON_TOLERANCE,
 ): T | undefined {
-  if (!Number.isFinite(time)) return undefined;
+  if (!isHistoryTime(time)) return undefined;
   let nearest: T | undefined;
   let distance = Infinity;
   for (const point of points) {
@@ -24,6 +30,6 @@ export function nearestHistoryPoint<T extends { t: number }>(
 }
 
 export function historyTimeAtPosition(x: number, left: number, width: number, start: number, end: number) {
-  if (width <= 0 || ![x, left, width, start, end].every(Number.isFinite)) return null;
+  if (width <= 0 || ![x, left, width].every(Number.isFinite) || !isHistoryTime(start) || !isHistoryTime(end) || end < start) return null;
   return Math.round(start + Math.max(0, Math.min(1, (x - left) / width)) * (end - start));
 }

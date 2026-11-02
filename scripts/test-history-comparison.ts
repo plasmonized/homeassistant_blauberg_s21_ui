@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { historyTimeAtPosition, nearestHistoryPoint } from "../client/src/lib/history-comparison";
+import { historyTimeAtPosition, isHistoryTime, nearestHistoryPoint } from "../client/src/lib/history-comparison";
 
 const start = Date.parse("2026-11-01T12:00:00Z");
 const points = [
@@ -33,7 +33,22 @@ assert.equal(historyTimeAtPosition(NaN, 100, 200, start, start + 600_000), null)
 const originalReact = Object.getOwnPropertyDescriptor(globalThis, "React");
 Object.defineProperty(globalThis, "React", { configurable: true, value: React });
 try {
-  const { HistoryComparisonTarget, HistoryComparisonReadout } = await import("../client/src/components/HistoryComparison");
+  const { HistoryComparisonTarget, HistoryComparisonReadout, formatComparisonTime } = await import("../client/src/components/HistoryComparison");
+  for (const invalid of [undefined, null, NaN, Infinity, -Infinity, 8.64e15 + 1, "2026-11-01"]) {
+    assert.equal(isHistoryTime(invalid), false);
+    assert.equal(formatComparisonTime(invalid as number), "Ungültiger Zeitpunkt");
+    assert.equal(renderToStaticMarkup(React.createElement(HistoryComparisonReadout, {
+      time: invalid as number, readings: [],
+    })), "", "an absent/invalid comparison must not crash the page");
+  }
+  const invalidMeasurements = renderToStaticMarkup(React.createElement(HistoryComparisonReadout, {
+    time: start, readings: [{ key: "bad", label: "CO₂", color: "green", value: 700, unit: "ppm", measuredAt: NaN }],
+  }));
+  assert.match(invalidMeasurements, /Keine Messung/, "invalid measurement dates are not formatted as valid samples");
+  assert.equal(isHistoryTime(0), true, "epoch zero is valid, not an empty selection");
+  assert.match(formatComparisonTime(start), /01\.11\./);
+  assert.equal(historyTimeAtPosition(100, 0, 200, start, 1e20), null);
+  assert.equal(historyTimeAtPosition(100, 0, 200, start + 1000, start), null);
   let selected: number | null = null;
   const target = HistoryComparisonTarget({
     offset: { left: 42, top: 4, width: 200, height: 180 },

@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { withHistoryGaps } from "@/lib/history-chart";
 import { baseProfileReferenceLines } from "@/lib/base-profile-reference-lines";
 import { Switch } from "@/components/ui/switch";
-import { nearestHistoryPoint, type HistoryComparisonProps } from "@/lib/history-comparison";
+import { isHistoryTime, nearestHistoryPoint, type HistoryComparisonProps } from "@/lib/history-comparison";
 import { HistoryComparisonReadout, HistoryComparisonTarget } from "@/components/HistoryComparison";
 
 interface Props extends HistoryComparisonProps {
@@ -45,7 +45,8 @@ function SourceNote({ label, source }: { label: string; source: string }) {
   return <span title={`${label}: aktuell konfiguriert — ${source}`} className="truncate">{label}: {source}</span>;
 }
 
-export function BaseProfileHistoryChart({ deviceId, windowEnd, comparisonTime, onComparisonTimeChange }: Props) {
+export function BaseProfileHistoryChart({ deviceId, windowEnd, comparisonTime: requestedComparisonTime, onComparisonTimeChange }: Props) {
+  const comparisonTime = isHistoryTime(requestedComparisonTime) ? requestedComparisonTime : null;
   const [showReferences, setShowReferences] = useState(false);
   const referenceSwitchId = useId();
   const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useBaseProfileHistory(deviceId, 48);
