@@ -31,7 +31,6 @@ RUN npm install --production=false
 COPY server/ ./server/
 COPY client/ ./client/
 COPY shared/ ./shared/
-COPY attached_assets/ ./attached_assets/
 COPY script/ ./script/
 
 RUN npm run build

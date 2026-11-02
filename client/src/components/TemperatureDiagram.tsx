@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Register } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import houseImg from "@assets/AISelect_20260529_183307(1)_1780726688481.jpg";
+import houseImg from "@/assets/ventilation-diagram.jpg";
 
 interface TemperatureDiagramProps {
   registers: Register[] | undefined;

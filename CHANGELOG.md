@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.12
+
+- **Add-on-Build repariert:** Das benötigte Temperaturbild liegt jetzt im regulären App-Quellcode statt im nicht nach GitHub übertragenen Upload-Ordner. Der Docker-Build benötigt `attached_assets` nicht mehr. Einstellungen und Regelungslogik bleiben unverändert.
+
 ## 0.3.11
 
 - **Warum diese Lüfterstufe?** Die Übersicht zeigt die tatsächliche letzte Auswertung der laufenden Regelung inklusive Haltezeit, Hysterese und Fehlern. Sie wird auch ohne Stufenwechsel aktualisiert. Offline/veraltete Entscheidungen und Abweichungen zur gemeldeten Lüfterstufe werden nicht als bestätigter aktueller Regelungsgrund ausgegeben.
