@@ -2,6 +2,8 @@
 
 ## 0.3.11
 
+- **Warum diese Lüfterstufe?** Die Übersicht zeigt die tatsächliche letzte Auswertung der laufenden Regelung inklusive Haltezeit, Hysterese und Fehlern. Sie wird auch ohne Stufenwechsel aktualisiert. Offline/veraltete Entscheidungen und Abweichungen zur gemeldeten Lüfterstufe werden nicht als bestätigter aktueller Regelungsgrund ausgegeben.
+- **Temperaturbild verfeinert:** Weißen Rand oben und unten weiter beschnitten; Temperaturbeschriftungen wieder ohne grauen Hintergrund.
 - **Kompaktere Startübersicht:** Kleineres Temperaturbild rechts, wichtige Betriebszustände und Gerätewarnungen links; auf Mobilgeräten untereinander. Die zusätzliche Temperaturüberschrift entfällt.
 - **Diagrammvergleich ohne Datumsabsturz:** Fehlende oder ungültige Vergleichszeitpunkte werden nicht mehr formatiert. Ungültige Messzeitstempel werden als fehlende Messung behandelt; beide Diagramme bleiben benutzbar.
 

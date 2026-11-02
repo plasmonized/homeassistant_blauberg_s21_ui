@@ -1,4 +1,6 @@
 import { storage } from "../storage";
+import { recordControlDecision } from "./control-decision";
+import type { ControlDecision } from "@shared/control-decision";
 import type { InsertSensorReading } from "@shared/schema";
 import { getModbusClient, closeConnection } from "./modbus";
 import { pollDeviceRegisters } from "./poll";
@@ -794,6 +796,7 @@ async function evaluateControlProfile(
     );
 
     if (result) {
+      const requestedValue = result.value;
       const holdMs = Math.max(0, (Number(params?.holdMinutes ?? 5)) * 60_000);
       const last = profileLastAction.get(profile.id);
       const now = Date.now();
@@ -878,7 +881,23 @@ async function evaluateControlProfile(
         (deviceActualValue !== undefined && deviceActualValue !== result.value) ||
         unitCurrentlyOff;
 
+      const observedResult = result;
+      const observe = (
+        outcome: ControlDecision["outcome"],
+        effectiveValue: number | null,
+        detail: string | null = null,
+      ) => {
+        if (observedResult.actionType !== "fan_speed" && observedResult.actionType !== "standby") return;
+        recordControlDecision({
+          deviceId, profileId: profile.id, profileName: profile.name,
+          actionType: observedResult.actionType, requestedValue, effectiveValue,
+          reason: observedResult.reason, outcome, detail,
+        });
+      };
+
       if (last !== undefined && result.value === last.value && !deviceDrifted) {
+        observe("unchanged", result.value, hysteresisSkip
+          ? `Hysterese aktiv – Stufe ${last.value} wird beibehalten.` : null);
         if (hysteresisSkip && hysteresisMeasured !== null && hysteresisSetpoint !== null) {
           await storage.createControlLog({
             profileId: profile.id,
@@ -914,6 +933,8 @@ async function evaluateControlProfile(
         (last !== undefined && last.value === 0 && result.actionType === "fan_speed"); // waking up
       if (!deviceDrifted && !isStandbyTransition && !airQualityIncrease && last !== undefined && holdMs > 0 && (now - last.ts) < holdMs) {
         const remainingMin = Math.ceil((holdMs - (now - last.ts)) / 60_000);
+        observe("held", last.value,
+          `Haltezeit aktiv – noch ${remainingMin} Min.; Stufe ${last.value} bleibt, Stufe ${result.value} angefordert.`);
         await storage.createControlLog({
           profileId: profile.id,
           deviceId: deviceId,
@@ -929,6 +950,8 @@ async function evaluateControlProfile(
 
       // Execute the control action
       const actionResult = await executeControlAction(deviceId, result);
+      observe(actionResult.success ? "applied" : "failed",
+        actionResult.success ? result.value : null, actionResult.message);
       // Only record the last action when the write actually succeeded.
       // A failed write must NOT advance the hold-time clock — the engine
       // should retry the same change on the very next cycle instead of

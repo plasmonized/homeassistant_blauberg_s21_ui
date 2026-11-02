@@ -11,7 +11,9 @@ import { discoverHomeAssistantSensors, getHomeAssistantState, isHomeAssistantAva
 import { reconcileS21Registers, reconcileAllS21Devices } from "./lib/s21-register-map";
 import { isMqttConnected, getMqttError, reconnectMqtt } from "./lib/mqtt-client";
 import { getPublicMqttSettings, loadMqttSettings, saveMqttSettings, resetMqttSettings } from "./lib/mqtt-settings";
-import { BASE_DEFAULTS, baseParametersSchema } from "./lib/base-profile";
+import { BASE_DEFAULTS, baseParametersSchema, effectiveProfiles } from "./lib/base-profile";
+import { latestControlDecision } from "./lib/control-decision";
+import { CONTROL_DECISION_STALE_MS } from "@shared/control-decision";
 import { compatibleInternal, compatibleExternal, MEASUREMENTS } from "./lib/base-sensors";
 import { insertControlProfileSchema } from "@shared/schema";
 import { bucketBaseHistory, describeBaseSources, currentBaseReferenceSettings } from "./lib/base-profile-history";
@@ -424,6 +426,21 @@ export async function registerRoutes(
   }
 
   // List control profiles for a device
+  app.get('/api/devices/:id/control-decision', async (req, res, next) => {
+    try {
+      const deviceId = Number(req.params.id);
+      if (!Number.isInteger(deviceId) || deviceId <= 0) return res.status(400).json({ message: "Ungültige Geräte-ID" });
+      const device = await storage.getDevice(deviceId);
+      if (!device) return res.status(404).json({ message: "Anlage nicht gefunden" });
+      const profiles = effectiveProfiles(await storage.getControlProfiles(deviceId));
+      res.setHeader("Cache-Control", "no-store");
+      res.json({
+        decision: latestControlDecision(deviceId, profiles.map(profile => profile.id)),
+        staleAfterMs: CONTROL_DECISION_STALE_MS,
+      });
+    } catch (error) { next(error); }
+  });
+
   app.get('/api/devices/:id/control-profiles', async (req, res) => {
     const profiles = await storage.getControlProfiles(Number(req.params.id));
     res.json(profiles);
