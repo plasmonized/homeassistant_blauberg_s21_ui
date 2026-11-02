@@ -12,7 +12,7 @@ import { RefreshCw, Power, AlertCircle, Settings2, Sliders, LayoutDashboard, Bot
 import { AddRegisterDialog } from "@/components/AddRegisterDialog";
 import { AddDeviceDialog } from "@/components/AddDeviceDialog";
 import { RegisterCard } from "@/components/RegisterCard";
-import { TemperatureDiagram } from "@/components/TemperatureDiagram";
+import { DeviceOverview } from "@/components/DeviceOverview";
 import { SensorHistoryChart } from "@/components/SensorHistoryChart";
 import { BaseProfileHistoryChart } from "@/components/BaseProfileHistoryChart";
 import { isHistoryTime } from "@/lib/history-comparison";
@@ -347,7 +347,14 @@ export default function DeviceDetail() {
           </div>
 
           <TabsContent value="overview" className="space-y-6">
-            <TemperatureDiagram registers={registers} isLoading={isRegistersLoading} />
+            <DeviceOverview
+              device={device}
+              registers={registers}
+              isLoading={isRegistersLoading}
+              mqttConnected={appStatus?.mqtt}
+              activeBase={activeBase}
+              activeProfiles={activeProfiles}
+            />
 
             {/* Sensor History Chart */}
             <div>

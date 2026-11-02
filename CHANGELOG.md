@@ -2,6 +2,7 @@
 
 ## 0.3.11
 
+- **Kompaktere Startübersicht:** Kleineres Temperaturbild rechts, wichtige Betriebszustände und Gerätewarnungen links; auf Mobilgeräten untereinander. Die zusätzliche Temperaturüberschrift entfällt.
 - **Diagrammvergleich ohne Datumsabsturz:** Fehlende oder ungültige Vergleichszeitpunkte werden nicht mehr formatiert. Ungültige Messzeitstempel werden als fehlende Messung behandelt; beide Diagramme bleiben benutzbar.
 
 - **Verlaufsdiagramme laden robuster:** Beide Abfragen berücksichtigen den Home-Assistant-Ingress-Pfad, brechen hängende Anfragen nach 15 Sekunden ab und wiederholen kurzzeitige Netzwerk-/Serverfehler bis zu zweimal automatisch. Fehlgeschlagene Abfragen können beim erneuten Öffnen wieder laden.
