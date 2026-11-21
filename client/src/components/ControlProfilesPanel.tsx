@@ -79,6 +79,9 @@ const compatibleSensorTypes: Record<string, string[]> = {
 };
 
 const controlTypeLabels: Record<string, string> = {
+  manual_override: "Manueller Vorrang",
+  boost: "Boost",
+  automation_return: "Rückkehr zur Automatik",
   base_profile: "Grundprofil · Wetter + Raumluft",
   temperature_control: "Temperaturregelung",
   humidity_control: "Feuchtigkeitsregelung",

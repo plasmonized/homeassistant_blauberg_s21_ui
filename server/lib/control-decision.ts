@@ -3,6 +3,9 @@ import type { ControlDecision } from "@shared/control-decision";
 // Observations only: never run a controller again merely to explain its output.
 // A fresh evaluation is captured even when no Modbus write/log entry is needed.
 const decisions = new Map<number, Map<number, ControlDecision>>();
+export function clearControlDecision(deviceId: number) {
+  decisions.delete(deviceId);
+}
 
 export function recordControlDecision(decision: Omit<ControlDecision, "evaluatedAt">, now = Date.now()) {
   let profiles = decisions.get(decision.deviceId);

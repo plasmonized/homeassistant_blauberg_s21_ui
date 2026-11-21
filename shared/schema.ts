@@ -180,7 +180,10 @@ export const controlLogs = pgTable("control_logs", {
     "summer_winter",
     "night_setback",
     "base_profile",
-    "weather_compensated"
+    "weather_compensated",
+    "manual_override",
+    "boost",
+    "automation_return"
   ] }),
   measuredValue: real("measured_value"),
   setpointValue: real("setpoint_value"),

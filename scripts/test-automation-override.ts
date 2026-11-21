@@ -26,6 +26,7 @@ const { pool } = await import("../server/db");
 const { S21_REGISTERS } = await import("../server/lib/s21-register-map");
 const { BASE_DEFAULTS } = await import("../server/lib/base-profile");
 const { manualOverrides } = await import("../server/lib/manual-override");
+const { latestControlDecision } = await import("../server/lib/control-decision");
 const { getModbusClient, closeConnection, withModbusWriteContext } = await import("../server/lib/modbus");
 const { runAutomationCycle, startManualBoost } = await import("../server/lib/automation");
 const device = { id: 987654, ip: "127.0.0.1", port: (hardware.address() as any).port,
@@ -75,12 +76,18 @@ try {
   const until = manualOverrides.status(device.id).manualUntil;
   await cycle();
   assert.equal(manualOverrides.status(device.id).manualUntil, until, "cycles don't prolong manual window");
+  assert.equal(logs.filter(l => l.controlType === "manual_override").length, 1, "unchanged cycles don't duplicate manual start");
+  assert.equal(latestControlDecision(device.id, [profile.id]), null, "old profile reasons are cleared during manual priority");
   coils[0] &= ~1;
   await cycle();
   assert.equal(coils[0] & 1, 1, "manual ventilation wakes an off unit even if stage already matches");
   await manualOverrides.resume(device.id);
   await cycle();
   assert.equal(stage(), 1, "resume restores base regulation");
+  assert.equal(logs.filter(l => l.controlType === "automation_return").length, 1);
+  assert.ok(latestControlDecision(device.id, [profile.id]), "return event preserves the fresh automatic reason");
+  await cycle();
+  assert.equal(logs.filter(l => l.controlType === "automation_return").length, 1, "no return event per poll");
   await startManualBoost(device.id);
   assert.equal(stage(), 3, "app boost actually writes stage3 instead of coil13");
   await cycle();
@@ -117,7 +124,24 @@ try {
   assert.equal(stage(), 1, "timer expiry returns directly to base");
   assert.equal(coils[1] & (1 << 5), 1 << 5, "physical boost input enable is NEVER switched off by software timer expiry");
   assert.equal(manualOverrides.status(device.id).active, false);
+  assert.match(logs.findLast(l => l.actionTaken === "Regel-Boost beendet")?.message ?? "", /Boost-Timer abgelaufen/);
   const client = await getModbusClient(device.id, device.ip, device.port, device.slaveId);
+  // A failed first automatic write must not claim a successful return.
+  await manualOverrides.manual(device.id, 2, "app");
+  holding.writeUInt16BE(2, 4);
+  await manualOverrides.resume(device.id);
+  const returnsBeforeFailure = logs.filter(l => l.controlType === "automation_return").length;
+  const writeDescriptor = Object.getOwnPropertyDescriptor(client, "writeSingleRegister");
+  client.writeSingleRegister = async () => { throw new Error("Isolated write failure"); };
+  await cycle();
+  assert.equal(logs.filter(l => l.controlType === "automation_return").length, returnsBeforeFailure);
+  assert.equal(latestControlDecision(device.id, [profile.id])?.outcome, "failed");
+  // Restore the underlying method, not the queue proxy's wrapped getter.
+  if (writeDescriptor) Object.defineProperty(client, "writeSingleRegister", writeDescriptor);
+  else Reflect.deleteProperty(client, "writeSingleRegister");
+  await cycle();
+  assert.equal(logs.filter(l => l.controlType === "automation_return").length, returnsBeforeFailure + 1);
+  assert.equal(stage(), 1, "successful retry confirms automation return");
   let allow = true;
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });

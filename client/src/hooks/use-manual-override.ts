@@ -18,6 +18,7 @@ export function useManualOverride(deviceId: number) {
     await Promise.all([
       client.invalidateQueries({ queryKey: key }),
       client.invalidateQueries({ queryKey: ["/api/devices", deviceId, "control-decision"] }),
+      client.invalidateQueries({ queryKey: ["/api/devices", deviceId, "control-logs"] }),
     ]);
   };
   const configure = useMutation({

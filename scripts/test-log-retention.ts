@@ -13,11 +13,12 @@ try {
       timestamp: new Date(2020, 0, 1), actionTaken: "fan_speed=1",
     })),
   ).returning();
-  await storage.createControlLog({ profileId: id, deviceId: id, actionTaken: "fan_speed=3" });
+  await storage.createControlLog({ profileId: 0, deviceId: id, controlType: "manual_override",
+    actionTaken: "Manueller Vorrang begonnen", message: "Quelle: App. Stufe 3." });
   assert.equal(await storage.countControlLogs(id), 750);
   assert.equal(await storage.countControlLogs(id - 1), 1, "other device untouched");
   const logs = await storage.getControlLogs(id, 750);
-  assert.equal(logs[0].actionTaken, "fan_speed=3");
+  assert.equal(logs[0].controlType, "manual_override");
   assert.equal(logs.some(l => l.id === rows[0].id || l.id === rows[1].id), false, "oldest ID tie-breaker pruned");
   const base = await storage.createControlProfile({ deviceId: id, name: "Test base", schemaType: "base_profile", parameters: {} });
   assert.equal(base.enabled, true);

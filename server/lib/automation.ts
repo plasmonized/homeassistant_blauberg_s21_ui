@@ -1,5 +1,5 @@
 import { storage } from "../storage";
-import { recordControlDecision } from "./control-decision";
+import { latestControlDecision, recordControlDecision } from "./control-decision";
 import type { ControlDecision } from "@shared/control-decision";
 import type { InsertSensorReading } from "@shared/schema";
 import { getModbusClient, closeConnection, withModbusWriteContext } from "./modbus";
@@ -358,6 +358,7 @@ export async function runAutomationCycle() {
   try {
     const devices = await storage.getDevices();
     for (const device of devices) {
+      await manualOverrides.expire(device.id);
       // Always attempt a poll, even if the device is currently marked
       // disconnected. pollDeviceRegisters() opens a fresh Modbus connection
       // (via getModbusClient's lazy reconnect) when needed and flips
@@ -459,6 +460,7 @@ export async function runAutomationCycle() {
       // rule's timer expiring doesn't switch boost off while another rule
       // still needs it on.
       let boostWantedThisCycle = false;
+      const activeBoostRules: string[] = [];
       let boostExpiredThisCycle = false;
       let expiredRuleId: number | null = null;
 
@@ -482,6 +484,7 @@ export async function runAutomationCycle() {
 
           if (conditionMet) {
             boostWantedThisCycle = true;
+            activeBoostRules.push(rule.name);
             const newActiveUntil = new Date(now + rule.actionDurationMinutes * 60_000);
             await storage.updateAutomationRule(rule.id, { activeUntil: newActiveUntil });
 
@@ -503,6 +506,7 @@ export async function runAutomationCycle() {
             // Trigger sensor is no longer "on", but the timer is still
             // counting down - keep boost on until it elapses.
             boostWantedThisCycle = true;
+            activeBoostRules.push(rule.name);
           } else if (rule.activeUntil) {
             // Timer just elapsed this cycle.
             await storage.updateAutomationRule(rule.id, { activeUntil: null });
@@ -527,6 +531,7 @@ export async function runAutomationCycle() {
         // towards "something wants boost on", for the same reason as above.
         if (rule.actionType === "boost" && rule.actionValue) {
           boostWantedThisCycle = true;
+          activeBoostRules.push(rule.name);
         }
 
         // Hysteresis check: if we already triggered this rule recently with similar value
@@ -572,7 +577,10 @@ export async function runAutomationCycle() {
         });
       }
       // Boost rules run first, so a trigger cannot lose to standby in this cycle.
-      manualOverrides.ruleBoost(device.id, boostWantedThisCycle);
+      await manualOverrides.ruleBoost(device.id, boostWantedThisCycle,
+        activeBoostRules.map(name => `Regel „${name}“`).join(", ") || "Automationsregel",
+        Date.now(), boostExpiredThisCycle ? "Boost-Timer abgelaufen."
+          : "Boost-Anforderung durch Regelbedingung, Zeitfenster oder Deaktivierung beendet.");
       const override = manualOverrides.status(device.id);
       if (override.boost && override.boostSource !== "hardware") {
         const fan = registers.find(r => r.name === "Fan Speed");
@@ -611,7 +619,14 @@ export async function runAutomationCycle() {
       for (const profile of selectedProfiles) {
         if (!hasBaseProfile) continue;
         if (profile.schemaType === "base_profile" && manualOverrides.status(device.id).active) continue;
+        const evaluatedAfter = Date.now();
         await evaluateControlProfile(device.id, profile, registers, freshSensors);
+        const decision = latestControlDecision(device.id, selectedProfiles.map(p => p.id));
+        if (profile.schemaType === "base_profile" && decision?.profileId === profile.id
+          && Date.parse(decision.evaluatedAt) >= evaluatedAfter && decision.outcome !== "failed") {
+          await manualOverrides.automationReturned(device.id, profile.name,
+            `${decision.actionType === "standby" ? "Standby" : `Stufe ${decision.effectiveValue}`} bestätigt. ${decision.reason}`);
+        }
       }
 
       // Keep both histories after all writes, including manual/boost restoration.
