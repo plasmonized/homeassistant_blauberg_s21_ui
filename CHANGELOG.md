@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.15
+
+- **Fertige Add-on-Images vorbereitet:** GitHub Actions baut AMD64 und ARM64 parallel, prüft Laufzeitwerkzeuge und veröffentlicht beide Varianten als versioniertes Container-Image. Home Assistant muss das Programm nach der Freigabe nicht mehr selbst bauen.
+- **Sichere Update-Freigabe:** Die Add-on-Version und der Image-Verweis werden erst nach erfolgreicher öffentlicher Prüfung beider Architekturen aktualisiert. Bis zur ersten erfolgreichen GitHub-Veröffentlichung bleibt die bisherige Add-on-Konfiguration aktiv. Die einmalige Paketfreigabe ist in der Release-Anleitung beschrieben.
+- **Kleineres Laufzeit-Image und reproduzierbarer Build:** Compiler und Python bleiben im separaten Build-Abschnitt; Abhängigkeiten werden über die eingecheckte Lockdatei installiert und Build-Schichten wiederverwendet. Das veraltete `build.yaml` entfällt. Datenablage, PostgreSQL-Generation, Ingress und Regelung bleiben unverändert.
+- **Installationsfortschritt:** Mit fertigen Images kann Home Assistant den vom Supervisor gelieferten Download-Fortschritt nutzen. Eine durchgehende Prozentanzeige für sämtliche Installationsphasen wird nicht versprochen.
+
 ## 0.3.14
 
 - **Manuelle Eingriffe im Regelungsverlauf:** Beginn, Verlängerung und Ende des manuellen Vorrangs werden mit Quelle, Lüfterstufe und Zeitfenster protokolliert.

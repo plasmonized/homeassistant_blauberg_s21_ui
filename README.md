@@ -78,6 +78,14 @@ Jede Regelungsaktion wird im Regelungs-Log mit Messwert, Sollwert und Begründun
 
 Für einfachere Fälle stehen klassische Wenn-Dann-Regeln zur Verfügung: Sensor (Innen-/Außentemperatur, Luftfeuchtigkeit, CO2, Wettervorhersage oder ein beliebiger Home-Assistant-Sensor) + Vergleichsoperator + Schwellwert → Aktion (Lüfterstufe, Bypass, Betriebsmodus oder Boost). Optional mit Hysterese, Zeitfenster, Saison-Einschränkung und automatisch befristetem Boost (z.B. für Fenster- oder Bewegungssensoren).
 
+## Schnellere Updates mit fertigen Images
+
+Die automatische Veröffentlichung für AMD64 und ARM64 ist vorbereitet.
+Home Assistant wird erst nach erfolgreichem Image-Bau und öffentlicher Prüfung auf
+Downloads umgestellt. Die einmalige GitHub-Paketfreigabe und der sichere Ablauf
+für weitere Versionen stehen in [Add-on-Veröffentlichung](docs/ADDON_RELEASE.md).
+Einstellungen und Datenbank bleiben im bisherigen `/data` erhalten.
+
 ## Support
 
 Bei Problemen oder Feature-Requests: [GitHub Issues](https://github.com/plasmonized/blauberg-ventilation-addon/issues)

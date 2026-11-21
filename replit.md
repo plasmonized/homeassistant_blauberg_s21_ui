@@ -48,6 +48,13 @@ Add a new suite by creating `scripts/test-<name>.ts` and registering it in `pack
 - German UI language throughout
 - Log format: `[Control] Profile X (type): outdoor=Y, indoor=Z, co2=W, humidity=V, result=actionType=value, last=prev`
 
+## Add-on release safety
+
+- `package.json` / `package-lock.json` hold the prepared release; `config.yaml` holds the last published release. Do not bump `config.yaml` in advance of image publication.
+- The GitHub workflow publishes and anonymously verifies AMD64 and ARM64 images before committing the new `config.yaml` version/image. See `docs/ADDON_RELEASE.md`.
+- Never overwrite a published version tag, change the add-on slug/repository identity, or upgrade the Alpine/PostgreSQL generation as part of a packaging optimization.
+- Keep schema tools required by `run.sh` in the runtime image. Drizzle/tsx are currently devDependencies but needed for `db:push`; blindly pruning devDependencies breaks startup.
+
 ## Grundprofil and MQTT
 
 - `base_profile` combines weather regulation with independent CO₂ and indoor-humidity demand. Highest requested fan stage wins, including over heat standby. Each measurement has its own internal/external source; missing or stale required sensors prevent standby.

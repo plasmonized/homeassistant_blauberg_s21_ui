@@ -1,10 +1,11 @@
 node_modules
+__pycache__/
+*.pyc
 dist
 .DS_Store
 server/public
 vite.config.ts.*
 *.tar.gz
-package-lock.json
 s21-settings/
 
 # Replit-specific (not needed in HA addon repo)

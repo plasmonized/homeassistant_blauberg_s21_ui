@@ -1,0 +1,216 @@
+name: Build and release Home Assistant images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - package.json
+      - package-lock.json
+      - run.sh
+      - drizzle.config.ts
+      - tsconfig.json
+      - tailwind.config.ts
+      - postcss.config.js
+      - vite.config.ts
+      - components.json
+      - client/**
+      - server/**
+      - shared/**
+      - script/**
+      - scripts/addon-release.py
+      - scripts/test-addon-release.py
+      - .github/workflows/addon-images.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never race two releases or cancel a publication halfway through.
+concurrency:
+  group: addon-images-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      version: ${{ steps.meta.outputs.version }}
+      fingerprint: ${{ steps.meta.outputs.fingerprint }}
+      build: ${{ steps.existing.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test release safety
+        run: python3 scripts/test-addon-release.py
+      - id: meta
+        name: Read staged release (not the installed add-on version)
+        run: python3 scripts/addon-release.py metadata --repository "$GITHUB_REPOSITORY" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: existing
+        name: Never replace an already published version
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          FINGERPRINT: ${{ steps.meta.outputs.fingerprint }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" --raw > "$RUNNER_TEMP/existing.json" 2> "$RUNNER_TEMP/inspect.err"; then
+            actual=$(jq -r '.annotations["io.blauberg.source-sha256"] // ""' "$RUNNER_TEMP/existing.json")
+            if [ "$actual" != "$FINGERPRINT" ]; then
+              echo "::error::This version already contains different sources. Increase package.json version and update package-lock.json and CHANGELOG.md."
+              exit 1
+            fi
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif grep -Eiq 'manifest unknown|not found|404' "$RUNNER_TEMP/inspect.err"; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            cat "$RUNNER_TEMP/inspect.err"
+            exit 1
+          fi
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CANDIDATE: ${{ needs.prepare.outputs.image }}:build-${{ github.sha }}-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build on native hardware
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,push=true,oci-mediatypes=true
+          tags: ${{ env.CANDIDATE }}
+          provenance: false
+          build-args: |
+            BUILD_ARCH=${{ matrix.arch }}
+            BUILD_VERSION=${{ needs.prepare.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=addon-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=addon-${{ matrix.arch }}
+      - name: Smoke-test runtime and schema tools before releasing the version
+        run: |
+          docker pull "$CANDIDATE"
+          docker run --rm --entrypoint /bin/sh "$CANDIDATE" -ec '
+            cd /app
+            test -s dist/index.cjs
+            test -s dist/public/index.html
+            test -s shared/schema.ts
+            test -x /run.sh
+            postgres --version | grep " 17\."
+            node_modules/.bin/drizzle-kit --version
+            node_modules/.bin/tsx --version
+            node -e "require(\"jsmodbus\"); require(\"mqtt\"); require(\"drizzle-zod\")"
+          '
+  release:
+    needs: [prepare, build]
+    if: >-
+      always() && needs.prepare.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    env:
+      IMAGE: ${{ needs.prepare.outputs.image }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      FINGERPRINT: ${{ needs.prepare.outputs.fingerprint }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish immutable multi-architecture version
+        if: needs.prepare.outputs.build == 'true'
+        run: |
+          set -euo pipefail
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" --raw > /dev/null 2> "$RUNNER_TEMP/publish-inspect.err"; then
+            echo "::error::Version appeared during the build. Refusing to replace it; re-run the workflow to verify it."
+            exit 1
+          elif ! grep -Eiq 'manifest unknown|not found|404' "$RUNNER_TEMP/publish-inspect.err"; then
+            cat "$RUNNER_TEMP/publish-inspect.err"
+            exit 1
+          fi
+          docker buildx imagetools create \
+            --annotation "index:io.blauberg.source-sha256=$FINGERPRINT" \
+            --annotation "index:org.opencontainers.image.version=$VERSION" \
+            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$IMAGE:$VERSION" \
+            "$IMAGE:build-$GITHUB_SHA-amd64" \
+            "$IMAGE:build-$GITHUB_SHA-aarch64"
+      - name: Verify anonymous access, both architectures and image labels
+        run: python3 scripts/addon-release.py verify --repository "$GITHUB_REPOSITORY"
+      - name: Activate only after successful public verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "::error::main changed during the build. Run this workflow again from the latest main."
+            exit 1
+          fi
+          python3 scripts/addon-release.py activate --repository "$GITHUB_REPOSITORY"
+          if git diff --quiet -- config.yaml; then
+            echo "This version is already active."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config.yaml
+          git commit -m "Release Home Assistant add-on $VERSION using verified prebuilt images"
+          git push origin HEAD:main
+      - name: Release status
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "## Home Assistant image release $VERSION"
+            echo "Image: \`$IMAGE:$VERSION\`"
+            echo "Result: $JOB_STATUS"
+            echo ""
+            echo "First release: make the GHCR container package public in GitHub package settings, then re-run this workflow."
+            echo "The add-on config is NOT changed if anonymous access, architecture checks, or the build fail."
+            echo "If branch protection blocks the release commit, see docs/ADDON_RELEASE.md. Never force-push."
+          } >> "$GITHUB_STEP_SUMMARY"
