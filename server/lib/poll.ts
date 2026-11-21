@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { getModbusClient, closeConnection, isModbusTargetCurrent } from "./modbus";
+import { manualOverrides } from "./manual-override";
 
 // Per-request timeout: if a single Modbus register read does not resolve
 // within this many milliseconds it is aborted and counted as a failure.
@@ -38,8 +39,12 @@ export async function pollDeviceRegisters(
 
     let failedCount = 0;
 
-    for (const reg of registers) {
+    // Read boost before fan speed: boost's physical stage change is not manual.
+    const ordered = [...registers].sort((a, b) =>
+      Number(b.name.startsWith("Boost ")) - Number(a.name.startsWith("Boost ")));
+    for (const reg of ordered) {
       let value: any = null;
+      const overrideRevision = manualOverrides.revision(deviceId);
       try {
         if (reg.type === "holding") {
           const resp = await withTimeout(
@@ -82,6 +87,7 @@ export async function pollDeviceRegisters(
           return { success: false, message: "Verbindungswechsel – veralteter Poll verworfen" };
         }
         await storage.updateRegisterValue(reg.id, value);
+        await manualOverrides.observe(deviceId, reg.name, value, overrideRevision);
       } catch (e) {
         console.error(`Failed to read register ${reg.name}:`, e);
         failedCount++;

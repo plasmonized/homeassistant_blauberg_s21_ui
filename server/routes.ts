@@ -3,10 +3,11 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { getModbusClient, closeConnection } from "./lib/modbus";
+import { getModbusClient, closeConnection, withModbusWriteContext } from "./lib/modbus";
+import { manualOverrides, loadManualOverrides } from "./lib/manual-override";
 import { pollDeviceRegisters } from "./lib/poll";
 import { startSimulator, stopSimulator, getSimulatorStatus } from "./lib/simulator";
-import { startAutomationEngine, stopAutomationEngine } from "./lib/automation";
+import { startAutomationEngine, stopAutomationEngine, startManualBoost } from "./lib/automation";
 import { discoverHomeAssistantSensors, getHomeAssistantState, isHomeAssistantAvailable } from "./lib/ha-client";
 import { reconcileS21Registers, reconcileAllS21Devices } from "./lib/s21-register-map";
 import { isMqttConnected, getMqttError, reconnectMqtt } from "./lib/mqtt-client";
@@ -30,6 +31,7 @@ export async function registerRoutes(
   // BEFORE the automation engine starts polling/writing.
   await reconcileAllS21Devices();
   await loadMqttSettings();
+  await loadManualOverrides();
 
   // Start automation engine on server start
   void startAutomationEngine().catch(error => console.error("[Automation] Start fehlgeschlagen:", error.message));
@@ -195,7 +197,10 @@ export async function registerRoutes(
         if (register.scale && register.scale !== 1) {
             valToPush = valToPush * register.scale;
         }
-        await client.writeSingleRegister(register.address, valToPush);
+        await withModbusWriteContext({
+          afterWrite: register.name === "Fan Speed"
+            ? () => manualOverrides.manual(device.id, Number(value), "app") : undefined,
+        }, () => client.writeSingleRegister(register.address, valToPush));
       } else if (register.type === 'coil') {
         const val = value === true || value === 1 || value === '1' || value === 'true';
         value = val;
@@ -439,6 +444,31 @@ export async function registerRoutes(
         staleAfterMs: CONTROL_DECISION_STALE_MS,
       });
     } catch (error) { next(error); }
+  });
+
+  app.all(['/api/devices/:id/manual-override', '/api/devices/:id/manual-override/:action'], async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "Ungültige Geräte-ID" });
+      if (!await storage.getDevice(id)) return res.status(404).json({ message: "Anlage nicht gefunden" });
+      if (req.method === "PUT" && !req.params.action) {
+        const { durationMinutes } = z.object({ durationMinutes: z.number().int().min(1).max(240) }).parse(req.body);
+        await manualOverrides.configure(id, durationMinutes);
+      } else if (req.method === "POST" && req.params.action === "resume") {
+        await manualOverrides.resume(id);
+      } else if (req.method === "POST" && req.params.action === "boost") {
+        await startManualBoost(id);
+      } else if (req.method === "POST" && req.params.action === "stop-boost") {
+        await manualOverrides.stopBoost(id);
+      } else if (req.method !== "GET" || req.params.action) {
+        return res.status(405).json({ message: "Methode nicht erlaubt" });
+      }
+      res.setHeader("Cache-Control", "no-store");
+      res.json(manualOverrides.status(id));
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Dauer muss zwischen 1 und 240 Minuten liegen." });
+      next(error);
+    }
   });
 
   app.get('/api/devices/:id/control-profiles', async (req, res) => {

@@ -1,5 +1,15 @@
 import { ModbusTCPClient } from "jsmodbus";
 import { Socket } from "net";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+interface WriteContext {
+  allowed?: () => boolean;
+  afterWrite?: () => Promise<void> | void;
+}
+const writeContext = new AsyncLocalStorage<WriteContext>();
+export function withModbusWriteContext<T>(context: WriteContext, fn: () => Promise<T>): Promise<T> {
+  return writeContext.run({ ...writeContext.getStore(), ...context }, fn);
+}
 
 // Simple in-memory client cache
 const clients: Record<number, { socket: Socket, client: ModbusTCPClient, proxy: ModbusTCPClient, endpoint: string }> = {};
@@ -51,12 +61,22 @@ function serializeClient(id: number, client: ModbusTCPClient): ModbusTCPClient {
     get(target, prop, receiver) {
       const value = Reflect.get(target, prop, receiver);
       if (typeof prop === "string" && SERIALIZED_METHODS.has(prop) && typeof value === "function") {
-        return (...args: any[]) => runExclusive(id, () => {
-          if (clients[id]?.client !== client || clients[id].socket.destroyed) {
-            throw new Error("Verbindung wurde gewechselt – Vorgang bitte erneut versuchen");
-          }
-          return (value as Function).apply(target, args);
-        });
+        return (...args: any[]) => {
+          const context = writeContext.getStore();
+          return runExclusive(id, async () => {
+            if (clients[id]?.client !== client || clients[id].socket.destroyed) {
+              throw new Error("Verbindung wurde gewechselt – Vorgang bitte erneut versuchen");
+            }
+            const writing = prop.startsWith("write");
+            if (writing && context?.allowed && !context.allowed()) {
+              throw new Error("Automatik pausiert: manueller Vorrang oder Boost aktiv");
+            }
+            const result = await (value as Function).apply(target, args);
+            // Update ownership before the next queued poll/command can run.
+            if (writing) await context?.afterWrite?.();
+            return result;
+          });
+        };
       }
       return typeof value === "function" ? value.bind(target) : value;
     },

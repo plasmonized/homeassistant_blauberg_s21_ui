@@ -2,7 +2,8 @@ import { storage } from "../storage";
 import { recordControlDecision } from "./control-decision";
 import type { ControlDecision } from "@shared/control-decision";
 import type { InsertSensorReading } from "@shared/schema";
-import { getModbusClient, closeConnection } from "./modbus";
+import { getModbusClient, closeConnection, withModbusWriteContext } from "./modbus";
+import { manualOverrides } from "./manual-override";
 import { pollDeviceRegisters } from "./poll";
 import { getHomeAssistantState } from "./ha-client";
 import { effectiveProfiles, runBaseProfile, type AirDemand } from "./base-profile";
@@ -288,6 +289,15 @@ async function executeRuleAction(
       return { success: false, message: "Device not connected" };
     }
 
+    if (rule.actionType === "boost") {
+      // Coil 13 enables the physical boost input; it does NOT start boost.
+      // Software boost ownership is aggregated below, then stage 3 is applied
+      // once for all active timers/rules. Never disable the physical input.
+      return { success: true, message: rule.actionValue
+        ? "Boost angefordert – Stufe 3 hat Vorrang"
+        : "Software-Boost beendet – Automatik übernimmt wieder" };
+    }
+
     const client = await getModbusClient(device.id, device.ip, device.port, device.slaveId);
 
     // Find the target register
@@ -301,9 +311,6 @@ async function executeRuleAction(
         break;
       case "mode":
         targetReg = registers.find((r) => r.name.includes("Operation Mode"));
-        break;
-      case "boost":
-        targetReg = registers.find((r) => r.name.includes("Boost Switch"));
         break;
     }
 
@@ -326,7 +333,10 @@ async function executeRuleAction(
     }
 
     if (targetReg.type === "holding") {
-      await client.writeSingleRegister(targetReg.address, valueToWrite);
+      await withModbusWriteContext({
+        afterWrite: rule.actionType === "fan_speed"
+          ? () => manualOverrides.ownFan(deviceId, storedValue) : undefined,
+      }, () => client.writeSingleRegister(targetReg.address, valueToWrite));
     } else if (targetReg.type === "coil") {
       await client.writeSingleCoil(targetReg.address, Boolean(valueToWrite));
     } else {
@@ -344,7 +354,7 @@ async function executeRuleAction(
   }
 }
 
-async function runAutomationCycle() {
+export async function runAutomationCycle() {
   try {
     const devices = await storage.getDevices();
     for (const device of devices) {
@@ -436,41 +446,12 @@ async function runAutomationCycle() {
       const profiles = await storage.getControlProfiles(device.id);
       const selectedProfiles = effectiveProfiles(profiles);
       const hasBaseProfile = selectedProfiles.some(p => p.schemaType === "base_profile");
-      for (const profile of selectedProfiles) {
-        await evaluateControlProfile(device.id, profile, registers, freshSensors);
+      // Preserve legacy rule/profile ordering when no combined profile owns control.
+      if (!hasBaseProfile) {
+        for (const profile of selectedProfiles) {
+          await evaluateControlProfile(device.id, profile, registers, freshSensors);
+        }
       }
-
-      // Record sensor readings every 5 minutes for history charts
-      const nowMs = Date.now();
-      if (nowMs - (lastSensorRecordedAt.get(device.id) ?? 0) >= SENSOR_RECORD_INTERVAL_MS) {
-        // Re-read after regulation writes so both histories show the applied fan stage.
-        const actualRegisters = await storage.getRegisters(device.id);
-        const readings: InsertSensorReading[] = [];
-        for (const reg of actualRegisters) {
-          if (reg.lastValue !== null && reg.lastValue !== undefined) {
-            const num = parseFloat(String(reg.lastValue));
-            if (!Number.isNaN(num)) {
-              readings.push({ deviceId: device.id, registerId: reg.id, value: num });
-            }
-          }
-        }
-        if (readings.length > 0) {
-          await storage.addSensorReadings(readings);
-        }
-        const baseProfile = profiles.find(p => p.schemaType === "base_profile" && p.enabled)
-          ?? profiles.find(p => p.schemaType === "base_profile");
-        if (baseProfile?.enabled) {
-          await storage.addBaseProfileReading(createBaseHistoryReading(
-            device.id, baseProfile, registers, freshSensors, actualRegisters,
-            STALE_SENSOR_THRESHOLD_MS, hitzeschutzStandby.get(device.id) === true, nowMs,
-          ));
-        }
-        await storage.pruneOldSensorReadings(50);
-        await storage.pruneOldBaseProfileReadings(50);
-        lastSensorRecordedAt.set(device.id, nowMs);
-      }
-
-      if (rules.length === 0) continue;
 
       // Multiple rules can independently want "boost" on (e.g. two different
       // timed HA-binary-sensor triggers, or a timed trigger alongside a
@@ -589,6 +570,75 @@ async function runAutomationCycle() {
           success: result.success,
           message: result.message,
         });
+      }
+      // Boost rules run first, so a trigger cannot lose to standby in this cycle.
+      manualOverrides.ruleBoost(device.id, boostWantedThisCycle);
+      const override = manualOverrides.status(device.id);
+      if (override.boost && override.boostSource !== "hardware") {
+        const fan = registers.find(r => r.name === "Fan Speed");
+        const power = registers.find(r => (r.tags ?? []).includes("power") && r.type === "coil");
+        if (Number(fan?.lastValue) !== 3 || hitzeschutzStandby.get(device.id)
+          || ["0", "false"].includes(String(power?.lastValue))) {
+          const boosted = await withModbusWriteContext({
+            allowed: () => {
+              const current = manualOverrides.status(device.id);
+              return current.boost && current.boostSource !== "hardware";
+            },
+          }, () => executeControlAction(device.id, {
+            actionType: "fan_speed", value: 3, reason: "Software-Boost",
+          }));
+          if (!boosted.success) console.error(`[Boost] Device ${device.id}: ${boosted.message}`);
+        }
+      }
+      if (hasBaseProfile && !override.boost && override.manualUntil && override.manualStage !== null) {
+        const fan = registers.find(r => r.name === "Fan Speed");
+        const power = registers.find(r => r.type === "coil" && (r.tags ?? []).includes("power"));
+        if (Number(fan?.lastValue) !== override.manualStage || hitzeschutzStandby.get(device.id)
+          || ["0", "false"].includes(String(power?.lastValue))) {
+          const manualStage = override.manualStage;
+          const restored = await withModbusWriteContext({
+            allowed: () => {
+              const current = manualOverrides.status(device.id);
+              return !current.boost && current.manualStage === manualStage;
+            },
+          }, () => executeControlAction(device.id, {
+            actionType: "fan_speed", value: manualStage,
+            reason: "Manuelle Stufe nach Boost wiederherstellen",
+          }));
+          if (!restored.success) console.error(`[Manual] Device ${device.id}: ${restored.message}`);
+        }
+      }
+      for (const profile of selectedProfiles) {
+        if (!hasBaseProfile) continue;
+        if (profile.schemaType === "base_profile" && manualOverrides.status(device.id).active) continue;
+        await evaluateControlProfile(device.id, profile, registers, freshSensors);
+      }
+
+      // Keep both histories after all writes, including manual/boost restoration.
+      const nowMs = Date.now();
+      if (nowMs - (lastSensorRecordedAt.get(device.id) ?? 0) >= SENSOR_RECORD_INTERVAL_MS) {
+        const actualRegisters = await storage.getRegisters(device.id);
+        const readings: InsertSensorReading[] = [];
+        for (const reg of actualRegisters) {
+          if (reg.lastValue !== null && reg.lastValue !== undefined) {
+            const num = parseFloat(String(reg.lastValue));
+            if (!Number.isNaN(num)) {
+              readings.push({ deviceId: device.id, registerId: reg.id, value: num });
+            }
+          }
+        }
+        if (readings.length > 0) await storage.addSensorReadings(readings);
+        const baseProfile = profiles.find(p => p.schemaType === "base_profile" && p.enabled)
+          ?? profiles.find(p => p.schemaType === "base_profile");
+        if (baseProfile?.enabled) {
+          await storage.addBaseProfileReading(createBaseHistoryReading(
+            device.id, baseProfile, registers, freshSensors, actualRegisters,
+            STALE_SENSOR_THRESHOLD_MS, hitzeschutzStandby.get(device.id) === true, nowMs,
+          ));
+        }
+        await storage.pruneOldSensorReadings(50);
+        await storage.pruneOldBaseProfileReadings(50);
+        lastSensorRecordedAt.set(device.id, nowMs);
       }
     }
   } catch (error) {
@@ -949,7 +999,12 @@ async function evaluateControlProfile(
       }
 
       // Execute the control action
-      const actionResult = await executeControlAction(deviceId, result);
+      const actionResult = await withModbusWriteContext({
+        // Check inside the Modbus queue too: a user command may arrive while
+        // the control result is awaiting a connection or another transaction.
+        allowed: controlType === "base_profile"
+          ? () => !manualOverrides.status(deviceId).active : undefined,
+      }, () => executeControlAction(deviceId, result!));
       observe(actionResult.success ? "applied" : "failed",
         actionResult.success ? result.value : null, actionResult.message);
       // Only record the last action when the write actually succeeded.
@@ -1039,7 +1094,8 @@ async function executeControlAction(
       const powerReg = registers.find(
         (r) => (r.tags ?? []).includes("power") && r.type === "coil"
       );
-      const needsWakeup = hitzeschutzStandby.get(deviceId) === true;
+      const needsWakeup = hitzeschutzStandby.get(deviceId) === true
+        || (powerReg != null && ["0", "false"].includes(String(powerReg.lastValue)));
       if (needsWakeup && powerReg) {
         await client.writeSingleCoil(powerReg.address, true);
         await storage.updateRegisterValue(powerReg.id, 1);
@@ -1052,7 +1108,9 @@ async function executeControlAction(
       if (fanReg) {
         // Safety clamp: fan speed must stay within the valid 1–3 hardware range.
         const fanValue = Math.max(1, Math.min(3, Math.round(result.value)));
-        await client.writeSingleRegister(fanReg.address, fanValue);
+        await withModbusWriteContext({
+          afterWrite: () => manualOverrides.ownFan(deviceId, fanValue),
+        }, () => client.writeSingleRegister(fanReg.address, fanValue));
         await storage.updateRegisterValue(fanReg.id, fanValue);
         messages.push(`Lüfterstufe: ${fanValue}`);
       }
@@ -1107,4 +1165,27 @@ export function stopAutomationEngine() {
     automationInterval = null;
     console.log("[Automation] Engine stopped");
   }
+}
+
+export async function startManualBoost(deviceId: number): Promise<void> {
+  if (manualOverrides.status(deviceId).boostSource === "hardware") {
+    throw new Error("Geräte-Boost ist bereits aktiv");
+  }
+  const device = await storage.getDevice(deviceId);
+  if (!device) throw new Error("Anlage nicht gefunden");
+  const registers = await storage.getRegisters(deviceId);
+  const fan = registers.find(r => r.name === "Fan Speed" && r.isWritable);
+  if (!fan) throw new Error("Lüfterstufen-Register fehlt");
+  const power = registers.find(r => r.type === "coil" && (r.tags ?? []).includes("power"));
+  const client = await getModbusClient(device.id, device.ip, device.port, device.slaveId);
+  if (power && (hitzeschutzStandby.get(deviceId) || ["0", "false"].includes(String(power.lastValue)))) {
+    await client.writeSingleCoil(power.address, true);
+    hitzeschutzStandby.set(deviceId, false);
+    await storage.updateRegisterValue(power.id, 1);
+  }
+  await withModbusWriteContext({
+    allowed: () => manualOverrides.status(deviceId).boostSource !== "hardware",
+    afterWrite: () => manualOverrides.startBoost(deviceId),
+  }, () => client.writeSingleRegister(fan.address, 3));
+  await storage.updateRegisterValue(fan.id, 3);
 }

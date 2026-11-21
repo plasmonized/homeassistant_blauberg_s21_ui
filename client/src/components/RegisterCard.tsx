@@ -224,7 +224,9 @@ export function RegisterCard({ register, deviceId }: RegisterCardProps) {
   };
 
   const getCleanName = () =>
-    register.name.replace(/\s*\(.*?\)/g, "").replace(/\s*-\s*/g, " ").trim();
+    register.type === "coil" && register.address === 13 && isBoost(register)
+      ? "Boost-Eingang freigeben"
+      : register.name.replace(/\s*\(.*?\)/g, "").replace(/\s*-\s*/g, " ").trim();
 
   // Tags to display (skip generic role tags to reduce noise)
   const displayTags = (register.tags ?? []).filter(

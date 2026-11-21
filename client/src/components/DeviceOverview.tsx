@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { deriveDeviceOverviewStatus } from "@/lib/device-overview-status";
 import { presentControlDecision } from "@/lib/control-decision-presentation";
 import { useControlDecision } from "@/hooks/use-control-decision";
+import { useManualOverride } from "@/hooks/use-manual-override";
+import { ManualOverridePanel } from "@/components/ManualOverridePanel";
 import { TemperatureDiagram } from "@/components/TemperatureDiagram";
 
 interface DeviceOverviewProps {
@@ -36,6 +38,16 @@ export function DeviceOverview({
   const status = deriveDeviceOverviewStatus(registers, Boolean(device.isConnected));
   const hasFilterAlert = status.filter.condition === "blocked";
   const decisionQuery = useControlDecision(device.id);
+  const manualOverride = useManualOverride(device.id);
+  const manualStatus = manualOverride.query.data;
+  const manualDeadlineExpired = manualStatus?.manualUntil !== null
+    && manualStatus?.manualUntil !== undefined
+    && manualStatus.manualUntil <= now;
+  const manualOverrideActive = Boolean(
+    manualStatus?.boost
+    || (manualStatus?.manualUntil !== null && manualStatus?.manualUntil !== undefined && !manualDeadlineExpired)
+    || (manualStatus?.active && manualStatus.manualUntil === null),
+  );
   const decision = decisionQuery.data?.decision ?? null;
   const decisionPresentation = presentControlDecision(
     decision,
@@ -147,12 +159,22 @@ export function DeviceOverview({
               </div>
             </div>
 
-            <DecisionSummary
-              decision={decision}
-              presentation={decisionPresentation}
-              isLoading={decisionQuery.isLoading}
-              isError={decisionQuery.isError}
-            />
+            {activeBase && (
+              <ManualOverridePanel
+                override={manualOverride}
+                now={now}
+                isDeviceConnected={Boolean(device.isConnected)}
+                actualFanStage={status.fanLevel}
+              />
+            )}
+            {!manualOverrideActive && (!activeBase || (manualStatus && !manualOverride.query.isError)) && (
+              <DecisionSummary
+                decision={decision}
+                presentation={decisionPresentation}
+                isLoading={decisionQuery.isLoading}
+                isError={decisionQuery.isError}
+              />
+            )}
 
             {status.filter.condition === "unknown" && (
               <p className="mt-2 text-[11px] text-muted-foreground">

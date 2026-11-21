@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.13
+
+- **Manueller Vorrang im Grundprofil:** Manuelle Lüfterstufen über App/MQTT oder als live erkannte Änderung an der Konsole pausieren die automatische Stufenwahl standardmäßig 30 Minuten. Dauer einstellbar (1–240 Minuten), Restzeit sichtbar, mit „Automatik fortsetzen“ vorzeitig beendbar. Einstellungen und laufende Zeitfenster bleiben bei einem Neustart erhalten.
+- **Boost hat Vorrang:** Ein tatsächlich gemeldeter Geräte-Boost sowie aktive Software-Boost-Timer verhindern konkurrierende Lüfter- und Standby-Befehle des Grundprofils. Danach übernimmt die vorherige manuelle Stufe beziehungsweise das Grundprofil wieder.
+- **Software-Boost korrigiert:** Coil 13 gibt laut Gerätehandbuch nur den physischen Boost-Eingang frei. Software-Boost-Regeln fordern jetzt tatsächlich Stufe 3 an, statt diese Freigabe als Boost-Befehl zu verwenden. Die Übersicht bietet zusätzlich einen zeitlich begrenzten App-Boost; die Freigabe des externen Eingangs bleibt unverändert.
+
 ## 0.3.12
 
 - **Add-on-Build repariert:** Das benötigte Temperaturbild liegt jetzt im regulären App-Quellcode statt im nicht nach GitHub übertragenen Upload-Ordner. Der Docker-Build benötigt `attached_assets` nicht mehr. Einstellungen und Regelungslogik bleiben unverändert.

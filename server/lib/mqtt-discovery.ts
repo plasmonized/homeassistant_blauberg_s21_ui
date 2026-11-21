@@ -1,3 +1,5 @@
+import { manualOverrides } from "./manual-override";
+import { withModbusWriteContext } from "./modbus";
 /**
  * Home Assistant MQTT Discovery Publisher
  * Publishes S21 registers as native HA entities via MQTT Discovery
@@ -321,11 +323,17 @@ export async function setupCommandHandlers(): Promise<void> {
       try {
         const { getModbusClient } = await import("./modbus");
         const client = await getModbusClient(device.id, device.ip, device.port, device.slaveId);
-        if (reg.type === "coil") {
-          await client.writeSingleCoil(address, Boolean(value));
-        } else {
-          await client.writeSingleRegister(address, value);
-        }
+        await withModbusWriteContext({
+          afterWrite: reg.name === "Fan Speed"
+            ? () => manualOverrides.manual(device.id, storedValue, "mqtt")
+            : undefined,
+        }, async () => {
+          if (reg.type === "coil") {
+            await client.writeSingleCoil(address, Boolean(value));
+          } else {
+            await client.writeSingleRegister(address, value);
+          }
+        });
         // Store canonical numeric values, not HA enum labels or "ON"/"OFF";
         // automation drift checks read these same database values.
         await storage.updateRegisterValue(reg.id, String(storedValue));
