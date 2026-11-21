@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.14
+
+- **Manuelle Eingriffe im Regelungsverlauf:** Beginn, Verlängerung und Ende des manuellen Vorrangs werden mit Quelle, Lüfterstufe und Zeitfenster protokolliert.
+- **Boost und Rückkehr zur Automatik nachvollziehbar:** Geräte-, App- und Regel-Boost sowie der Wechsel zurück zur Automatik erscheinen als eigene Ereignisse. Einträge entstehen nur bei Änderungen, nicht bei jedem Abfragezyklus.
+- **Verlauf weiterhin begrenzt:** Auch die neuen Ereignisse unterliegen dem Limit von 750 Einträgen pro Gerät. Frühere Regelungsgründe werden während eines manuellen Vorrangs nicht als aktuelle Ursache dargestellt.
+
 ## 0.3.13
 
 - **Manueller Vorrang im Grundprofil:** Manuelle Lüfterstufen über App/MQTT oder als live erkannte Änderung an der Konsole pausieren die automatische Stufenwahl standardmäßig 30 Minuten. Dauer einstellbar (1–240 Minuten), Restzeit sichtbar, mit „Automatik fortsetzen“ vorzeitig beendbar. Einstellungen und laufende Zeitfenster bleiben bei einem Neustart erhalten.
