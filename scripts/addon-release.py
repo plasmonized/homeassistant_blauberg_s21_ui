@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +63,17 @@ def metadata(repository, root=ROOT):
         raise ReleaseError("Release version must have the form 0.3.15")
     if lock["version"] != version or lock["packages"][""]["version"] != version:
         raise ReleaseError("package.json and package-lock.json versions must match")
+    for name, entry in lock["packages"].items():
+        if not name:
+            continue
+        url = urlsplit(entry.get("resolved", ""))
+        if (url.scheme != "https" or url.netloc != "registry.npmjs.org"
+                or url.query or url.fragment or not entry.get("integrity")):
+            raise ReleaseError(
+                f"Non-portable package lock entry: {name}. "
+                "Use public HTTPS npm tarballs with integrity hashes; "
+                "internal registry addresses cannot be downloaded by GitHub."
+            )
     if f"\n## {version}\n" not in (root / "CHANGELOG.md").read_text():
         raise ReleaseError("Release is missing from CHANGELOG.md")
     return {

@@ -90,6 +90,33 @@ class ReleaseTests(unittest.TestCase):
         (self.root / "server/example.txt").write_text("changed source")
         self.assertNotEqual(release.source_fingerprint(self.root), old)
 
+    def test_package_downloads_must_be_portable_and_integrity_checked(self):
+        lock_path = self.root / "package-lock.json"
+        lock = json.loads(lock_path.read_text())
+        entry = {"version": "1.0.0", "integrity": "sha512-test",
+                 "resolved": "https://registry.npmjs.org/example/-/example-1.0.0.tgz"}
+        lock["packages"]["node_modules/example"] = entry
+        lock_path.write_text(json.dumps(lock))
+        release.metadata("owner/example", self.root)
+        for bad_url in (
+            "http://package-firewall.replit.local/npm/example/-/example-1.0.0.tgz",
+            "https://package-firewall.replit.local/npm/example/-/example-1.0.0.tgz",
+            "http://registry.npmjs.org/example/-/example-1.0.0.tgz",
+            "https://registry.npmjs.org.evil.invalid/example.tgz",
+            "file:../example.tgz",
+            "",
+        ):
+            with self.subTest(url=bad_url):
+                entry["resolved"] = bad_url
+                lock_path.write_text(json.dumps(lock))
+                with self.assertRaisesRegex(release.ReleaseError, "Non-portable"):
+                    release.metadata("owner/example", self.root)
+        entry["resolved"] = "https://registry.npmjs.org/example/-/example-1.0.0.tgz"
+        del entry["integrity"]
+        lock_path.write_text(json.dumps(lock))
+        with self.assertRaisesRegex(release.ReleaseError, "Non-portable"):
+            release.metadata("owner/example", self.root)
+
     def test_public_multi_architecture_image_passes(self):
         release.verify_public(self.meta, self.fetch)
         self.assertEqual(len(self.calls), 6)

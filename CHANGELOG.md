@@ -2,6 +2,8 @@
 
 ## 0.3.15
 
+- **GitHub-Build korrigiert:** Interne Replit-Downloadadressen in der Lockdatei durch öffentliche npm-Adressen ersetzt, ohne Paketversionen oder Prüfsummen zu ändern. Die Release-Prüfung verhindert künftig interne Paketverweise; die Checkout-Aktion nutzt Node 24.
+
 - **Fertige Add-on-Images vorbereitet:** GitHub Actions baut AMD64 und ARM64 parallel, prüft Laufzeitwerkzeuge und veröffentlicht beide Varianten als versioniertes Container-Image. Home Assistant muss das Programm nach der Freigabe nicht mehr selbst bauen.
 - **Sichere Update-Freigabe:** Die Add-on-Version und der Image-Verweis werden erst nach erfolgreicher öffentlicher Prüfung beider Architekturen aktualisiert. Bis zur ersten erfolgreichen GitHub-Veröffentlichung bleibt die bisherige Add-on-Konfiguration aktiv. Die einmalige Paketfreigabe ist in der Release-Anleitung beschrieben.
 - **Kleineres Laufzeit-Image und reproduzierbarer Build:** Compiler und Python bleiben im separaten Build-Abschnitt; Abhängigkeiten werden über die eingecheckte Lockdatei installiert und Build-Schichten wiederverwendet. Das veraltete `build.yaml` entfällt. Datenablage, PostgreSQL-Generation, Ingress und Regelung bleiben unverändert.
